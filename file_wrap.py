@@ -5,7 +5,10 @@ import netCDF4 as nc
 def write_var(fname, varname, val):
     """write a value to var in a file"""
     with nc.Dataset(fname, 'w') as fptr:
-        varid = fptr.createVariable(varname, 'f8')
+        if (type(val) is int):
+            varid = fptr.createVariable(varname, 'i4')
+        else:
+            varid = fptr.createVariable(varname, 'f8')
         varid[:] = val
 
 def read_var(fname, varname):
