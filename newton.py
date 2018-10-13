@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Newton's method example"""
 
+import argparse
 import logging
 import os
 import numpy as np
@@ -22,14 +23,14 @@ def comp_increment(solver_state):
 class NewtonState:
     """class for representing the state of the Newton's method solver"""
 
-    def __init__(self, workdir='work', fname='newton_state.nc'):
+    def __init__(self, workdir, state_fname):
         """initialize solver state"""
         self.workdir = workdir
         try:
             os.mkdir(self.workdir)
         except FileExistsError:
             pass
-        self.fname = fname
+        self.state_fname = self.workdir+'/'+state_fname
         self.iter = 0
         self.step_completed = {
             'iterate_set': False,
@@ -58,32 +59,46 @@ class NewtonState:
 
     def write(self):
         """write solver state to a file"""
-        file_wrap.write_var(self.fname, 'iter', self.iter)
+        file_wrap.write_var(self.state_fname, 'iter', self.iter)
         for step_name in self.step_completed:
             val = 1 if self.step_completed[step_name] else 0
-            file_wrap.write_var(self.fname, step_name, val, mode='a')
+            file_wrap.write_var(self.state_fname, step_name, val, mode='a')
 
     def read(self):
         """read solver state from a file"""
-        self.iter = file_wrap.read_var(self.fname, 'iter')
+        self.iter = file_wrap.read_var(self.state_fname, 'iter')
         for step_name in self.step_completed:
-            self.step_completed[step_name] = file_wrap.read_var(self.fname, step_name) == 1
+            self.step_completed[step_name] = file_wrap.read_var(self.state_fname, step_name) == 1
 
-def main():
+def _parse_args():
+    """parse command line arguments"""
+
+    parser = argparse.ArgumentParser(description="Newton's method example")
+
+    parser.add_argument('--workdir', help='directory where files of state vectors are stored',
+                        default='work')
+    parser.add_argument('--log_fname', help='name of file logging entries are written',
+                        default='newton.log')
+    parser.add_argument('--solver_state_fname', help='name of file where solver state is stored',
+                        default='newton_state.nc')
+
+    return parser.parse_args()
+
+def main(args):
     """Newton's method example"""
 
-    logging.basicConfig(filename='newton.log', filemode='w',
+    logging.basicConfig(filename=args.workdir+'/'+args.log_fname, filemode='w',
                         format='%(asctime)s:%(message)s',
                         level=logging.INFO)
     logger = logging.getLogger()
 
-    solver_state = NewtonState(workdir='work')
+    solver_state = NewtonState(workdir=args.workdir, state_fname=args.solver_state_fname)
     iterate = 0.0
     solver_state.set_val('iterate', iterate)
 
     comp_fcn(solver_state)
     fcn_val = solver_state.get_val('fcn')
-    logger.info("iter=%d, iterate=%e, y=%e", solver_state.iter, iterate, fcn_val)
+    logger.info('iter=%d, iterate=%e, y=%e', solver_state.iter, iterate, fcn_val)
 
     while np.abs(fcn_val) > 1.0e-10:
         comp_increment(solver_state)
@@ -93,7 +108,7 @@ def main():
         solver_state.set_val('iterate', iterate)
         comp_fcn(solver_state)
         fcn_val = solver_state.get_val('fcn')
-        logger.info("iter=%d, arg=%e, y=%e", solver_state.iter, iterate, fcn_val)
+        logger.info('iter=%d, arg=%e, y=%e', solver_state.iter, iterate, fcn_val)
 
 if __name__ == '__main__':
-    main()
+    main(_parse_args())
