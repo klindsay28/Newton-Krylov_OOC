@@ -7,13 +7,13 @@ import numpy as np
 import file_wrap
 
 def comp_fcn(solver_state):
-    """function whose root is being found"""
+    """compute function whose root is being found"""
     iterate = solver_state.get_val('iterate')
     fcn = np.cos(iterate)-0.7*iterate
     solver_state.set_val('fcn', fcn)
 
 def comp_increment(solver_state):
-    """Newton's method increment"""
+    """compute Newton's method increment"""
     iterate = solver_state.get_val('iterate')
     fcn = solver_state.get_val('fcn')
     dfcn_darg = -np.sin(iterate)-0.7
@@ -22,39 +22,52 @@ def comp_increment(solver_state):
 class NewtonState:
     """class for representing the state of the Newton's method solver"""
 
-    def __init__(self, workdir, fname=None):
+    def __init__(self, workdir='work', fname='newton_state.nc'):
         """initialize solver state"""
         self.workdir = workdir
         try:
             os.mkdir(self.workdir)
         except FileExistsError:
             pass
-        if fname is None:
-            self.iter = 0
-        else:
-            self.read(fname)
+        self.fname = fname
+        self.iter = 0
+        self.step_completed = {
+            'iterate_set': False,
+            'fcn_set': False,
+            'increment_set': False
+        }
 
     def inc_iter(self):
         """increment iter"""
         self.iter += 1
+        for step_name in self.step_completed:
+            self.step_completed[step_name] = False
+        self.write()
 
     def set_val(self, val_name, val):
         """set a parameter in Newton's method"""
         fname = self.workdir+'/'+val_name+'_%02d.nc'%self.iter
         file_wrap.write_var(fname, val_name, val)
+        self.step_completed[val_name+'_set'] = True
+        self.write()
 
     def get_val(self, val_name):
         """get a parameter in Newton's method"""
         fname = self.workdir+'/'+val_name+'_%02d.nc'%self.iter
         return file_wrap.read_var(fname, val_name)
 
-    def write(self, fname):
+    def write(self):
         """write solver state to a file"""
-        file_wrap.write_var(fname, 'iter', self.iter)
+        file_wrap.write_var(self.fname, 'iter', self.iter)
+        for step_name in self.step_completed:
+            val = 1 if self.step_completed[step_name] else 0
+            file_wrap.write_var(self.fname, step_name, val, mode='a')
 
-    def read(self, fname):
+    def read(self):
         """read solver state from a file"""
-        self.iter = file_wrap.read_var(fname, 'iter')
+        self.iter = file_wrap.read_var(self.fname, 'iter')
+        for step_name in self.step_completed:
+            self.step_completed[step_name] = file_wrap.read_var(self.fname, step_name) == 1
 
 def main():
     """Newton's method example"""
