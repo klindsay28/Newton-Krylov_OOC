@@ -31,7 +31,7 @@ def comp_increment(solver_state):
 class NewtonState:
     """class for representing the state of the Newton's method solver"""
 
-    def __init__(self, workdir, state_fname):
+    def __init__(self, workdir, state_fname, resume):
         """initialize solver state"""
         self.workdir = workdir
         try:
@@ -39,12 +39,15 @@ class NewtonState:
         except FileExistsError:
             pass
         self.state_fname = self.workdir+'/'+state_fname
-        self.iter = 0
         self.step_completed = {
             'iterate_set': False,
             'fcn_set': False,
             'increment_set': False
         }
+        if resume:
+            self.read()
+        else:
+            self.iter = 0
 
     def inc_iter(self):
         """increment iter"""
@@ -95,20 +98,28 @@ def _parse_args():
                         default='newton.log')
     parser.add_argument('--solver_state_fname', help='name of file where solver state is stored',
                         default='newton_state.nc')
+    parser.add_argument('--resume', help="resume Newton's method from solver's saved state",
+                        action='store_true', default=False)
 
     return parser.parse_args()
 
 def main(args):
     """Newton's method example"""
 
-    logging.basicConfig(filename=args.workdir+'/'+args.log_fname, filemode='w',
+    filemode = 'a' if args.resume else 'w'
+    logging.basicConfig(filename=args.workdir+'/'+args.log_fname, filemode=filemode,
                         format='%(asctime)s:%(message)s',
                         level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    solver_state = NewtonState(workdir=args.workdir, state_fname=args.solver_state_fname)
-    iterate = 0.0
-    solver_state.set_val('iterate', iterate)
+    solver_state = NewtonState(workdir=args.workdir,
+                               state_fname=args.solver_state_fname,
+                               resume=args.resume)
+    if args.resume:
+        iterate = solver_state.get_val('iterate')
+    else:
+        iterate = 0.0
+        solver_state.set_val('iterate', iterate)
 
     comp_fcn(solver_state)
     fcn_val = solver_state.get_val('fcn')
