@@ -4,29 +4,37 @@
 import argparse
 import logging
 import os
+import subprocess
+import sys
 import numpy as np
 import file_wrap
 
 def comp_fcn(solver_state):
     """compute function whose root is being found"""
+    logger = logging.getLogger(__name__)
     if solver_state.is_set('fcn'):
-        logger = logging.getLogger(__name__)
         logger.info('fcn already computed, skipping computation')
         return
     iterate = solver_state.get_val('iterate')
     fcn = np.cos(iterate)-0.7*iterate
     solver_state.set_val('fcn', fcn)
+    logger.info('re-invoking newton.py from comp_fcn')
+    subprocess.Popen([sys.executable, __file__, '--resume'])
+    sys.exit()
 
 def comp_increment(solver_state):
     """compute Newton's method increment"""
+    logger = logging.getLogger(__name__)
     if solver_state.is_set('increment'):
-        logger = logging.getLogger(__name__)
         logger.info('increment already computed, skipping computation')
         return
     iterate = solver_state.get_val('iterate')
     fcn = solver_state.get_val('fcn')
     dfcn_darg = -np.sin(iterate)-0.7
     solver_state.set_val('increment', -fcn/dfcn_darg)
+    logger.info('re-invoking newton.py from comp_increment')
+    subprocess.Popen([sys.executable, __file__, '--resume'])
+    sys.exit()
 
 class NewtonState:
     """class for representing the state of the Newton's method solver"""
@@ -108,7 +116,7 @@ def main(args):
 
     filemode = 'a' if args.resume else 'w'
     logging.basicConfig(filename=args.workdir+'/'+args.log_fname, filemode=filemode,
-                        format='%(asctime)s:%(message)s',
+                        format='%(asctime)s:%(process)s:%(message)s',
                         level=logging.INFO)
     logger = logging.getLogger(__name__)
 
@@ -133,7 +141,7 @@ def main(args):
         solver_state.set_val('iterate', iterate)
         comp_fcn(solver_state)
         fcn_val = solver_state.get_val('fcn')
-        logger.info('iter=%d, arg=%e, y=%e', solver_state.iter, iterate, fcn_val)
+        logger.info('iter=%d, iterate=%e, y=%e', solver_state.iter, iterate, fcn_val)
 
 if __name__ == '__main__':
     main(_parse_args())
