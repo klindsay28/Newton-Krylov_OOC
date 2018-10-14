@@ -11,36 +11,54 @@ import numpy as np
 import file_wrap
 
 def comp_fcn(solver_state):
-    """compute function whose root is being found"""
+    """
+    compute function whose root is being found
+
+    skip computation if result has already been set in solver_state
+    re-invoke top-level script and exit, after storing computed result in solver_state
+    """
     logger = logging.getLogger(__name__)
-    logger.info('entering comp_fcn')
     if solver_state.is_set('fcn'):
         logger.info('fcn already computed, skipping computation and returning')
         return
+    logger.info('computing fcn')
     iterate = solver_state.get_val('iterate')
     fcn = np.cos(iterate)-0.7*iterate
     solver_state.set_val('fcn', fcn)
-    logger.info('re-invoking newton.py from comp_fcn')
+    logger.info('re-invoking %s', __file__)
     subprocess.Popen([sys.executable, __file__, '--resume'])
     sys.exit()
 
 def comp_increment(solver_state):
-    """compute Newton's method increment"""
+    """
+    compute Newton's method increment
+
+    skip computation if result has already been set in solver_state
+    re-invoke top-level script and exit, after storing computed result in solver_state
+    """
     logger = logging.getLogger(__name__)
-    logger.info('entering comp_increment')
     if solver_state.is_set('increment'):
         logger.info('increment already computed, skipping computation and returning')
         return
+    logger.info('computing increment')
     iterate = solver_state.get_val('iterate')
     fcn = solver_state.get_val('fcn')
     dfcn_darg = -np.sin(iterate)-0.7
     solver_state.set_val('increment', -fcn/dfcn_darg)
-    logger.info('re-invoking newton.py from comp_increment')
+    logger.info('re-invoking %s', __file__)
     subprocess.Popen([sys.executable, __file__, '--resume'])
     sys.exit()
 
 class NewtonState:
-    """class for representing the state of the Newton's method solver"""
+    """
+    class for representing the state of the Newton's method solver
+
+    members are:
+    workdir             directory where files of values are located
+    state_fname         name of file where solver state is stored
+    iter                current iteration
+    steps_completed     steps of solver that have been completed in the current iteration
+    """
 
     def __init__(self, workdir, state_fname, resume):
         """initialize solver state"""
@@ -53,7 +71,7 @@ class NewtonState:
             self.iter = 0
 
     def inc_iter(self):
-        """increment iter"""
+        """increment iter, reset steps_completed"""
         self.iter += 1
         self.steps_completed = []
         self.write()
@@ -63,27 +81,47 @@ class NewtonState:
         return val_name+'_set' in self.steps_completed
 
     def set_val(self, val_name, val):
-        """set a parameter in Newton's method"""
+        """
+        set a value in Newton's method
+
+        in current usage, values are: iterate, fcn, increment
+        value is written to a value-specific file
+        store in steps_completed that the value has been set
+        """
         fname = os.path.join(self.workdir, val_name+'_%02d.nc'%self.iter)
         file_wrap.write_var(fname, val_name, val)
         self.steps_completed.append(val_name+'_set')
         self.write()
 
     def get_val(self, val_name):
-        """get a parameter in Newton's method"""
+        """
+        get a parameter in Newton's method
+
+        in current usage, values are: iterate, fcn, increment
+        value is read and returned from a value-specific file
+        it is an error to get a value that has not been set
+        """
         if not self.is_set(val_name):
             raise Exception(val_name+' not set')
         fname = os.path.join(self.workdir, val_name+'_%02d.nc'%self.iter)
         return file_wrap.read_var(fname, val_name)
 
     def write(self):
-        """write solver state to a file"""
+        """
+        write solver state to a file
+
+        store the state in a dictionary and write, using JSON
+        """
         obj = {'iter':self.iter, 'steps_completed':self.steps_completed}
         with open(self.state_fname, mode='w') as fptr:
             json.dump(obj, fptr, indent=1)
 
     def read(self):
-        """read solver state from a file"""
+        """
+        read solver state from a file
+
+        read, using JSON, dictionary form of state, and extract vals
+        """
         with open(self.state_fname, mode='r') as fptr:
             obj = json.load(fptr)
         self.iter = obj['iter']
