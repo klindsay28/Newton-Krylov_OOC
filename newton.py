@@ -68,7 +68,7 @@ class NewtonState:
         self._workdir = workdir
         self._state_fname = os.path.join(self._workdir, state_fname)
         if resume:
-            self._read()
+            self._read_saved_state()
         else:
             self._saved_state = {'iter':0, 'steps_completed':[]}
 
@@ -76,7 +76,7 @@ class NewtonState:
         """increment iter, reset steps_completed"""
         self._saved_state['iter'] += 1
         self._saved_state['steps_completed'] = []
-        self._write()
+        self._write_saved_state()
 
     def get_iter(self):
         """return value of iter"""
@@ -91,21 +91,21 @@ class NewtonState:
         set a value in Newton's method
 
         in current usage, values are: iterate, fcn, increment
-        value is written to a value-specific file
+        value is written to a file with a value-specific name
         store in steps_completed that the value has been set
         """
         fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iter'])
         file_wrap.write_var(fname, val_name, val)
         self._saved_state['steps_completed'].append(val_name+'_set')
-        self._write()
+        self._write_saved_state()
 
     def get_val(self, val_name):
         """
         get a parameter in Newton's method
 
         in current usage, values are: iterate, fcn, increment
-        value is read and returned from a value-specific file
-        it is an error to get a value that has not been set
+        value is read and returned from a file with a value-specific name
+        it is an error to attempt to get a value that has not been set
         """
         if not self.is_set(val_name):
             raise Exception(val_name+' not set')
@@ -119,12 +119,12 @@ class NewtonState:
         for step_name in self._saved_state['steps_completed']:
             logger.info('%s completed', step_name)
 
-    def _write(self):
+    def _write_saved_state(self):
         """write _saved_state to a JSON file"""
         with open(self._state_fname, mode='w') as fptr:
             json.dump(self._saved_state, fptr, indent=2)
 
-    def _read(self):
+    def _read_saved_state(self):
         """read _saved_state from a JSON file"""
         with open(self._state_fname, mode='r') as fptr:
             self._saved_state = json.load(fptr)
