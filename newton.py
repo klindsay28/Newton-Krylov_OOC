@@ -12,8 +12,9 @@ import file_wrap
 def comp_fcn(solver_state):
     """compute function whose root is being found"""
     logger = logging.getLogger(__name__)
+    logger.info('entering comp_fcn')
     if solver_state.is_set('fcn'):
-        logger.info('fcn already computed, skipping computation')
+        logger.info('fcn already computed, skipping computation and returning')
         return
     iterate = solver_state.get_val('iterate')
     fcn = np.cos(iterate)-0.7*iterate
@@ -25,8 +26,9 @@ def comp_fcn(solver_state):
 def comp_increment(solver_state):
     """compute Newton's method increment"""
     logger = logging.getLogger(__name__)
+    logger.info('entering comp_increment')
     if solver_state.is_set('increment'):
-        logger.info('increment already computed, skipping computation')
+        logger.info('increment already computed, skipping computation and returning')
         return
     iterate = solver_state.get_val('iterate')
     fcn = solver_state.get_val('fcn')
@@ -46,7 +48,7 @@ class NewtonState:
             os.mkdir(self.workdir)
         except FileExistsError:
             pass
-        self.state_fname = self.workdir+'/'+state_fname
+        self.state_fname = os.path.join(self.workdir, state_fname)
         self.step_completed = {
             'iterate_set': False,
             'fcn_set': False,
@@ -70,7 +72,7 @@ class NewtonState:
 
     def set_val(self, val_name, val):
         """set a parameter in Newton's method"""
-        fname = self.workdir+'/'+val_name+'_%02d.nc'%self.iter
+        fname = os.path.join(self.workdir, val_name+'_%02d.nc'%self.iter)
         file_wrap.write_var(fname, val_name, val)
         self.step_completed[val_name+'_set'] = True
         self.write()
@@ -79,7 +81,7 @@ class NewtonState:
         """get a parameter in Newton's method"""
         if not self.step_completed[val_name+'_set']:
             raise Exception(val_name+' not set')
-        fname = self.workdir+'/'+val_name+'_%02d.nc'%self.iter
+        fname = os.path.join(self.workdir, val_name+'_%02d.nc'%self.iter)
         return file_wrap.read_var(fname, val_name)
 
     def write(self):
@@ -94,6 +96,13 @@ class NewtonState:
         self.iter = file_wrap.read_var(self.state_fname, 'iter')
         for step_name in self.step_completed:
             self.step_completed[step_name] = file_wrap.read_var(self.state_fname, step_name) == 1
+
+    def log(self):
+        """write solver state to log"""
+        logger = logging.getLogger(__name__)
+        logger.info('iter=%d', self.iter)
+        for step_name in self.step_completed:
+            logger.info('step_completed[%s]=%s', step_name, self.step_completed[step_name])
 
 def _parse_args():
     """parse command line arguments"""
@@ -115,8 +124,9 @@ def main(args):
     """Newton's method example"""
 
     filemode = 'a' if args.resume else 'w'
-    logging.basicConfig(filename=args.workdir+'/'+args.log_fname, filemode=filemode,
-                        format='%(asctime)s:%(process)s:%(message)s',
+    logging.basicConfig(filename=os.path.join(args.workdir, args.log_fname),
+                        filemode=filemode,
+                        format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
                         level=logging.INFO)
     logger = logging.getLogger(__name__)
 
@@ -128,7 +138,7 @@ def main(args):
     else:
         iterate = 0.0
         solver_state.set_val('iterate', iterate)
-
+    solver_state.log()
     comp_fcn(solver_state)
     fcn_val = solver_state.get_val('fcn')
     logger.info('iter=%d, iterate=%e, y=%e', solver_state.iter, iterate, fcn_val)
