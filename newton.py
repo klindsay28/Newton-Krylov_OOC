@@ -58,33 +58,33 @@ class NewtonState:
     Private members are:
     _workdir            directory where files of values are located
     _state_fname        name of file where solver state is stored
-    _iter               current iteration
-    _steps_completed    steps of solver that have been completed in the current iteration
+    _saved_state        dictionary of members saved and recovered across invocations
+        iter                current iteration
+        steps_completed     steps of solver that have been completed in the current iteration
     """
 
     def __init__(self, workdir, state_fname, resume):
         """initialize solver state"""
         self._workdir = workdir
         self._state_fname = os.path.join(self._workdir, state_fname)
-        self._steps_completed = []
         if resume:
             self._read()
         else:
-            self._iter = 0
+            self._saved_state = {'iter':0, 'steps_completed':[]}
 
     def inc_iter(self):
         """increment iter, reset steps_completed"""
-        self._iter += 1
-        self._steps_completed = []
+        self._saved_state['iter'] += 1
+        self._saved_state['steps_completed'] = []
         self._write()
 
     def get_iter(self):
         """return value of iter"""
-        return self._iter
+        return self._saved_state['iter']
 
     def is_set(self, val_name):
         """has val_name been set in the current iteration"""
-        return val_name+'_set' in self._steps_completed
+        return val_name+'_set' in self._saved_state['steps_completed']
 
     def set_val(self, val_name, val):
         """
@@ -94,9 +94,9 @@ class NewtonState:
         value is written to a value-specific file
         store in steps_completed that the value has been set
         """
-        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._iter)
+        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iter'])
         file_wrap.write_var(fname, val_name, val)
-        self._steps_completed.append(val_name+'_set')
+        self._saved_state['steps_completed'].append(val_name+'_set')
         self._write()
 
     def get_val(self, val_name):
@@ -109,36 +109,25 @@ class NewtonState:
         """
         if not self.is_set(val_name):
             raise Exception(val_name+' not set')
-        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._iter)
+        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iter'])
         return file_wrap.read_var(fname, val_name)
 
     def log(self):
         """write solver state to log"""
         logger = logging.getLogger(__name__)
-        logger.info('iter=%d', self._iter)
-        for step_name in self._steps_completed:
+        logger.info('iter=%d', self._saved_state['iter'])
+        for step_name in self._saved_state['steps_completed']:
             logger.info('%s completed', step_name)
 
     def _write(self):
-        """
-        write solver state to a file
-
-        store the state in a dictionary and write, using JSON
-        """
-        obj = {'iter':self._iter, 'steps_completed':self._steps_completed}
+        """write _saved_state to a JSON file"""
         with open(self._state_fname, mode='w') as fptr:
-            json.dump(obj, fptr, indent=1)
+            json.dump(self._saved_state, fptr, indent=2)
 
     def _read(self):
-        """
-        read solver state from a file
-
-        read, using JSON, dictionary form of state, and extract vals
-        """
+        """read _saved_state from a JSON file"""
         with open(self._state_fname, mode='r') as fptr:
-            obj = json.load(fptr)
-        self._iter = obj['iter']
-        self._steps_completed = obj['steps_completed']
+            self._saved_state = json.load(fptr)
 
 def _parse_args():
     """parse command line arguments"""
