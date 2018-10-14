@@ -2,6 +2,7 @@
 """Newton's method example"""
 
 import argparse
+import json
 import logging
 import os
 import subprocess
@@ -44,16 +45,8 @@ class NewtonState:
     def __init__(self, workdir, state_fname, resume):
         """initialize solver state"""
         self.workdir = workdir
-        try:
-            os.mkdir(self.workdir)
-        except FileExistsError:
-            pass
         self.state_fname = os.path.join(self.workdir, state_fname)
-        self.step_completed = {
-            'iterate_set': False,
-            'fcn_set': False,
-            'increment_set': False
-        }
+        self.steps_completed = []
         if resume:
             self.read()
         else:
@@ -62,47 +55,46 @@ class NewtonState:
     def inc_iter(self):
         """increment iter"""
         self.iter += 1
-        for step_name in self.step_completed:
-            self.step_completed[step_name] = False
+        self.steps_completed = []
         self.write()
 
     def is_set(self, val_name):
         """has val_name been set in the current iteration"""
-        return self.step_completed[val_name+'_set']
+        return val_name+'_set' in self.steps_completed
 
     def set_val(self, val_name, val):
         """set a parameter in Newton's method"""
         fname = os.path.join(self.workdir, val_name+'_%02d.nc'%self.iter)
         file_wrap.write_var(fname, val_name, val)
-        self.step_completed[val_name+'_set'] = True
+        self.steps_completed.append(val_name+'_set')
         self.write()
 
     def get_val(self, val_name):
         """get a parameter in Newton's method"""
-        if not self.step_completed[val_name+'_set']:
+        if not self.is_set(val_name):
             raise Exception(val_name+' not set')
         fname = os.path.join(self.workdir, val_name+'_%02d.nc'%self.iter)
         return file_wrap.read_var(fname, val_name)
 
     def write(self):
         """write solver state to a file"""
-        file_wrap.write_var(self.state_fname, 'iter', self.iter)
-        for step_name in self.step_completed:
-            val = 1 if self.step_completed[step_name] else 0
-            file_wrap.write_var(self.state_fname, step_name, val, mode='a')
+        obj = {'iter':self.iter, 'steps_completed':self.steps_completed}
+        with open(self.state_fname, mode='w') as fptr:
+            json.dump(obj, fptr, indent=1)
 
     def read(self):
         """read solver state from a file"""
-        self.iter = file_wrap.read_var(self.state_fname, 'iter')
-        for step_name in self.step_completed:
-            self.step_completed[step_name] = file_wrap.read_var(self.state_fname, step_name) == 1
+        with open(self.state_fname, mode='r') as fptr:
+            obj = json.load(fptr)
+        self.iter = obj['iter']
+        self.steps_completed = obj['steps_completed']
 
     def log(self):
         """write solver state to log"""
         logger = logging.getLogger(__name__)
         logger.info('iter=%d', self.iter)
-        for step_name in self.step_completed:
-            logger.info('step_completed[%s]=%s', step_name, self.step_completed[step_name])
+        for step_name in self.steps_completed:
+            logger.info('%s completed', step_name)
 
 def _parse_args():
     """parse command line arguments"""
@@ -114,7 +106,7 @@ def _parse_args():
     parser.add_argument('--log_fname', help='name of file logging entries are written',
                         default='newton.log')
     parser.add_argument('--solver_state_fname', help='name of file where solver state is stored',
-                        default='newton_state.nc')
+                        default='newton_state.json')
     parser.add_argument('--resume', help="resume Newton's method from solver's saved state",
                         action='store_true', default=False)
 
@@ -123,12 +115,18 @@ def _parse_args():
 def main(args):
     """Newton's method example"""
 
+    try:
+        os.mkdir(args.workdir)
+    except FileExistsError:
+        pass
+
     filemode = 'a' if args.resume else 'w'
     logging.basicConfig(filename=os.path.join(args.workdir, args.log_fname),
                         filemode=filemode,
                         format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
                         level=logging.INFO)
     logger = logging.getLogger(__name__)
+
 
     solver_state = NewtonState(workdir=args.workdir,
                                state_fname=args.solver_state_fname,
