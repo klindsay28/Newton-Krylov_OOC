@@ -2,6 +2,7 @@
 """Newton's method example"""
 
 import argparse
+import errno
 import json
 import logging
 import os
@@ -150,8 +151,11 @@ def main(args):
 
     try:
         os.mkdir(args.workdir)
-    except FileExistsError:
-        pass
+    except OSError as err:
+        if err.errno == errno.EEXIST:
+            pass
+        else:
+            raise
 
     filemode = 'a' if args.resume else 'w'
     logging.basicConfig(filename=os.path.join(args.workdir, args.log_fname),
