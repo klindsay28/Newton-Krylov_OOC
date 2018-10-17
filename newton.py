@@ -187,8 +187,6 @@ def main(args):
         iterate = iterate + increment
         solver_state.set_val('iterate', iterate)
         comp_fcn(solver_state)
-        fcn_val = solver_state.get_val('fcn')
-        logger.info('iter=%d, iterate=%e, y=%e', solver_state.get_iter(), iterate, fcn_val)
 
 if __name__ == '__main__':
     main(_parse_args())
