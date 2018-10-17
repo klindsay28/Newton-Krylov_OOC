@@ -180,13 +180,15 @@ def main(args):
     fcn_val = solver_state.get_val('fcn')
     logger.info('iter=%d, iterate=%e, y=%e', solver_state.get_iter(), iterate, fcn_val)
 
-    while np.abs(fcn_val) > 1.0e-10:
+    if np.abs(fcn_val) > 1.0e-10:
         comp_increment(solver_state)
         increment = solver_state.get_val('increment')
         solver_state.inc_iter()
         iterate = iterate + increment
         solver_state.set_val('iterate', iterate)
         comp_fcn(solver_state)
+
+    logger.info('convergence criterion satisfied')
 
 if __name__ == '__main__':
     main(_parse_args())
