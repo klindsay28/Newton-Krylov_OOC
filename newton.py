@@ -168,13 +168,15 @@ def main(args):
     solver_state = NewtonState(workdir=args.workdir,
                                state_fname=args.solver_state_fname,
                                resume=args.resume)
-    if args.resume:
-        iterate = solver_state.get_val('iterate')
-    else:
+
+    # get solver started on an initial run
+    if not args.resume:
         iterate = 0.0
         solver_state.set_val('iterate', iterate)
-    solver_state.log()
-    comp_fcn(solver_state)
+        solver_state.log()
+        comp_fcn(solver_state)  # this will not return, because args.resume==False
+
+    iterate = solver_state.get_val('iterate')
     fcn_val = solver_state.get_val('fcn')
     logger.info('iter=%d, iterate=%e, y=%e', solver_state.get_iter(), iterate, fcn_val)
 
