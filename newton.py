@@ -60,7 +60,7 @@ class NewtonState:
     _workdir            directory where files of values are located
     _state_fname        name of file where solver state is stored
     _saved_state        dictionary of members saved and recovered across invocations
-        iter                current iteration
+        iteration           current iteration
         steps_completed     steps of solver that have been completed in the current iteration
     """
 
@@ -71,17 +71,17 @@ class NewtonState:
         if resume:
             self._read_saved_state()
         else:
-            self._saved_state = {'iter':0, 'steps_completed':[]}
+            self._saved_state = {'iteration':0, 'steps_completed':[]}
 
-    def inc_iter(self):
-        """increment iter, reset steps_completed"""
-        self._saved_state['iter'] += 1
+    def inc_iteration(self):
+        """increment iteration, reset steps_completed"""
+        self._saved_state['iteration'] += 1
         self._saved_state['steps_completed'] = []
         self._write_saved_state()
 
-    def get_iter(self):
-        """return value of iter"""
-        return self._saved_state['iter']
+    def get_iteration(self):
+        """return value of iteration"""
+        return self._saved_state['iteration']
 
     def is_set(self, val_name):
         """has val_name been set in the current iteration"""
@@ -95,7 +95,7 @@ class NewtonState:
         value is written to a file with a value-specific name
         store in steps_completed that the value has been set
         """
-        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iter'])
+        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iteration'])
         file_wrap.write_var(fname, val_name, val)
         self._saved_state['steps_completed'].append(val_name+'_set')
         self._write_saved_state()
@@ -110,13 +110,13 @@ class NewtonState:
         """
         if not self.is_set(val_name):
             raise Exception(val_name+' not set')
-        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iter'])
+        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iteration'])
         return file_wrap.read_var(fname, val_name)
 
     def log(self):
         """write solver state to log"""
         logger = logging.getLogger(__name__)
-        logger.info('iter=%d', self._saved_state['iter'])
+        logger.info('iteration=%d', self._saved_state['iteration'])
         for step_name in self._saved_state['steps_completed']:
             logger.info('%s completed', step_name)
 
@@ -129,6 +129,44 @@ class NewtonState:
         """read _saved_state from a JSON file"""
         with open(self._state_fname, mode='r') as fptr:
             self._saved_state = json.load(fptr)
+
+class NewtonSolver:
+    """class for applying Newton's method to approximate the solution of system of equations"""
+
+    def __init__(self, workdir, solver_state_fname, resume):
+        "initialize Newton solver"
+
+        self.solver_state = NewtonState(workdir, solver_state_fname, resume)
+
+        # get solver started on an initial run
+        if not resume:
+            iterate = 0.0
+            self.solver_state.set_val('iterate', iterate)
+            self.solver_state.log()
+            comp_fcn(self.solver_state)
+
+    def log(self):
+        """write the state of the instance to the log"""
+        iteration = self.solver_state.get_iteration()
+        iterate = self.solver_state.get_val('iterate')
+        fcn_val = self.solver_state.get_val('fcn')
+        logger = logging.getLogger(__name__)
+        logger.info('iteration=%d, iterate=%e, y=%e', iteration, iterate, fcn_val)
+
+    def converged(self):
+        """is solver converged"""
+        return np.abs(self.solver_state.get_val('fcn')) < 1.0e-10
+
+    def step(self):
+        """perform a step of Newton's method"""
+        self.log()
+        comp_increment(self.solver_state)
+        iterate = self.solver_state.get_val('iterate')
+        increment = self.solver_state.get_val('increment')
+        iterate = iterate + increment
+        self.solver_state.inc_iteration()
+        self.solver_state.set_val('iterate', iterate)
+        comp_fcn(self.solver_state)
 
 def _parse_args():
     """parse command line arguments"""
@@ -162,33 +200,17 @@ def main(args):
                         filemode=filemode,
                         format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
                         level=logging.INFO)
+
+    solver = NewtonSolver(workdir=args.workdir,
+                          solver_state_fname=args.solver_state_fname,
+                          resume=args.resume)
     logger = logging.getLogger(__name__)
 
+    if solver.converged():
+        logger.info('convergence criterion satisfied')
+    else:
+        solver.step()
 
-    solver_state = NewtonState(workdir=args.workdir,
-                               state_fname=args.solver_state_fname,
-                               resume=args.resume)
-
-    # get solver started on an initial run
-    if not args.resume:
-        iterate = 0.0
-        solver_state.set_val('iterate', iterate)
-        solver_state.log()
-        comp_fcn(solver_state)  # this will not return, because args.resume==False
-
-    iterate = solver_state.get_val('iterate')
-    fcn_val = solver_state.get_val('fcn')
-    logger.info('iter=%d, iterate=%e, y=%e', solver_state.get_iter(), iterate, fcn_val)
-
-    if np.abs(fcn_val) > 1.0e-10:
-        comp_increment(solver_state)
-        increment = solver_state.get_val('increment')
-        solver_state.inc_iter()
-        iterate = iterate + increment
-        solver_state.set_val('iterate', iterate)
-        comp_fcn(solver_state)
-
-    logger.info('convergence criterion satisfied')
 
 if __name__ == '__main__':
     main(_parse_args())
