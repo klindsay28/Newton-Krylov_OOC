@@ -5,49 +5,36 @@ import argparse
 import errno
 import json
 import logging
-import os
 import subprocess
 import sys
+import os
 import numpy as np
-import file_wrap
+from model import ModelState
 
-def comp_fcn(solver_state):
-    """
-    compute function whose root is being found
-
-    skip computation if result has already been set in solver_state
-    re-invoke top-level script and exit, after storing computed result in solver_state
-    """
-    logger = logging.getLogger(__name__)
-    if solver_state.is_set('fcn'):
-        logger.info('fcn already computed, skipping computation and returning')
-        return
-    logger.info('computing fcn')
-    iterate = solver_state.get_val('iterate')
-    fcn = np.cos(iterate)-0.7*iterate
-    solver_state.set_val('fcn', fcn)
-    logger.info('re-invoking %s', __file__)
-    subprocess.Popen([sys.executable, __file__, '--resume'])
-    sys.exit()
-
-def comp_increment(solver_state):
+def comp_increment(res_fname, iterate, fcn, solver):
     """
     compute Newton's method increment
 
-    skip computation if result has already been set in solver_state
-    re-invoke top-level script and exit, after storing computed result in solver_state
+    skip computation if the corresponding step has been logged in the solver
+    re-invoke top-level script and exit, after storing computed result in solver
     """
     logger = logging.getLogger(__name__)
-    if solver_state.is_set('increment'):
-        logger.info('increment already computed, skipping computation and returning')
-        return
+
+    step = 'comp_increment'
+
+    if solver.step_logged(step):
+        logger.info('%s logged, skipping computation and returning result', step)
+        return ModelState(res_fname)
+
     logger.info('computing increment')
-    iterate = solver_state.get_val('iterate')
-    fcn = solver_state.get_val('fcn')
-    dfcn_darg = -np.sin(iterate)-0.7
-    solver_state.set_val('increment', -fcn/dfcn_darg)
-    logger.info('re-invoking %s', __file__)
-    subprocess.Popen([sys.executable, __file__, '--resume'])
+
+    solver.log_step(step)
+    iterate_val = iterate.get('x')
+    fcn_val = fcn.get('x')
+    dfcn_darg = -np.sin(iterate_val)-0.7
+    res = ModelState(res_fname)
+    res.set('x', -fcn_val/dfcn_darg)
+    subprocess.Popen(['/bin/bash', './postrun.sh'])
     sys.exit()
 
 class NewtonState:
@@ -61,7 +48,7 @@ class NewtonState:
     _state_fname        name of file where solver state is stored
     _saved_state        dictionary of members saved and recovered across invocations
         iteration           current iteration
-        steps_completed     steps of solver that have been completed in the current iteration
+        step_log            steps of solver that have been logged in the current iteration
     """
 
     def __init__(self, workdir, state_fname, resume):
@@ -71,53 +58,33 @@ class NewtonState:
         if resume:
             self._read_saved_state()
         else:
-            self._saved_state = {'iteration':0, 'steps_completed':[]}
+            self._saved_state = {'iteration':0, 'step_log':[]}
 
     def inc_iteration(self):
-        """increment iteration, reset steps_completed"""
+        """increment iteration, reset step_log"""
         self._saved_state['iteration'] += 1
-        self._saved_state['steps_completed'] = []
+        self._saved_state['step_log'] = []
         self._write_saved_state()
+        return self._saved_state['iteration']
 
     def get_iteration(self):
         """return value of iteration"""
         return self._saved_state['iteration']
 
-    def is_set(self, val_name):
-        """has val_name been set in the current iteration"""
-        return val_name+'_set' in self._saved_state['steps_completed']
+    def step_logged(self, step):
+        """has step been logged in the current iteration"""
+        return step in self._saved_state['step_log']
 
-    def set_val(self, val_name, val):
-        """
-        set a value in Newton's method
-
-        in current usage, values are: iterate, fcn, increment
-        value is written to a file with a value-specific name
-        store in steps_completed that the value has been set
-        """
-        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iteration'])
-        file_wrap.write_var(fname, val_name, val)
-        self._saved_state['steps_completed'].append(val_name+'_set')
+    def log_step(self, step):
+        """log a step for the current iteration"""
+        self._saved_state['step_log'].append(step)
         self._write_saved_state()
 
-    def get_val(self, val_name):
-        """
-        get a parameter in Newton's method
-
-        in current usage, values are: iterate, fcn, increment
-        value is read and returned from a file with a value-specific name
-        it is an error to attempt to get a value that has not been set
-        """
-        if not self.is_set(val_name):
-            raise Exception(val_name+' not set')
-        fname = os.path.join(self._workdir, val_name+'_%02d.nc'%self._saved_state['iteration'])
-        return file_wrap.read_var(fname, val_name)
-
-    def log(self):
-        """write solver state to log"""
+    def log_saved_state(self):
+        """write saved state of solver to log"""
         logger = logging.getLogger(__name__)
         logger.info('iteration=%d', self._saved_state['iteration'])
-        for step_name in self._saved_state['steps_completed']:
+        for step_name in self._saved_state['step_log']:
             logger.info('%s completed', step_name)
 
     def _write_saved_state(self):
@@ -134,39 +101,46 @@ class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
 
     def __init__(self, workdir, solver_state_fname, resume):
-        "initialize Newton solver"
+        """initialize Newton solver"""
 
+        self._workdir = workdir
         self.solver_state = NewtonState(workdir, solver_state_fname, resume)
+        self.solver_state.log_saved_state()
 
         # get solver started on an initial run
         if not resume:
-            iterate = 0.0
-            self.solver_state.set_val('iterate', iterate)
-            self.solver_state.log()
-            comp_fcn(self.solver_state)
+            iterate = ModelState(self._fname('iterate'))
+            iterate.set('x', 0.0)
+            iterate.comp_fcn(self._fname('fcn'), self.solver_state)
+
+    def _fname(self, quantity):
+        """construct fname corresponding to particular quantity"""
+        iteration = self.solver_state.get_iteration()
+        return os.path.join(self._workdir, '%s_%02d.nc'%(quantity, iteration))
 
     def log(self):
         """write the state of the instance to the log"""
         iteration = self.solver_state.get_iteration()
-        iterate = self.solver_state.get_val('iterate')
-        fcn_val = self.solver_state.get_val('fcn')
+        iterate_val = ModelState(self._fname('iterate')).get('x')
+        fcn_val = ModelState(self._fname('fcn')).get('x')
         logger = logging.getLogger(__name__)
-        logger.info('iteration=%d, iterate=%e, y=%e', iteration, iterate, fcn_val)
+        logger.info('iteration=%d, iterate=%e, y=%e', iteration, iterate_val, fcn_val)
 
     def converged(self):
         """is solver converged"""
-        return np.abs(self.solver_state.get_val('fcn')) < 1.0e-10
+        fcn_val = ModelState(self._fname('fcn')).get('x')
+        return np.abs(fcn_val) < 1.0e-10
 
     def step(self):
         """perform a step of Newton's method"""
+        iterate = ModelState(self._fname('iterate'))
+        fcn = ModelState(self._fname('fcn'))
+        increment = comp_increment(self._fname('increment'), iterate, fcn, self.solver_state)
         self.log()
-        comp_increment(self.solver_state)
-        iterate = self.solver_state.get_val('iterate')
-        increment = self.solver_state.get_val('increment')
-        iterate = iterate + increment
+
         self.solver_state.inc_iteration()
-        self.solver_state.set_val('iterate', iterate)
-        comp_fcn(self.solver_state)
+        provisional = iterate.add(self._fname('iterate'), increment)
+        provisional.comp_fcn(self._fname('fcn'), self.solver_state)
 
 def _parse_args():
     """parse command line arguments"""
@@ -180,6 +154,8 @@ def _parse_args():
     parser.add_argument('--solver_state_fname', help='name of file where solver state is stored',
                         default='newton_state.json')
     parser.add_argument('--resume', help="resume Newton's method from solver's saved state",
+                        action='store_true', default=False)
+    parser.add_argument('--rewind', help="rewind last step to recover from error (not implemented)",
                         action='store_true', default=False)
 
     return parser.parse_args()
@@ -207,10 +183,10 @@ def main(args):
     logger = logging.getLogger(__name__)
 
     if solver.converged():
+        solver.log()
         logger.info('convergence criterion satisfied')
     else:
         solver.step()
-
 
 if __name__ == '__main__':
     main(_parse_args())
