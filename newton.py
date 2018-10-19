@@ -116,9 +116,9 @@ class NewtonSolver:
         dfcn_darg = fcn.div_diff(self._fname('dfcn_arg'), fcn_arg, delta)
 
         fcn_val = fcn.get('x')
-        dfcn_darg = (fcn_arg.get('x') - fcn_val) / delta
+        dfcn_darg_val = dfcn_darg.get('x')
 
-        return ModelState(self._fname('increment'), val=-fcn_val/dfcn_darg)
+        return ModelState(self._fname('increment'), val=-fcn_val/dfcn_darg_val)
 
     def step(self):
         """perform a step of Newton's method"""
