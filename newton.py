@@ -5,37 +5,9 @@ import argparse
 import errno
 import json
 import logging
-import subprocess
-import sys
 import os
 import numpy as np
 from model import ModelState
-
-def comp_increment(res_fname, iterate, fcn, solver):
-    """
-    compute Newton's method increment
-
-    skip computation if the corresponding step has been logged in the solver
-    re-invoke top-level script and exit, after storing computed result in solver
-    """
-    logger = logging.getLogger(__name__)
-
-    step = 'comp_increment'
-
-    if solver.step_logged(step):
-        logger.info('%s logged, skipping computation and returning result', step)
-        return ModelState(res_fname)
-
-    logger.info('computing increment')
-
-    solver.log_step(step)
-    iterate_val = iterate.get('x')
-    fcn_val = fcn.get('x')
-    dfcn_darg = -np.sin(iterate_val)-0.7
-    res = ModelState(res_fname)
-    res.set('x', -fcn_val/dfcn_darg)
-    subprocess.Popen(['/bin/bash', './postrun.sh'])
-    sys.exit()
 
 class NewtonState:
     """
@@ -109,9 +81,8 @@ class NewtonSolver:
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(self._fname('iterate'))
-            iterate.set('x', 0.0)
-            iterate.comp_fcn(self._fname('fcn'), self.solver_state)
+            iterate = ModelState(self._fname('iterate'), val=0.0)
+            iterate.comp_fcn(self._fname('fcn'), self.solver_state, 'comp_fcn')
 
     def _fname(self, quantity):
         """construct fname corresponding to particular quantity"""
@@ -131,16 +102,34 @@ class NewtonSolver:
         fcn_val = ModelState(self._fname('fcn')).get('x')
         return np.abs(fcn_val) < 1.0e-10
 
+    def _comp_increment(self, iterate, fcn):
+        """
+        compute Newton's method increment
+        """
+        logger = logging.getLogger(__name__)
+
+        logger.info('computing increment')
+
+        delta = 1.0e-6
+        arg = iterate.add(self._fname('arg'), delta)
+        fcn_arg = arg.comp_fcn(self._fname('fcn_arg'), self.solver_state, 'div_diff')
+        dfcn_darg = fcn.div_diff(self._fname('dfcn_arg'), fcn_arg, delta)
+
+        fcn_val = fcn.get('x')
+        dfcn_darg = (fcn_arg.get('x') - fcn_val) / delta
+
+        return ModelState(self._fname('increment'), val=-fcn_val/dfcn_darg)
+
     def step(self):
         """perform a step of Newton's method"""
         iterate = ModelState(self._fname('iterate'))
         fcn = ModelState(self._fname('fcn'))
-        increment = comp_increment(self._fname('increment'), iterate, fcn, self.solver_state)
+        increment = self._comp_increment(iterate, fcn)
         self.log()
 
         self.solver_state.inc_iteration()
         provisional = iterate.add(self._fname('iterate'), increment)
-        provisional.comp_fcn(self._fname('fcn'), self.solver_state)
+        provisional.comp_fcn(self._fname('fcn'), self.solver_state, 'comp_fcn')
 
 def _parse_args():
     """parse command line arguments"""

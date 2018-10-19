@@ -3,14 +3,15 @@
 import logging
 import subprocess
 import sys
-import numpy as np
 import netCDF4 as nc
 
 class ModelState:
     """class for representing the state space of a model"""
-    def __init__(self, fname):
+    def __init__(self, fname, val=None):
         self._fname = fname
         self._varnames = ['x']
+        if not val is None:
+            self.set('x', val)
 
     def get(self, varname):
         """return component of ModelState corresponding to varname"""
@@ -43,10 +44,13 @@ class ModelState:
         else:
             mode_loc = mode
         for varname in self._varnames:
-            valx = self.get(varname)
-            valy = other.get(varname)
-            valz = valx + scalar * valy
-            res.set(varname, val=valz, mode=mode_loc)
+            self_val = self.get(varname)
+            if isinstance(other, float):
+                other_val = other
+            else:
+                other_val = other.get(varname)
+            res_val = self_val + scalar * other_val
+            res.set(varname, val=res_val, mode=mode_loc)
             # varnames after first should be appended
             mode_loc = 'a'
         return res
@@ -58,7 +62,31 @@ class ModelState:
         """
         return self.mult_add(res_fname, 1.0, other, mode)
 
-    def comp_fcn(self, res_fname, solver):
+    def div_diff(self, res_fname, other, delta, mode='w'):
+        """
+        multiply and add operation
+        res = (other - self) / delta
+        """
+        res = ModelState(res_fname)
+        # do not overwrite self, if res_fname is the same as self._fname
+        if res_fname == self._fname:
+            mode_loc = 'a'
+        else:
+            mode_loc = mode
+        for varname in self._varnames:
+            self_val = self.get(varname)
+            other_val = other.get(varname)
+            if isinstance(delta, float):
+                delta_val = delta
+            else:
+                delta_val = delta.get(varname)
+            res_val = (other_val - self_val) / delta_val
+            res.set(varname, val=res_val, mode=mode_loc)
+            # varnames after first should be appended
+            mode_loc = 'a'
+        return res
+
+    def comp_fcn(self, res_fname, solver, step):
         """
         compute function whose root is being found, store result in res
 
@@ -67,21 +95,14 @@ class ModelState:
         """
         logger = logging.getLogger(__name__)
 
-        step = 'comp_fcn'
-
         if solver.step_logged(step):
             logger.info('%s logged, skipping computation and returning result', step)
             return ModelState(res_fname)
 
-        logger.info('computing fcn and exiting')
+        logger.info('invoking comp_fcn.sh and exiting')
 
-        # the following block will eventually get moved to a script that invokes the GCM
         solver.log_step(step)
-        iterate_val = self.get('x')
-        fcn_val = np.cos(iterate_val)-0.7*iterate_val
-        res = ModelState(res_fname)
-        res.set('x', fcn_val)
 
-        subprocess.Popen(['/bin/bash', './postrun.sh'])
+        subprocess.Popen(['/bin/bash', './comp_fcn.sh', self._fname, res_fname])
 
         sys.exit()
