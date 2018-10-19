@@ -9,9 +9,12 @@ class ModelState:
     """class for representing the state space of a model"""
     def __init__(self, fname, val=None):
         self._fname = fname
-        self._varnames = ['x']
+        self._varnames = ['x1', 'x2']
         if not val is None:
-            self.set('x', val)
+            mode = 'w'
+            for varname in self._varnames:
+                self.set(varname, val, mode)
+                mode = 'a'
 
     def get(self, varname):
         """return component of ModelState corresponding to varname"""

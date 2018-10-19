@@ -92,14 +92,14 @@ class NewtonSolver:
     def log(self):
         """write the state of the instance to the log"""
         iteration = self.solver_state.get_iteration()
-        iterate_val = ModelState(self._fname('iterate')).get('x')
-        fcn_val = ModelState(self._fname('fcn')).get('x')
+        iterate_val = ModelState(self._fname('iterate')).get('x1')
+        fcn_val = ModelState(self._fname('fcn')).get('x1')
         logger = logging.getLogger(__name__)
-        logger.info('iteration=%d, iterate=%e, y=%e', iteration, iterate_val, fcn_val)
+        logger.info('iteration=%d, iterate=%e, fcn=%e', iteration, iterate_val, fcn_val)
 
     def converged(self):
         """is solver converged"""
-        fcn_val = ModelState(self._fname('fcn')).get('x')
+        fcn_val = ModelState(self._fname('fcn')).get('x1')
         return np.abs(fcn_val) < 1.0e-10
 
     def _comp_increment(self, iterate, fcn):
@@ -115,8 +115,8 @@ class NewtonSolver:
         fcn_arg = arg.comp_fcn(self._fname('fcn_arg'), self.solver_state, 'div_diff')
         dfcn_darg = fcn.div_diff(self._fname('dfcn_arg'), fcn_arg, delta)
 
-        fcn_val = fcn.get('x')
-        dfcn_darg_val = dfcn_darg.get('x')
+        fcn_val = fcn.get('x1')
+        dfcn_darg_val = dfcn_darg.get('x1')
 
         return ModelState(self._fname('increment'), val=-fcn_val/dfcn_darg_val)
 
