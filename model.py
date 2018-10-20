@@ -9,7 +9,7 @@ class ModelState:
     """class for representing the state space of a model"""
     def __init__(self, fname, val=None):
         self._fname = fname
-        self._varnames = ['x1', 'x2']
+        self._varnames = ['x1', 'x2', 'x3', 'x4']
         if not val is None:
             mode = 'w'
             for varname in self._varnames:
@@ -78,7 +78,10 @@ class ModelState:
             mode_loc = mode
         for varname in self._varnames:
             self_val = self.get(varname)
-            other_val = other.get(varname)
+            if isinstance(other, float):
+                other_val = other
+            else:
+                other_val = other.get(varname)
             if isinstance(delta, float):
                 delta_val = delta
             else:

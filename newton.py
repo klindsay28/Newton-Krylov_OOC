@@ -110,15 +110,16 @@ class NewtonSolver:
 
         logger.info('computing increment')
 
+        step = 'div_diff'
+
         delta = 1.0e-6
-        arg = iterate.add(self._fname('arg'), delta)
-        fcn_arg = arg.comp_fcn(self._fname('fcn_arg'), self.solver_state, 'div_diff')
-        dfcn_darg = fcn.div_diff(self._fname('dfcn_arg'), fcn_arg, delta)
-
-        fcn_val = fcn.get('x1')
-        dfcn_darg_val = dfcn_darg.get('x1')
-
-        return ModelState(self._fname('increment'), val=-fcn_val/dfcn_darg_val)
+        if not self.solver_state.step_logged(step):
+            iterate_p_delta = iterate.add(self._fname('iterate_p_delta'), delta)
+        else:
+            iterate_p_delta = ModelState(self._fname('iterate_p_delta'))
+        fcn_p_delta = iterate_p_delta.comp_fcn(self._fname('fcn_p_delta'), self.solver_state, step)
+        dfcn_darg = fcn.div_diff(self._fname('dfcn_darg'), fcn_p_delta, delta)
+        return fcn.div_diff(self._fname('increment'), 0.0, dfcn_darg)
 
     def step(self):
         """perform a step of Newton's method"""
