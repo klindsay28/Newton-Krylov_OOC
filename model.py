@@ -3,6 +3,7 @@
 import logging
 import subprocess
 import sys
+import numpy as np
 import netCDF4 as nc
 
 class ModelState:
@@ -112,3 +113,11 @@ class ModelState:
         subprocess.Popen(['/bin/bash', './comp_fcn.sh', self._fname, res_fname])
 
         sys.exit()
+
+    def converged(self):
+        """is residual small"""
+        dotprod_sum = 0.0
+        for varname in self._varnames:
+            val = self.get(varname)
+            dotprod_sum += val.dot(val)
+        return np.sqrt(dotprod_sum) < 1.0e-10

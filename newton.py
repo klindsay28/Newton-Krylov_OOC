@@ -6,7 +6,6 @@ import errno
 import json
 import logging
 import os
-import numpy as np
 from model import ModelState
 
 class NewtonState:
@@ -99,8 +98,7 @@ class NewtonSolver:
 
     def converged(self):
         """is solver converged"""
-        fcn_val = ModelState(self._fname('fcn')).get('x1')
-        return np.abs(fcn_val) < 1.0e-10
+        return ModelState(self._fname('fcn')).converged()
 
     def _comp_increment(self, iterate, fcn):
         """
