@@ -14,15 +14,15 @@ class ModelState:
         if not val is None:
             mode = 'w'
             for varname in self._varnames:
-                self.set(varname, val, mode)
+                self.set_val(varname, val, mode)
                 mode = 'a'
 
-    def get(self, varname):
+    def get_val(self, varname):
         """return component of ModelState corresponding to varname"""
         with nc.Dataset(self._fname, mode='r') as fptr:
             return fptr.variables[varname][:]
 
-    def set(self, varname, val, mode='w'):
+    def set_val(self, varname, val, mode='w'):
         """
         set component of ModelState corresponding to varname to val
 
@@ -48,13 +48,13 @@ class ModelState:
         else:
             mode_loc = mode
         for varname in self._varnames:
-            self_val = self.get(varname)
+            self_val = self.get_val(varname)
             if isinstance(other, float):
                 other_val = other
             else:
-                other_val = other.get(varname)
+                other_val = other.get_val(varname)
             res_val = self_val + scalar * other_val
-            res.set(varname, val=res_val, mode=mode_loc)
+            res.set_val(varname, val=res_val, mode=mode_loc)
             # varnames after first should be appended
             mode_loc = 'a'
         return res
@@ -78,17 +78,17 @@ class ModelState:
         else:
             mode_loc = mode
         for varname in self._varnames:
-            self_val = self.get(varname)
+            self_val = self.get_val(varname)
             if isinstance(other, float):
                 other_val = other
             else:
-                other_val = other.get(varname)
+                other_val = other.get_val(varname)
             if isinstance(delta, float):
                 delta_val = delta
             else:
-                delta_val = delta.get(varname)
+                delta_val = delta.get_val(varname)
             res_val = (other_val - self_val) / delta_val
-            res.set(varname, val=res_val, mode=mode_loc)
+            res.set_val(varname, val=res_val, mode=mode_loc)
             # varnames after first should be appended
             mode_loc = 'a'
         return res
@@ -118,6 +118,6 @@ class ModelState:
         """is residual small"""
         dotprod_sum = 0.0
         for varname in self._varnames:
-            val = self.get(varname)
+            val = self.get_val(varname)
             dotprod_sum += val.dot(val)
         return np.sqrt(dotprod_sum) < 1.0e-10

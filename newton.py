@@ -91,8 +91,8 @@ class NewtonSolver:
     def log(self):
         """write the state of the instance to the log"""
         iteration = self.solver_state.get_iteration()
-        iterate_val = ModelState(self._fname('iterate')).get('x1')
-        fcn_val = ModelState(self._fname('fcn')).get('x1')
+        iterate_val = ModelState(self._fname('iterate')).get_val('x1')
+        fcn_val = ModelState(self._fname('fcn')).get_val('x1')
         logger = logging.getLogger(__name__)
         logger.info('iteration=%d, iterate=%e, fcn=%e', iteration, iterate_val, fcn_val)
 
