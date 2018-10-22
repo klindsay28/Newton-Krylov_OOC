@@ -6,6 +6,7 @@ import errno
 import json
 import logging
 import os
+import sys
 from model import ModelState
 
 class NewtonState:
@@ -115,8 +116,8 @@ class NewtonSolver:
         iterate_p_delta = iterate + delta
         fcn_p_delta = iterate_p_delta.comp_fcn(self._workdir, self._fname('fcn_p_delta'),
                                                self.solver_state, step)
-        neg_dfcn_darg = (fcn - fcn_p_delta) / delta
-        return fcn / neg_dfcn_darg
+        dfcn_darg = (fcn_p_delta - fcn) / delta
+        return (-1.0) * fcn / dfcn_darg
 
     def step(self):
         """perform a step of Newton's method"""
@@ -163,11 +164,15 @@ def main(args):
                         filemode=filemode,
                         format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
                         level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    if os.path.exists(os.path.join(args.workdir, 'KILL')):
+        logger.warning('KILL file detected, exiting')
+        sys.exit()
 
     solver = NewtonSolver(workdir=args.workdir,
                           solver_state_fname=args.solver_state_fname,
                           resume=args.resume)
-    logger = logging.getLogger(__name__)
 
     if solver.converged():
         solver.log()

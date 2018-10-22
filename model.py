@@ -1,9 +1,9 @@
 """class for representing the state space of a model, and operations on it"""
 
 import logging
+import os
 import subprocess
 import sys
-import os
 import numpy as np
 import netCDF4 as nc
 
@@ -47,6 +47,10 @@ class ModelState:
                 res._vals[varname] = val + other._vals[varname] # pylint: disable=W0212
         return res
 
+    def __radd__(self, other):
+        """reversed addition operator"""
+        return self + other
+
     def __sub__(self, other):
         """subtraction operator"""
         res = ModelState()
@@ -66,6 +70,10 @@ class ModelState:
             else:
                 res._vals[varname] = val * other._vals[varname] # pylint: disable=W0212
         return res
+
+    def __rmul__(self, other):
+        """reversed multiplication operator"""
+        return self * other
 
     def __truediv__(self, other):
         """division operator"""
