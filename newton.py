@@ -80,8 +80,9 @@ class NewtonSolver:
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(self._fname('iterate'), val=0.0)
-            iterate.comp_fcn(self._fname('fcn'), self.solver_state, 'comp_fcn')
+            iterate = ModelState(val=0.0)
+            iterate.dump(self._fname('iterate'))
+            iterate.comp_fcn(self._workdir, self._fname('fcn'), self.solver_state, 'comp_fcn')
 
     def _fname(self, quantity):
         """construct fname corresponding to particular quantity"""
@@ -111,13 +112,11 @@ class NewtonSolver:
         step = 'div_diff'
 
         delta = 1.0e-6
-        if not self.solver_state.step_logged(step):
-            iterate_p_delta = iterate.add(self._fname('iterate_p_delta'), delta)
-        else:
-            iterate_p_delta = ModelState(self._fname('iterate_p_delta'))
-        fcn_p_delta = iterate_p_delta.comp_fcn(self._fname('fcn_p_delta'), self.solver_state, step)
-        dfcn_darg = fcn.div_diff(self._fname('dfcn_darg'), fcn_p_delta, delta)
-        return fcn.div_diff(self._fname('increment'), 0.0, dfcn_darg)
+        iterate_p_delta = iterate + delta
+        fcn_p_delta = iterate_p_delta.comp_fcn(self._workdir, self._fname('fcn_p_delta'),
+                                               self.solver_state, step)
+        neg_dfcn_darg = (fcn - fcn_p_delta) / delta
+        return fcn / neg_dfcn_darg
 
     def step(self):
         """perform a step of Newton's method"""
@@ -125,10 +124,10 @@ class NewtonSolver:
         fcn = ModelState(self._fname('fcn'))
         increment = self._comp_increment(iterate, fcn)
         self.log()
-
         self.solver_state.inc_iteration()
-        provisional = iterate.add(self._fname('iterate'), increment)
-        provisional.comp_fcn(self._fname('fcn'), self.solver_state, 'comp_fcn')
+        provisional = iterate + increment
+        provisional.dump(self._fname('iterate'))
+        provisional.comp_fcn(self._workdir, self._fname('fcn'), self.solver_state, 'comp_fcn')
 
 def _parse_args():
     """parse command line arguments"""

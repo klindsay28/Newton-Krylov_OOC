@@ -3,97 +3,81 @@
 import logging
 import subprocess
 import sys
+import os
 import numpy as np
 import netCDF4 as nc
 
 class ModelState:
     """class for representing the state space of a model"""
-    def __init__(self, fname, val=None):
-        self._fname = fname
+
+    def __init__(self, fname=None, val=None):
         self._varnames = ['x1', 'x2', 'x3', 'x4']
+        if (not fname is None) and (not val is None):
+            raise ValueError('fname and val arguments must not both be provided')
+        self._vals = dict()
+        if not fname is None:
+            with nc.Dataset(fname, mode='r') as fptr:
+                for varname in self._varnames:
+                    self._vals[varname] = fptr.variables[varname][:]
         if not val is None:
-            mode = 'w'
             for varname in self._varnames:
-                self.set_val(varname, val, mode)
-                mode = 'a'
+                self._vals[varname] = val
+
+    def dump(self, fname, mode='w'):
+        """write ModelState object to a file"""
+        with nc.Dataset(fname, mode=mode) as fptr:
+            for varname, val in self._vals.items():
+                try:
+                    varid = fptr.variables[varname]
+                except KeyError:
+                    varid = fptr.createVariable(varname, 'f8')
+                varid[:] = val
 
     def get_val(self, varname):
         """return component of ModelState corresponding to varname"""
-        with nc.Dataset(self._fname, mode='r') as fptr:
-            return fptr.variables[varname][:]
+        return self._vals[varname]
 
-    def set_val(self, varname, val, mode='w'):
-        """
-        set component of ModelState corresponding to varname to val
-
-        If varname already exists, overwrite it.
-        Otherwise, create it and write to it.
-        """
-        with nc.Dataset(self._fname, mode=mode) as fptr:
-            try:
-                varid = fptr.variables[varname]
-            except KeyError:
-                varid = fptr.createVariable(varname, 'f8')
-            varid[:] = val
-
-    def mult_add(self, res_fname, scalar, other, mode='w'):
-        """
-        multiply and add operation
-        res = self + scalar * other
-        """
-        res = ModelState(res_fname)
-        # do not overwrite self, if res_fname is the same as self._fname
-        if res_fname == self._fname:
-            mode_loc = 'a'
-        else:
-            mode_loc = mode
-        for varname in self._varnames:
-            self_val = self.get_val(varname)
+    def __add__(self, other):
+        """addition operator"""
+        res = ModelState()
+        for varname, val in self._vals.items():
             if isinstance(other, float):
-                other_val = other
+                res._vals[varname] = val + other # pylint: disable=W0212
             else:
-                other_val = other.get_val(varname)
-            res_val = self_val + scalar * other_val
-            res.set_val(varname, val=res_val, mode=mode_loc)
-            # varnames after first should be appended
-            mode_loc = 'a'
+                res._vals[varname] = val + other._vals[varname] # pylint: disable=W0212
         return res
 
-    def add(self, res_fname, other, mode='w'):
-        """
-        addition operation
-        res = self + other
-        """
-        return self.mult_add(res_fname, 1.0, other, mode)
-
-    def div_diff(self, res_fname, other, delta, mode='w'):
-        """
-        multiply and add operation
-        res = (other - self) / delta
-        """
-        res = ModelState(res_fname)
-        # do not overwrite self, if res_fname is the same as self._fname
-        if res_fname == self._fname:
-            mode_loc = 'a'
-        else:
-            mode_loc = mode
-        for varname in self._varnames:
-            self_val = self.get_val(varname)
+    def __sub__(self, other):
+        """subtraction operator"""
+        res = ModelState()
+        for varname, val in self._vals.items():
             if isinstance(other, float):
-                other_val = other
+                res._vals[varname] = val - other # pylint: disable=W0212
             else:
-                other_val = other.get_val(varname)
-            if isinstance(delta, float):
-                delta_val = delta
-            else:
-                delta_val = delta.get_val(varname)
-            res_val = (other_val - self_val) / delta_val
-            res.set_val(varname, val=res_val, mode=mode_loc)
-            # varnames after first should be appended
-            mode_loc = 'a'
+                res._vals[varname] = val - other._vals[varname] # pylint: disable=W0212
         return res
 
-    def comp_fcn(self, res_fname, solver, step):
+    def __mul__(self, other):
+        """multiplication operator"""
+        res = ModelState()
+        for varname, val in self._vals.items():
+            if isinstance(other, float):
+                res._vals[varname] = val * other # pylint: disable=W0212
+            else:
+                res._vals[varname] = val * other._vals[varname] # pylint: disable=W0212
+        return res
+
+    def __truediv__(self, other):
+        """division operator"""
+        res = ModelState()
+        for varname, val in self._vals.items():
+            if isinstance(other, float):
+                res._vals[varname] = val / other # pylint: disable=W0212
+            else:
+                res._vals[varname] = val / other._vals[varname] # pylint: disable=W0212
+        return res
+
+    def comp_fcn(self, workdir, res_fname, solver, step):
         """
         compute function whose root is being found, store result in res
 
@@ -104,20 +88,21 @@ class ModelState:
 
         if solver.step_logged(step):
             logger.info('%s logged, skipping computation and returning result', step)
-            return ModelState(res_fname)
+            return ModelState(fname=res_fname)
 
         logger.info('invoking comp_fcn.sh and exiting')
 
         solver.log_step(step)
 
-        subprocess.Popen(['/bin/bash', './comp_fcn.sh', self._fname, res_fname])
+        fcn_arg_fname = os.path.join(workdir, 'fcn_arg.nc')
+        self.dump(fcn_arg_fname)
+        subprocess.Popen(['/bin/bash', './comp_fcn.sh', fcn_arg_fname, res_fname])
 
         sys.exit()
 
     def converged(self):
         """is residual small"""
         dotprod_sum = 0.0
-        for varname in self._varnames:
-            val = self.get_val(varname)
+        for val in self._vals.values():
             dotprod_sum += val.dot(val)
         return np.sqrt(dotprod_sum) < 1.0e-10
