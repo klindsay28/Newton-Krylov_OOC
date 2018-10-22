@@ -37,6 +37,13 @@ class ModelState:
         """return component of ModelState corresponding to varname"""
         return self._vals[varname]
 
+    def __neg__(self):
+        """unary negation operator"""
+        res = ModelState()
+        for varname, val in self._vals.items():
+            res._vals[varname] = -val # pylint: disable=W0212
+        return res
+
     def __add__(self, other):
         """addition operator"""
         res = ModelState()
@@ -83,6 +90,16 @@ class ModelState:
                 res._vals[varname] = val / other # pylint: disable=W0212
             else:
                 res._vals[varname] = val / other._vals[varname] # pylint: disable=W0212
+        return res
+
+    def __rtruediv__(self, other):
+        """reversed division operator"""
+        res = ModelState()
+        for varname, val in self._vals.items():
+            if isinstance(other, float):
+                res._vals[varname] = other / val # pylint: disable=W0212
+            else:
+                res._vals[varname] = other._vals[varname] / val # pylint: disable=W0212
         return res
 
     def comp_fcn(self, workdir, res_fname, solver, step):

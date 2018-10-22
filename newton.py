@@ -45,6 +45,7 @@ class NewtonSolver:
     def _comp_increment(self, iterate, fcn):
         """
         compute Newton's method increment
+        (d(fcn) / d(iterate)) (increment) = -fcn
         """
         logger = logging.getLogger(__name__)
 
@@ -57,7 +58,8 @@ class NewtonSolver:
         fcn_p_delta = iterate_p_delta.comp_fcn(self._workdir, self._fname('fcn_p_delta'),
                                                self.solver_state, step)
         dfcn_darg = (fcn_p_delta - fcn) / delta
-        return (-1.0) * fcn / dfcn_darg
+
+        return (-1.0 / dfcn_darg) * fcn
 
     def step(self):
         """perform a step of Newton's method"""
