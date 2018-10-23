@@ -132,7 +132,7 @@ class ModelState:
 
         sys.exit()
 
-    def comp_jacobian_fcn_state_prod(self, fcn, direction, res_fname, solver):
+    def comp_jacobian_fcn_state_prod(self, res_fname, fcn, direction, solver):
         """
         compute the product of the Jacobian of fcn with a model state direction
 

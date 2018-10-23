@@ -2,10 +2,10 @@
 """Newton's method example"""
 
 import argparse
-import errno
 import logging
 import os
 import sys
+import util
 from solver import SolverState
 from model import ModelState
 
@@ -96,13 +96,7 @@ def _parse_args():
 def main(args):
     """Newton's method example"""
 
-    try:
-        os.mkdir(args.workdir)
-    except OSError as err:
-        if err.errno == errno.EEXIST:
-            pass
-        else:
-            raise
+    util.mkdir_exist_okay(args.workdir)
 
     filemode = 'a' if args.resume else 'w'
     logging.basicConfig(filename=os.path.join(args.workdir, args.log_fname),
