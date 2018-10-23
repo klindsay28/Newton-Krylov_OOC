@@ -10,43 +10,50 @@ import netCDF4 as nc
 class ModelState:
     """class for representing the state space of a model"""
 
-    def __init__(self, fname=None, val=None):
-        self._varnames = ['x1', 'x2', 'x3', 'x4']
-        if (not fname is None) and (not val is None):
-            raise ValueError('fname and val arguments must not both be provided')
+    def __init__(self, fname=None):
+        self._varnames = ['x', 'y']
+        self._dims = dict()
+        self._dims_by_var = dict()
         self._vals = dict()
         if not fname is None:
             with nc.Dataset(fname, mode='r') as fptr:
+                for dimname, dimid in fptr.dimensions.items():
+                    self._dims[dimname] = dimid.size
                 for varname in self._varnames:
-                    self._vals[varname] = fptr.variables[varname][:]
-        if not val is None:
-            for varname in self._varnames:
-                self._vals[varname] = val
-
-    def dump(self, fname, mode='w'):
-        """write ModelState object to a file"""
-        with nc.Dataset(fname, mode=mode) as fptr:
-            for varname, val in self._vals.items():
-                try:
                     varid = fptr.variables[varname]
-                except KeyError:
-                    varid = fptr.createVariable(varname, 'f8')
-                varid[:] = val
+                    self._dims_by_var[varname] = varid.dimensions
+                    self._vals[varname] = varid[:]
+
+    def dump(self, fname):
+        """write ModelState object to a file"""
+        with nc.Dataset(fname, mode='w') as fptr:
+            for dimname, dimlen in self._dims.items():
+                fptr.createDimension(dimname, dimlen)
+            for varname, dims in self._dims_by_var.items():
+                varid = fptr.createVariable(varname, 'f8', dims)
+                varid[:] = self._vals[varname]
 
     def get_val(self, varname):
         """return component of ModelState corresponding to varname"""
         return self._vals[varname]
 
+    def copy_metadata(self):
+        """create ModelState object, copying metadata from self"""
+        res = ModelState()
+        res._dims = self._dims # pylint: disable=W0212
+        res._dims_by_var = self._dims_by_var # pylint: disable=W0212
+        return res
+
     def __neg__(self):
         """unary negation operator"""
-        res = ModelState()
+        res = self.copy_metadata()
         for varname, val in self._vals.items():
             res._vals[varname] = -val # pylint: disable=W0212
         return res
 
     def __add__(self, other):
         """addition operator"""
-        res = ModelState()
+        res = self.copy_metadata()
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val + other # pylint: disable=W0212
@@ -60,7 +67,7 @@ class ModelState:
 
     def __sub__(self, other):
         """subtraction operator"""
-        res = ModelState()
+        res = self.copy_metadata()
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val - other # pylint: disable=W0212
@@ -70,7 +77,7 @@ class ModelState:
 
     def __mul__(self, other):
         """multiplication operator"""
-        res = ModelState()
+        res = self.copy_metadata()
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val * other # pylint: disable=W0212
@@ -84,7 +91,7 @@ class ModelState:
 
     def __truediv__(self, other):
         """division operator"""
-        res = ModelState()
+        res = self.copy_metadata()
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val / other # pylint: disable=W0212
@@ -94,7 +101,7 @@ class ModelState:
 
     def __rtruediv__(self, other):
         """reversed division operator"""
-        res = ModelState()
+        res = self.copy_metadata()
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = other / val # pylint: disable=W0212
@@ -129,5 +136,12 @@ class ModelState:
         """is residual small"""
         dotprod_sum = 0.0
         for val in self._vals.values():
-            dotprod_sum += val.dot(val)
+            if isinstance(val, float):
+                dotprod_sum += val * val
+            elif val.ndim == 1:
+                dotprod_sum += np.einsum('i,i', val, val)
+            elif val.ndim == 2:
+                dotprod_sum += np.einsum('ij,ij', val, val)
+            elif val.ndim == 3:
+                dotprod_sum += np.einsum('ijk,ijk', val, val)
         return np.sqrt(dotprod_sum) < 1.0e-10

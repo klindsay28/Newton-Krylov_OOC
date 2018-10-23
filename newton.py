@@ -12,7 +12,7 @@ from model import ModelState
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
 
-    def __init__(self, workdir, solver_state_fname, resume):
+    def __init__(self, workdir, iterate_fname, solver_state_fname, resume):
         """initialize Newton solver"""
 
         self._workdir = workdir
@@ -21,7 +21,7 @@ class NewtonSolver:
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(val=0.0)
+            iterate = ModelState(fname=iterate_fname)
             iterate.dump(self._fname('iterate'))
             iterate.comp_fcn(self._workdir, self._fname('fcn'), self.solver_state, 'comp_fcn')
 
@@ -33,10 +33,10 @@ class NewtonSolver:
     def log(self):
         """write the state of the instance to the log"""
         iteration = self.solver_state.get_iteration()
-        iterate_val = ModelState(self._fname('iterate')).get_val('x1')
-        fcn_val = ModelState(self._fname('fcn')).get_val('x1')
+        iterate_val = ModelState(self._fname('iterate')).get_val('x').flatten()
+        fcn_val = ModelState(self._fname('fcn')).get_val('x').flatten()
         logger = logging.getLogger(__name__)
-        logger.info('iteration=%d, iterate=%e, fcn=%e', iteration, iterate_val, fcn_val)
+        logger.info('iteration=%d, iterate[0]=%e, fcn[0]=%e', iteration, iterate_val[0], fcn_val[0])
 
     def converged(self):
         """is solver converged"""
@@ -83,6 +83,8 @@ def _parse_args():
                         default='newton.log')
     parser.add_argument('--solver_state_fname', help='name of file where solver state is stored',
                         default='newton_state.json')
+    parser.add_argument('--iterate_fname', help='name of file with initial iterate',
+                        default=None)
     parser.add_argument('--resume', help="resume Newton's method from solver's saved state",
                         action='store_true', default=False)
     parser.add_argument('--rewind', help="rewind last step to recover from error (not implemented)",
@@ -114,6 +116,7 @@ def main(args):
 
     solver = NewtonSolver(workdir=args.workdir,
                           solver_state_fname=args.solver_state_fname,
+                          iterate_fname=args.iterate_fname,
                           resume=args.resume)
 
     if solver.converged():
