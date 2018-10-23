@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import util
 
 class SolverState:
     """
@@ -21,6 +22,10 @@ class SolverState:
 
     def __init__(self, workdir, state_fname, resume):
         """initialize solver state"""
+
+        # ensure workdir exists
+        util.mkdir_exist_okay(workdir)
+
         self._workdir = workdir
         self._state_fname = os.path.join(self._workdir, state_fname)
         self._currstep = None

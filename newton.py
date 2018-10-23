@@ -12,11 +12,14 @@ from model import ModelState
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
 
-    def __init__(self, workdir, iterate_fname, solver_state_fname, resume):
+    def __init__(self, workdir, iterate_fname, resume):
         """initialize Newton solver"""
 
+        # ensure workdir exists
+        util.mkdir_exist_okay(workdir)
+
         self._workdir = workdir
-        self.solver_state = SolverState(workdir, solver_state_fname, resume)
+        self.solver_state = SolverState(workdir, 'newton_state.json', resume)
         self.solver_state.log_saved_state()
 
         # get solver started on an initial run
@@ -34,10 +37,10 @@ class NewtonSolver:
     def log(self):
         """write the state of the instance to the log"""
         iteration = self.solver_state.get_iteration()
-        iterate_val = ModelState(self._fname('iterate')).get_val('x').flatten()
-        fcn_val = ModelState(self._fname('fcn')).get_val('x').flatten()
-        logger = logging.getLogger(__name__)
-        logger.info('iteration=%d, iterate[0]=%e, fcn[0]=%e', iteration, iterate_val[0], fcn_val[0])
+        msg = 'iteration=%02d,iterate'%iteration
+        ModelState(self._fname('iterate')).log(msg)
+        msg = 'iteration=%02d,fcn'%iteration
+        ModelState(self._fname('fcn')).log(msg)
 
     def converged(self):
         """is solver converged"""
@@ -66,7 +69,6 @@ class NewtonSolver:
         iterate = ModelState(self._fname('iterate'))
         fcn = ModelState(self._fname('fcn'))
         increment = self._comp_increment(iterate, fcn)
-        self.log()
         self.solver_state.inc_iteration()
         provisional = iterate + increment
         provisional.dump(self._fname('iterate'))
@@ -82,8 +84,6 @@ def _parse_args():
                         default='work')
     parser.add_argument('--log_fname', help='name of file logging entries are written',
                         default='newton.log')
-    parser.add_argument('--solver_state_fname', help='name of file where solver state is stored',
-                        default='newton_state.json')
     parser.add_argument('--iterate_fname', help='name of file with initial iterate',
                         default=None)
     parser.add_argument('--resume', help="resume Newton's method from solver's saved state",
@@ -96,26 +96,28 @@ def _parse_args():
 def main(args):
     """Newton's method example"""
 
-    util.mkdir_exist_okay(args.workdir)
+    workdir = args.workdir
+
+    util.mkdir_exist_okay(workdir)
 
     filemode = 'a' if args.resume else 'w'
-    logging.basicConfig(filename=os.path.join(args.workdir, args.log_fname),
+    logging.basicConfig(filename=os.path.join(workdir, args.log_fname),
                         filemode=filemode,
                         format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
                         level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    if os.path.exists(os.path.join(args.workdir, 'KILL')):
+    if os.path.exists(os.path.join(workdir, 'KILL')):
         logger.warning('KILL file detected, exiting')
         sys.exit()
 
-    solver = NewtonSolver(workdir=args.workdir,
-                          solver_state_fname=args.solver_state_fname,
+    solver = NewtonSolver(workdir=workdir,
                           iterate_fname=args.iterate_fname,
                           resume=args.resume)
 
+    solver.log()
+
     if solver.converged():
-        solver.log()
         logger.info('convergence criterion satisfied')
     else:
         solver.step()

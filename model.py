@@ -33,6 +33,12 @@ class ModelState:
                 varid = fptr.createVariable(varname, 'f8', dims)
                 varid[:] = self._vals[varname]
 
+    def log(self, msg):
+        """write info of the instance to the log"""
+        logger = logging.getLogger(__name__)
+        for varname, val in self.dot(self).items():
+            logger.info('%s,%s,%e', msg, varname, np.sqrt(val))
+
     def get_val(self, varname):
         """return component of ModelState corresponding to varname"""
         return self._vals[varname]
