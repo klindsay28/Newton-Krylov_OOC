@@ -109,7 +109,7 @@ class ModelState:
                 res._vals[varname] = other._vals[varname] / val # pylint: disable=W0212
         return res
 
-    def comp_fcn(self, workdir, res_fname, solver):
+    def comp_fcn(self, res_fname, solver):
         """
         compute function whose root is being found, store result in res
 
@@ -126,11 +126,30 @@ class ModelState:
 
         solver.log_currstep()
 
-        fcn_arg_fname = os.path.join(workdir, 'fcn_arg.nc')
+        fcn_arg_fname = os.path.join(solver.get_workdir(), 'fcn_arg.nc')
         self.dump(fcn_arg_fname)
         subprocess.Popen(['/bin/bash', './comp_fcn.sh', fcn_arg_fname, res_fname])
 
         sys.exit()
+
+    def comp_jacobian_fcn_state_prod(self, fcn, direction, res_fname, solver):
+        """
+        compute the product of the Jacobian of fcn with a model state direction
+
+        assumes direction is a unit vector
+        """
+
+        sigma = 5.0e-4
+
+        if not solver.currstep_logged():
+            # temporarily use res_fname to store result of comp_fcn
+            # comp_fcn will not return, because step has not been logged
+            iterate_p_sigma = self + sigma * direction
+            iterate_p_sigma.comp_fcn(res_fname, solver)
+
+        # retrieve comp_fcn result from res_fname, and proceed with finite difference
+        res = (ModelState(res_fname) - fcn) / sigma
+        return res.dump(res_fname)
 
     def dot(self, other):
         """compute dot product of self with other"""

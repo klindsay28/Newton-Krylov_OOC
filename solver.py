@@ -36,6 +36,10 @@ class SolverState:
         self._write_saved_state()
         return self._saved_state['iteration']
 
+    def get_workdir(self):
+        """return value of workdir"""
+        return self._workdir
+
     def get_iteration(self):
         """return value of iteration"""
         return self._saved_state['iteration']
