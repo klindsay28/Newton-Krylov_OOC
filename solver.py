@@ -13,6 +13,7 @@ class SolverState:
     Private members are:
     _workdir            directory where files of values are located
     _state_fname        name of file where solver state is stored
+    _set_currstep       name of current step in solver
     _saved_state        dictionary of members saved and recovered across invocations
         iteration           current iteration
         step_log            steps of solver that have been logged in the current iteration
@@ -22,6 +23,7 @@ class SolverState:
         """initialize solver state"""
         self._workdir = workdir
         self._state_fname = os.path.join(self._workdir, state_fname)
+        self._currstep = None
         if resume:
             self._read_saved_state()
         else:
@@ -38,13 +40,17 @@ class SolverState:
         """return value of iteration"""
         return self._saved_state['iteration']
 
-    def step_logged(self, step):
-        """has step been logged in the current iteration"""
-        return step in self._saved_state['step_log']
+    def set_currstep(self, stepval):
+        """set the value of currstep"""
+        self._currstep = stepval
 
-    def log_step(self, step):
-        """log a step for the current iteration"""
-        self._saved_state['step_log'].append(step)
+    def currstep_logged(self):
+        """has currstep been logged in the current iteration"""
+        return self._currstep in self._saved_state['step_log']
+
+    def log_currstep(self):
+        """log currstep for the current iteration"""
+        self._saved_state['step_log'].append(self._currstep)
         self._write_saved_state()
 
     def log_saved_state(self):

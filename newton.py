@@ -23,7 +23,8 @@ class NewtonSolver:
         if not resume:
             iterate = ModelState(fname=iterate_fname)
             iterate.dump(self._fname('iterate'))
-            iterate.comp_fcn(self._workdir, self._fname('fcn'), self.solver_state, 'comp_fcn')
+            self.solver_state.set_currstep('init_comp_fcn')
+            iterate.comp_fcn(self._workdir, self._fname('fcn'), self.solver_state)
 
     def _fname(self, quantity):
         """construct fname corresponding to particular quantity"""
@@ -51,12 +52,12 @@ class NewtonSolver:
 
         logger.info('computing increment')
 
-        step = 'div_diff'
+        self.solver_state.set_currstep('div_diff')
 
         delta = 1.0e-6
         iterate_p_delta = iterate + delta
         fcn_p_delta = iterate_p_delta.comp_fcn(self._workdir, self._fname('fcn_p_delta'),
-                                               self.solver_state, step)
+                                               self.solver_state)
         dfcn_darg = (fcn_p_delta - fcn) / delta
 
         return (-1.0 / dfcn_darg) * fcn
@@ -70,7 +71,8 @@ class NewtonSolver:
         self.solver_state.inc_iteration()
         provisional = iterate + increment
         provisional.dump(self._fname('iterate'))
-        provisional.comp_fcn(self._workdir, self._fname('fcn'), self.solver_state, 'comp_fcn')
+        self.solver_state.set_currstep('step_comp_fcn')
+        provisional.comp_fcn(self._workdir, self._fname('fcn'), self.solver_state)
 
 def _parse_args():
     """parse command line arguments"""

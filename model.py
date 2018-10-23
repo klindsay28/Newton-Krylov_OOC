@@ -109,22 +109,22 @@ class ModelState:
                 res._vals[varname] = other._vals[varname] / val # pylint: disable=W0212
         return res
 
-    def comp_fcn(self, workdir, res_fname, solver, step):
+    def comp_fcn(self, workdir, res_fname, solver):
         """
         compute function whose root is being found, store result in res
 
-        skip computation if the corresponding step has been logged in the solver
+        skip computation if the currstep has been logged in the solver
         re-invoke top-level script and exit, after storing computed result in solver
         """
         logger = logging.getLogger(__name__)
 
-        if solver.step_logged(step):
-            logger.info('%s logged, skipping computation and returning result', step)
+        if solver.currstep_logged():
+            logger.info('currstep logged, skipping computation and returning result')
             return ModelState(fname=res_fname)
 
         logger.info('invoking comp_fcn.sh and exiting')
 
-        solver.log_step(step)
+        solver.log_currstep()
 
         fcn_arg_fname = os.path.join(workdir, 'fcn_arg.nc')
         self.dump(fcn_arg_fname)
