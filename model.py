@@ -132,16 +132,31 @@ class ModelState:
 
         sys.exit()
 
+    def dot(self, other):
+        """compute dot product of self with other"""
+        res = dict()
+        if other is self:
+            for varname, val in self._vals.items():
+                if isinstance(val, float):
+                    res[varname] = val * val
+                elif val.ndim == 1:
+                    res[varname] = np.einsum('i,i', val, val)
+                elif val.ndim == 2:
+                    res[varname] = np.einsum('ij,ij', val, val)
+                elif val.ndim == 3:
+                    res[varname] = np.einsum('ijk,ijk', val, val)
+        else:
+            for varname, val in self._vals.items():
+                if isinstance(val, float):
+                    res[varname] = val * other._vals[varname] # pylint: disable=W0212
+                elif val.ndim == 1:
+                    res[varname] = np.einsum('i,i', val, other._vals[varname]) # pylint: disable=W0212
+                elif val.ndim == 2:
+                    res[varname] = np.einsum('ij,ij', val, other._vals[varname]) # pylint: disable=W0212
+                elif val.ndim == 3:
+                    res[varname] = np.einsum('ijk,ijk', val, other._vals[varname]) # pylint: disable=W0212
+        return res
+
     def converged(self):
         """is residual small"""
-        dotprod_sum = 0.0
-        for val in self._vals.values():
-            if isinstance(val, float):
-                dotprod_sum += val * val
-            elif val.ndim == 1:
-                dotprod_sum += np.einsum('i,i', val, val)
-            elif val.ndim == 2:
-                dotprod_sum += np.einsum('ij,ij', val, val)
-            elif val.ndim == 3:
-                dotprod_sum += np.einsum('ijk,ijk', val, val)
-        return np.sqrt(dotprod_sum) < 1.0e-10
+        return sum(self.dot(self).values()) < 1.0e-10 ** 2
