@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import util
+import numpy as np
 
 class SolverState:
     """
@@ -81,9 +82,20 @@ class SolverState:
     def _write_saved_state(self):
         """write _saved_state to a JSON file"""
         with open(self._state_fname, mode='w') as fptr:
-            json.dump(self._saved_state, fptr, indent=2)
+            json.dump(self._saved_state, fptr, indent=2, cls=NumpyEncoder)
 
     def _read_saved_state(self):
         """read _saved_state from a JSON file"""
         with open(self._state_fname, mode='r') as fptr:
             self._saved_state = json.load(fptr)
+
+class NumpyEncoder(json.JSONEncoder):
+    """
+    extend JSONEncoder to handle numpy ndarray's
+    https://stackoverflow.com/questions/26646362/nump-array-is-not-json-serializable
+    """
+    def default(self, obj):
+        """method called by json.dump, when cls=NumpyEncoder"""
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
