@@ -3,8 +3,8 @@
 import json
 import logging
 import os
-import util
 import numpy as np
+import util
 
 class SolverState:
     """
@@ -87,15 +87,21 @@ class SolverState:
     def _read_saved_state(self):
         """read _saved_state from a JSON file"""
         with open(self._state_fname, mode='r') as fptr:
-            self._saved_state = json.load(fptr)
+            self._saved_state = json.load(fptr, object_hook=json_ndarray_decode)
 
 class NumpyEncoder(json.JSONEncoder):
     """
     extend JSONEncoder to handle numpy ndarray's
     https://stackoverflow.com/questions/26646362/nump-array-is-not-json-serializable
     """
-    def default(self, obj):
+    def default(self, o): # pylint: disable=E0202
         """method called by json.dump, when cls=NumpyEncoder"""
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+        if isinstance(o, np.ndarray):
+            return {'__ndarray__':o.tolist()}
+        return json.JSONEncoder.default(self, o)
+
+def json_ndarray_decode(dct):
+    """decode __ndarray__ tagged entries"""
+    if '__ndarray__' in dct:
+        return np.asarray(dct['__ndarray__'])
+    return dct
