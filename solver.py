@@ -34,16 +34,16 @@ class SolverState:
         else:
             self._saved_state = {'iteration':0, 'step_log':[]}
 
+    def get_workdir(self):
+        """return value of workdir"""
+        return self._workdir
+
     def inc_iteration(self):
         """increment iteration, reset step_log"""
         self._saved_state['iteration'] += 1
         self._saved_state['step_log'] = []
         self._write_saved_state()
         return self._saved_state['iteration']
-
-    def get_workdir(self):
-        """return value of workdir"""
-        return self._workdir
 
     def get_iteration(self):
         """return value of iteration"""
@@ -61,6 +61,15 @@ class SolverState:
         """log currstep for the current iteration"""
         self._saved_state['step_log'].append(self._currstep)
         self._write_saved_state()
+
+    def set_value_saved_state(self, key, value):
+        """add a key value pair to the saved_state dictionary"""
+        self._saved_state[key] = value
+        self._write_saved_state()
+
+    def get_value_saved_state(self, key):
+        """get a value from the saved_state dictionary"""
+        return self._saved_state[key]
 
     def log_saved_state(self):
         """write saved state of solver to log"""
