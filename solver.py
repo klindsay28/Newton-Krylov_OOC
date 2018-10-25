@@ -41,10 +41,13 @@ class SolverState:
 
     def inc_iteration(self):
         """increment iteration, reset step_log"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering, iteration=%d', self._saved_state['iteration'])
         self._currstep = 'inc_iteration'
         self._saved_state['iteration'] += 1
         self._saved_state['step_log'] = []
         self._write_saved_state()
+        logger.debug('returning')
         return self._saved_state['iteration']
 
     def get_iteration(self):
@@ -53,9 +56,12 @@ class SolverState:
 
     def set_currstep(self, stepval):
         """set the value of currstep"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering, stepval="%s"', stepval)
         self._saved_state['step_log'].append(self._currstep)
         self._write_saved_state()
         self._currstep = stepval
+        logger.debug('returning')
 
     def get_currstep(self):
         """get the value of currstep"""
@@ -77,9 +83,9 @@ class SolverState:
     def log_saved_state(self):
         """write saved state of solver to log"""
         logger = logging.getLogger(__name__)
-        logger.info('iteration=%d', self._saved_state['iteration'])
+        logger.debug('iteration=%d', self._saved_state['iteration'])
         for step_name in self._saved_state['step_log']:
-            logger.info('%s completed', step_name)
+            logger.debug('%s completed', step_name)
 
     def _write_saved_state(self):
         """write _saved_state to a JSON file"""

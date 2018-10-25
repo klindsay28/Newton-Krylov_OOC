@@ -51,6 +51,7 @@ class NewtonSolver:
         (d(fcn) / d(iterate)) (increment) = -fcn
         """
         logger = logging.getLogger(__name__)
+        logger.debug('entering')
 
         logger.info('computing increment')
 
@@ -61,10 +62,14 @@ class NewtonSolver:
         fcn_p_delta = iterate_p_delta.comp_fcn(self._fname('fcn_p_delta'), self.solver_state)
         dfcn_darg = (fcn_p_delta - fcn) / delta
 
+        logger.debug('returning')
         return (-1.0 / dfcn_darg) * fcn
 
     def step(self):
         """perform a step of Newton's method"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
+
         iterate = ModelState(self._fname('iterate'))
         fcn = ModelState(self._fname('fcn'))
         increment = self._comp_increment(iterate, fcn)
@@ -72,6 +77,8 @@ class NewtonSolver:
         provisional = (iterate + increment).dump(self._fname('iterate'))
         self.solver_state.set_currstep('step_comp_fcn')
         provisional.comp_fcn(self._fname('fcn'), self.solver_state)
+
+        logger.debug('returning')
 
 def _parse_args():
     """parse command line arguments"""

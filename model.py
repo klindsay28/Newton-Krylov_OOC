@@ -134,6 +134,7 @@ class ModelState:
         re-invoke top-level script and exit, after storing computed result in solver
         """
         logger = logging.getLogger(__name__)
+        logger.debug('entering, res_fname="%s"', res_fname)
 
         # value of currstep upon entry
         currstep_in = solver.get_currstep()
@@ -150,6 +151,7 @@ class ModelState:
         self.dump(fcn_arg_fname)
         subprocess.Popen(['/bin/bash', './comp_fcn.sh', fcn_arg_fname, res_fname])
 
+        logger.debug('calling exit')
         sys.exit()
 
     def comp_jacobian_fcn_state_prod(self, res_fname, fcn, direction, solver):
@@ -158,6 +160,8 @@ class ModelState:
 
         assumes direction is a unit vector
         """
+        logger = logging.getLogger(__name__)
+        logger.debug('entering, res_fname="%s"', res_fname)
 
         sigma = 5.0e-4
 
@@ -168,8 +172,8 @@ class ModelState:
             iterate_p_sigma.comp_fcn(res_fname, solver)
 
         # retrieve comp_fcn result from res_fname, and proceed with finite difference
-        res = (ModelState(res_fname) - fcn) / sigma
-        return res.dump(res_fname)
+        logger.debug('returning')
+        return ((ModelState(res_fname) - fcn) / sigma).dump(res_fname)
 
     def dot(self, other):
         """compute dot product of self with other"""
