@@ -29,7 +29,7 @@ class SolverState:
 
         self._workdir = workdir
         self._state_fname = os.path.join(self._workdir, state_fname)
-        self._currstep = 'init'
+        self._currstep = None
         if resume:
             self._read_saved_state()
         else:
@@ -43,7 +43,7 @@ class SolverState:
         """increment iteration, reset step_log"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, iteration=%d', self._saved_state['iteration'])
-        self._currstep = 'inc_iteration'
+        self._currstep = None
         self._saved_state['iteration'] += 1
         self._saved_state['step_log'] = []
         self._write_saved_state()
@@ -58,7 +58,8 @@ class SolverState:
         """set the value of currstep"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, stepval="%s"', stepval)
-        self._saved_state['step_log'].append(self._currstep)
+        if not self._currstep is None:
+            self._saved_state['step_log'].append(self._currstep)
         self._write_saved_state()
         self._currstep = stepval
         logger.debug('returning')
