@@ -29,7 +29,7 @@ class SolverState:
 
         self._workdir = workdir
         self._state_fname = os.path.join(self._workdir, state_fname)
-        self._currstep = None
+        self._currstep = 'init'
         if resume:
             self._read_saved_state()
         else:
@@ -41,6 +41,7 @@ class SolverState:
 
     def inc_iteration(self):
         """increment iteration, reset step_log"""
+        self._currstep = 'inc_iteration'
         self._saved_state['iteration'] += 1
         self._saved_state['step_log'] = []
         self._write_saved_state()
@@ -52,16 +53,17 @@ class SolverState:
 
     def set_currstep(self, stepval):
         """set the value of currstep"""
+        self._saved_state['step_log'].append(self._currstep)
+        self._write_saved_state()
         self._currstep = stepval
+
+    def get_currstep(self):
+        """get the value of currstep"""
+        return self._currstep
 
     def currstep_logged(self):
         """has currstep been logged in the current iteration"""
         return self._currstep in self._saved_state['step_log']
-
-    def log_currstep(self):
-        """log currstep for the current iteration"""
-        self._saved_state['step_log'].append(self._currstep)
-        self._write_saved_state()
 
     def set_value_saved_state(self, key, value):
         """add a key value pair to the saved_state dictionary"""

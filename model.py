@@ -134,13 +134,16 @@ class ModelState:
         """
         logger = logging.getLogger(__name__)
 
+        # value of currstep upon entry
+        currstep_in = solver.get_currstep()
+
         if solver.currstep_logged():
-            logger.info('currstep logged, skipping computation and returning result')
+            logger.info('"%s" logged, skipping comp_fcn.sh and returning result', currstep_in)
             return ModelState(fname=res_fname)
 
-        logger.info('invoking comp_fcn.sh and exiting')
+        logger.info('"%s" not logged, invoking comp_fcn.sh and exiting', currstep_in)
 
-        solver.log_currstep()
+        solver.set_currstep('%s invoking comp_fcn.sh'%currstep_in)
 
         fcn_arg_fname = os.path.join(solver.get_workdir(), 'fcn_arg.nc')
         self.dump(fcn_arg_fname)

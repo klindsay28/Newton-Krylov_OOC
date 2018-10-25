@@ -55,7 +55,7 @@ class NewtonSolver:
 
         logger.info('computing increment')
 
-        self.solver_state.set_currstep('div_diff')
+        self.solver_state.set_currstep('comp_increment')
 
         delta = 1.0e-6
         iterate_p_delta = iterate + delta
