@@ -63,6 +63,8 @@ class ModelState:
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val + other # pylint: disable=W0212
+            elif isinstance(other, dict):
+                res._vals[varname] = val + other[varname] # pylint: disable=W0212
             else:
                 res._vals[varname] = val + other._vals[varname] # pylint: disable=W0212
         return res
@@ -77,6 +79,8 @@ class ModelState:
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val - other # pylint: disable=W0212
+            elif isinstance(other, dict):
+                res._vals[varname] = val - other[varname] # pylint: disable=W0212
             else:
                 res._vals[varname] = val - other._vals[varname] # pylint: disable=W0212
         return res
@@ -87,6 +91,8 @@ class ModelState:
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val * other # pylint: disable=W0212
+            elif isinstance(other, dict):
+                res._vals[varname] = val * other[varname] # pylint: disable=W0212
             else:
                 res._vals[varname] = val * other._vals[varname] # pylint: disable=W0212
         return res
@@ -101,6 +107,8 @@ class ModelState:
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = val / other # pylint: disable=W0212
+            elif isinstance(other, dict):
+                res._vals[varname] = val / other[varname] # pylint: disable=W0212
             else:
                 res._vals[varname] = val / other._vals[varname] # pylint: disable=W0212
         return res
@@ -111,6 +119,8 @@ class ModelState:
         for varname, val in self._vals.items():
             if isinstance(other, float):
                 res._vals[varname] = other / val # pylint: disable=W0212
+            elif isinstance(other, dict):
+                res._vals[varname] = other[varname] / val # pylint: disable=W0212
             else:
                 res._vals[varname] = other._vals[varname] / val # pylint: disable=W0212
         return res
@@ -149,7 +159,7 @@ class ModelState:
 
         if not solver.currstep_logged():
             # temporarily use res_fname to store result of comp_fcn
-            # comp_fcn will not return, because step has not been logged
+            # we know here that comp_fcn will not return, because step has not been logged
             iterate_p_sigma = self + sigma * direction
             iterate_p_sigma.comp_fcn(res_fname, solver)
 
@@ -180,6 +190,13 @@ class ModelState:
                     res[varname] = np.einsum('ij,ij', val, other._vals[varname]) # pylint: disable=W0212
                 elif val.ndim == 3:
                     res[varname] = np.einsum('ijk,ijk', val, other._vals[varname]) # pylint: disable=W0212
+        return res
+
+    def norm(self):
+        """compute l2 norm of self"""
+        res = self.dot(self)
+        for varname, val in res.items():
+            res[varname] = np.sqrt(val)
         return res
 
     def converged(self):

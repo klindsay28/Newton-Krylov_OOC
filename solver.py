@@ -33,7 +33,7 @@ class SolverState:
         if resume:
             self._read_saved_state()
         else:
-            self._saved_state = {'iteration':0, 'step_log':[]}
+            self._saved_state = {'iteration':1, 'step_log':[]}
 
     def get_workdir(self):
         """return value of workdir"""
