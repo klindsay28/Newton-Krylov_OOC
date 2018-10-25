@@ -32,6 +32,7 @@ class ModelState:
             for varname, dims in self._dims_by_var.items():
                 varid = fptr.createVariable(varname, 'f8', dims)
                 varid[:] = self._vals[varname]
+        return self
 
     def log(self, msg):
         """write info of the instance to the log"""

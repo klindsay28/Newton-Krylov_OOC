@@ -24,8 +24,7 @@ class NewtonSolver:
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(fname=iterate_fname)
-            iterate.dump(self._fname('iterate'))
+            iterate = ModelState(fname=iterate_fname).dump(self._fname('iterate'))
             self.solver_state.set_currstep('init_comp_fcn')
             iterate.comp_fcn(self._fname('fcn'), self.solver_state)
 
@@ -70,8 +69,7 @@ class NewtonSolver:
         fcn = ModelState(self._fname('fcn'))
         increment = self._comp_increment(iterate, fcn)
         self.solver_state.inc_iteration()
-        provisional = iterate + increment
-        provisional.dump(self._fname('iterate'))
+        provisional = (iterate + increment).dump(self._fname('iterate'))
         self.solver_state.set_currstep('step_comp_fcn')
         provisional.comp_fcn(self._fname('fcn'), self.solver_state)
 
