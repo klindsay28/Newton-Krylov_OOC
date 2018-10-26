@@ -24,9 +24,12 @@ class NewtonSolver:
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(fname=iterate_fname).dump(self._fname('iterate'))
+            iterate = ModelState(iterate_fname).dump(self._fname('iterate'))
             self.solver_state.set_currstep('init_comp_fcn')
             iterate.comp_fcn(self._fname('fcn'), self.solver_state)
+
+        self._iterate = ModelState(self._fname('iterate'))
+        self._fcn = ModelState(self._fname('fcn'))
 
     def _fname(self, quantity):
         """construct fname corresponding to particular quantity"""
@@ -37,13 +40,13 @@ class NewtonSolver:
         """write the state of the instance to the log"""
         iteration = self.solver_state.get_iteration()
         msg = 'iteration=%02d,iterate'%iteration
-        ModelState(self._fname('iterate')).log(msg)
+        self._iterate.log(msg)
         msg = 'iteration=%02d,fcn'%iteration
-        ModelState(self._fname('fcn')).log(msg)
+        self._fcn.log(msg)
 
     def converged(self):
         """is solver converged"""
-        return ModelState(self._fname('fcn')).converged()
+        return self._fcn.converged()
 
     def _comp_increment(self, iterate, fcn):
         """
@@ -70,11 +73,10 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        iterate = ModelState(self._fname('iterate'))
-        fcn = ModelState(self._fname('fcn'))
-        increment = self._comp_increment(iterate, fcn)
+        self.solver_state.set_currstep('calling _comp_increment')
+        increment = self._comp_increment(self._iterate, self._fcn)
         self.solver_state.inc_iteration()
-        provisional = (iterate + increment).dump(self._fname('iterate'))
+        provisional = (self._iterate + increment).dump(self._fname('iterate'))
         self.solver_state.set_currstep('step_comp_fcn')
         provisional.comp_fcn(self._fname('fcn'), self.solver_state)
 

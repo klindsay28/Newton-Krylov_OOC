@@ -74,6 +74,17 @@ class ModelState:
         """reversed addition operator"""
         return self + other
 
+    def __iadd__(self, other):
+        """inplace addition operator"""
+        for varname in self._vals:
+            if isinstance(other, float):
+                self._vals[varname] += other
+            elif isinstance(other, dict):
+                self._vals[varname] += other[varname]
+            else:
+                self._vals[varname] += other._vals[varname] # pylint: disable=W0212
+        return self
+
     def __sub__(self, other):
         """subtraction operator"""
         res = self.copy_metadata()
@@ -86,6 +97,17 @@ class ModelState:
                 res._vals[varname] = val - other._vals[varname] # pylint: disable=W0212
         return res
 
+    def __isub__(self, other):
+        """inplace subtraction operator"""
+        for varname in self._vals:
+            if isinstance(other, float):
+                self._vals[varname] -= other
+            elif isinstance(other, dict):
+                self._vals[varname] -= other[varname]
+            else:
+                self._vals[varname] -= other._vals[varname] # pylint: disable=W0212
+        return self
+
     def __mul__(self, other):
         """multiplication operator"""
         res = self.copy_metadata()
@@ -97,6 +119,17 @@ class ModelState:
             else:
                 res._vals[varname] = val * other._vals[varname] # pylint: disable=W0212
         return res
+
+    def __imul__(self, other):
+        """inplace multiplication operator"""
+        for varname in self._vals:
+            if isinstance(other, float):
+                self._vals[varname] *= other
+            elif isinstance(other, dict):
+                self._vals[varname] *= other[varname]
+            else:
+                self._vals[varname] *= other._vals[varname] # pylint: disable=W0212
+        return self
 
     def __rmul__(self, other):
         """reversed multiplication operator"""
