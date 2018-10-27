@@ -110,7 +110,7 @@ def main(args):
     logging.basicConfig(filename=config.get('solverinfo', 'logging_fname'),
                         filemode='a' if args.resume else 'w',
                         format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
-                        level=logging.INFO)
+                        level=config.get('solverinfo', 'logging_level'))
     logger = logging.getLogger(__name__)
 
     if os.path.exists(os.path.join(workdir, 'KILL')):
