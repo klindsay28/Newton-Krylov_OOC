@@ -103,22 +103,20 @@ def main(args):
 
     config = configparser.ConfigParser()
     config.read(args.cfg_fname)
+    solverinfo = config['solverinfo']
 
-    workdir = config.get('solverinfo', 'workdir')
-    util.mkdir_exist_okay(workdir)
-
-    logging.basicConfig(filename=config.get('solverinfo', 'logging_fname'),
+    logging.basicConfig(filename=solverinfo['logging_fname'],
                         filemode='a' if args.resume else 'w',
                         format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
-                        level=config.get('solverinfo', 'logging_level'))
+                        level=solverinfo['logging_level'])
     logger = logging.getLogger(__name__)
 
-    if os.path.exists(os.path.join(workdir, 'KILL')):
+    if os.path.exists('KILL'):
         logger.warning('KILL file detected, exiting')
         sys.exit()
 
-    solver = NewtonSolver(workdir=workdir,
-                          iterate_fname=config.get('solverinfo', 'init_iterate_fname'),
+    solver = NewtonSolver(workdir=solverinfo['workdir'],
+                          iterate_fname=solverinfo['init_iterate_fname'],
                           resume=args.resume)
 
     solver.log()
