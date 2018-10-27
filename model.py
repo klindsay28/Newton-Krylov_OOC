@@ -10,13 +10,13 @@ import netCDF4 as nc
 class ModelState:
     """class for representing the state space of a model"""
 
-    def __init__(self, fname=None):
+    def __init__(self, vals_fname=None):
         self._varnames = ['x', 'y']
         self._dims = dict()
         self._dims_by_var = dict()
         self._vals = dict()
-        if not fname is None:
-            with nc.Dataset(fname, mode='r') as fptr:
+        if not vals_fname is None:
+            with nc.Dataset(vals_fname, mode='r') as fptr:
                 for dimname, dimid in fptr.dimensions.items():
                     self._dims[dimname] = dimid.size
                 for varname in self._varnames:
@@ -24,9 +24,9 @@ class ModelState:
                     self._dims_by_var[varname] = varid.dimensions
                     self._vals[varname] = varid[:]
 
-    def dump(self, fname):
+    def dump(self, vals_fname):
         """write ModelState object to a file"""
-        with nc.Dataset(fname, mode='w') as fptr:
+        with nc.Dataset(vals_fname, mode='w') as fptr:
             for dimname, dimlen in self._dims.items():
                 fptr.createDimension(dimname, dimlen)
             for varname, dims in self._dims_by_var.items():
@@ -174,7 +174,7 @@ class ModelState:
 
         if solver.currstep_logged():
             logger.info('"%s" logged, skipping comp_fcn.sh and returning result', currstep_in)
-            return ModelState(fname=res_fname)
+            return ModelState(vals_fname=res_fname)
 
         logger.info('"%s" not logged, invoking comp_fcn.sh and exiting', currstep_in)
 

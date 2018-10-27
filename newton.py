@@ -2,6 +2,7 @@
 """Newton's method example"""
 
 import argparse
+import configparser
 import logging
 import os
 import sys
@@ -87,12 +88,9 @@ def _parse_args():
 
     parser = argparse.ArgumentParser(description="Newton's method example")
 
-    parser.add_argument('--workdir', help='directory where files of state vectors are stored',
-                        default='work')
-    parser.add_argument('--log_fname', help='name of file logging entries are written',
-                        default='newton.log')
-    parser.add_argument('--iterate_fname', help='name of file with initial iterate',
-                        default=None)
+    parser.add_argument('--cfg_fname', help='name of configuration file',
+                        default='newton.cfg')
+
     parser.add_argument('--resume', help="resume Newton's method from solver's saved state",
                         action='store_true', default=False)
     parser.add_argument('--rewind', help="rewind last step to recover from error (not implemented)",
@@ -103,13 +101,14 @@ def _parse_args():
 def main(args):
     """Newton's method example"""
 
-    workdir = args.workdir
+    config = configparser.ConfigParser()
+    config.read(args.cfg_fname)
 
+    workdir = config.get('solverinfo', 'workdir')
     util.mkdir_exist_okay(workdir)
 
-    filemode = 'a' if args.resume else 'w'
-    logging.basicConfig(filename=os.path.join(workdir, args.log_fname),
-                        filemode=filemode,
+    logging.basicConfig(filename=config.get('solverinfo', 'logging_fname'),
+                        filemode='a' if args.resume else 'w',
                         format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
                         level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -119,7 +118,7 @@ def main(args):
         sys.exit()
 
     solver = NewtonSolver(workdir=workdir,
-                          iterate_fname=args.iterate_fname,
+                          iterate_fname=config.get('solverinfo', 'init_iterate_fname'),
                           resume=args.resume)
 
     solver.log()
