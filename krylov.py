@@ -31,7 +31,7 @@ class KrylovSolver:
 
         self._workdir = workdir
         self._tracer_module_names = tracer_module_names
-        self._module_cnt = len(tracer_module_names)
+        self._tracer_module_cnt = len(tracer_module_names)
         self.solver_state = SolverState(workdir, 'krylov_state.json', resume)
         self.solver_state.log_saved_state()
 
@@ -63,7 +63,7 @@ class KrylovSolver:
 
         while not self.converged():
             j_val = self.solver_state.get_iteration()
-            h_mat = np.zeros((self._module_cnt, j_val+2, j_val+1))
+            h_mat = np.zeros((self._tracer_module_cnt, j_val+2, j_val+1))
             if j_val > 0:
                 h_mat[:, 0:j_val+1, 0:j_val] = self.solver_state.get_value_saved_state('h_mat')
             basis_j = ModelState(self._tracer_module_names, self._fname('basis'))

@@ -12,10 +12,10 @@ class ModelState:
 
     def __init__(self, tracer_module_names, vals_fname=None):
         self._tracer_module_names = tracer_module_names
-        self._module_cnt = len(tracer_module_names)
-        self._tracer_modules = np.empty(shape=(self._module_cnt,), dtype=np.object)
+        self._tracer_module_cnt = len(tracer_module_names)
+        self._tracer_modules = np.empty(shape=(self._tracer_module_cnt,), dtype=np.object)
         if not vals_fname is None:
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] = TracerModule(tracer_module_names[ind], vals_fname)
 
     def dump(self, vals_fname):
@@ -30,7 +30,7 @@ class ModelState:
         """write info of the instance to the log"""
         logger = logging.getLogger(__name__)
         val = self.norm()
-        for ind in range(self._module_cnt):
+        for ind in range(self._tracer_module_cnt):
             logger.info('%s,%s,%e', msg, self._tracer_module_names[ind], val[ind])
 
     # give ModelState operators higher priority than those of numpy
@@ -42,7 +42,7 @@ class ModelState:
         called to evaluate res = -self
         """
         res = ModelState(self._tracer_module_names)
-        for ind in range(self._module_cnt):
+        for ind in range(self._tracer_module_cnt):
             res._tracer_modules[ind] = -self._tracer_modules[ind] # pylint: disable=W0212
         return res
 
@@ -53,13 +53,13 @@ class ModelState:
         """
         res = ModelState(self._tracer_module_names)
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] + other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] + other[ind] # pylint: disable=W0212
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] + other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -78,13 +78,13 @@ class ModelState:
         called to evaluate self += other
         """
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] += other
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] += other[ind]
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] += other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -97,13 +97,13 @@ class ModelState:
         """
         res = ModelState(self._tracer_module_names)
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] - other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] - other[ind] # pylint: disable=W0212
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] - other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -115,13 +115,13 @@ class ModelState:
         called to evaluate self -= other
         """
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] -= other
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] -= other[ind]
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] -= other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -134,13 +134,13 @@ class ModelState:
         """
         res = ModelState(self._tracer_module_names)
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] * other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] * other[ind] # pylint: disable=W0212
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] * other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -159,13 +159,13 @@ class ModelState:
         called to evaluate self *= other
         """
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] *= other
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] *= other[ind]
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] *= other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -178,13 +178,13 @@ class ModelState:
         """
         res = ModelState(self._tracer_module_names)
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = (1.0 / other) * self._tracer_modules[ind] # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = (1.0 / other[ind]) * self._tracer_modules[ind] # pylint: disable=W0212
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = self._tracer_modules[ind] / other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -197,13 +197,13 @@ class ModelState:
         """
         res = ModelState(self._tracer_module_names)
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = other / self._tracer_modules[ind] # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = other[ind] / self._tracer_modules[ind] # pylint: disable=W0212
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 res._tracer_modules[ind] = other._tracer_modules[ind] / self._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -215,13 +215,13 @@ class ModelState:
         called to evaluate self /= other
         """
         if isinstance(other, float):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] *= (1.0 / other)
-        elif isinstance(other, np.ndarray) and other.shape == (self._module_cnt,):
-            for ind in range(self._module_cnt):
+        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] *= (1.0 / other[ind])
         elif isinstance(other, ModelState):
-            for ind in range(self._module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 self._tracer_modules[ind] /= other._tracer_modules[ind] # pylint: disable=W0212
         else:
             return NotImplemented
@@ -229,8 +229,8 @@ class ModelState:
 
     def dot(self, other):
         """compute dot product of self with other"""
-        res = np.empty(shape=(self._module_cnt,))
-        for ind in range(self._module_cnt):
+        res = np.empty(shape=(self._tracer_module_cnt,))
+        for ind in range(self._tracer_module_cnt):
             res[ind] = self._tracer_modules[ind].dot(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
 
@@ -247,7 +247,7 @@ class ModelState:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty(shape=(self._module_cnt, cnt))
+        h_val = np.empty(shape=(self._tracer_module_cnt, cnt))
         for i_val in range(0, cnt):
             basis_i = ModelState(self._tracer_module_names, fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot(basis_i)
@@ -328,19 +328,17 @@ class TracerModule:
                 for varname in self._varnames:
                     if fptr.variables[varname].dimensions != dimnames0:
                         raise ValueError('not all vars have same dimensions',
-                                         name, vals_fname)
+                                         'TracerModule name=', name,
+                                         'vals_fname=', vals_fname)
                 # read values
-                ndims = len(self._dims)
+                if len(self._dims) > 3:
+                    raise ValueError('ndims too large (for implementation of dot)',
+                                     'TracerModule name=', name,
+                                     'fals_fname=', vals_fname,
+                                     'ndims=', len(self._dims))
                 for varind, varname in enumerate(self._varnames):
                     varid = fptr.variables[varname]
-                    if ndims == 1:
-                        self._vals[varind, :] = varid[:]
-                    elif ndims == 2:
-                        self._vals[varind, :, :] = varid[:]
-                    elif ndims == 3:
-                        self._vals[varind, :, :, :] = varid[:]
-                    else:
-                        raise TypeError('ndims too large', name, vals_fname, ndims)
+                    self._vals[varind, :] = varid[:]
 
     def dump(self, fptr, action):
         """perform an action (define or write) of dumping a TracerModule object to an open file"""
@@ -348,21 +346,17 @@ class TracerModule:
             for dimname, dimlen in self._dims.items():
                 try:
                     if fptr.dimensions[dimname].size != dimlen:
-                        raise ValueError(dimname, 'already exists and has wrong size')
+                        raise ValueError('dimname already exists and has wrong size',
+                                         'TracerModule name=', self._name,
+                                         'dimname=', dimname)
                 except KeyError:
                     fptr.createDimension(dimname, dimlen)
             dimnames = tuple(self._dims.keys())
             for varname in self._varnames:
                 fptr.createVariable(varname, 'f8', dimensions=dimnames)
         elif action == 'write':
-            ndims = len(self._dims)
             for varind, varname in enumerate(self._varnames):
-                if ndims == 1:
-                    fptr.variables[varname][:] = self._vals[varind, :]
-                elif ndims == 2:
-                    fptr.variables[varname][:] = self._vals[varind, :, :]
-                else:
-                    fptr.variables[varname][:] = self._vals[varind, :, :, :]
+                fptr.variables[varname][:] = self._vals[varind, :]
         else:
             raise ValueError('unknown action=', action)
         return self
@@ -514,7 +508,6 @@ class TracerModule:
     def dot(self, other):
         """compute dot product of self with other"""
         ndims = len(self._dims)
-
         if ndims == 1:
             return np.einsum('ij,ij', self._vals, other._vals) # pylint: disable=W0212
         if ndims == 2:
