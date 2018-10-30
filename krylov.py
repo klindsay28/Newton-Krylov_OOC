@@ -78,10 +78,10 @@ class KrylovSolver:
             w_j.dump(self._fname('basis'))
 
             # solve least-squares minimization problem for each tracer module
-            y_coeff = self.comp_krylov_basis_coeffs(h_mat)
+            coeff = self.comp_krylov_basis_coeffs(h_mat)
 
             # construct approximate solution
-            res = lin_comb(self._tracer_module_names, y_coeff, self._fname, 'basis')
+            res = lin_comb(self._tracer_module_names, coeff, self._fname, 'basis')
             res.dump(self._fname('res', j_val))
 
             if self.converged():
@@ -94,13 +94,14 @@ class KrylovSolver:
         """solve least-squares minimization problem for each tracer module"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
-        y_coeff = np.zeros((self._tracer_module_cnt, h_mat.shape[-1]))
+        coeff = np.zeros((self._tracer_module_cnt, h_mat.shape[-1]))
         lstsq_rhs = np.zeros(h_mat.shape[-2])
         beta = self.solver_state.get_value_saved_state('beta')
         for ind in range(self._tracer_module_cnt):
             lstsq_rhs[0] = beta[ind]
-            y_coeff[ind, :] = np.linalg.lstsq(h_mat[ind, :, :], lstsq_rhs, rcond=None)[0]
-            for j_val in range(y_coeff.shape[-1]):
-                logger.info('ycoeff[%d,%d]=%e', ind, j_val, y_coeff[ind, j_val])
+            coeff[ind, :] = np.linalg.lstsq(h_mat[ind, :, :], lstsq_rhs, rcond=None)[0]
+            for j_val in range(coeff.shape[-1]):
+                logger.info('coeff[%s,%d]=%e', self._tracer_module_names[ind], j_val,
+                            coeff[ind, j_val])
         logger.debug('returning')
-        return y_coeff
+        return coeff
