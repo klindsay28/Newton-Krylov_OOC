@@ -274,6 +274,13 @@ class ModelState:
         logger.debug('returning')
         return ((ModelState(self._tracer_module_names, res_fname) - fcn) / sigma).dump(res_fname)
 
+def lin_comb(tracer_module_names, coeff, fname_fcn, quantity):
+    """compute a linear combination of ModelState objects in files"""
+    res = coeff[:, 0] * ModelState(tracer_module_names, fname_fcn(quantity, 0))
+    for j_val in range(1, coeff.shape[-1]):
+        res += coeff[:, j_val] * ModelState(tracer_module_names, fname_fcn(quantity, j_val))
+    return res
+
 class TracerModule:
     """class for representing the a collection of model tracers"""
 

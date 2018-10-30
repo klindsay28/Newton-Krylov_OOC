@@ -5,7 +5,7 @@ import os
 import numpy as np
 import util
 from solver import SolverState
-from model import ModelState
+from model import ModelState, lin_comb
 
 class KrylovSolver:
     """
@@ -65,25 +65,42 @@ class KrylovSolver:
             j_val = self.solver_state.get_iteration()
             h_mat = np.zeros((self._tracer_module_cnt, j_val+2, j_val+1))
             if j_val > 0:
-                h_mat[:, 0:j_val+1, 0:j_val] = self.solver_state.get_value_saved_state('h_mat')
+                h_mat[:, :-1, :-1] = self.solver_state.get_value_saved_state('h_mat')
             basis_j = ModelState(self._tracer_module_names, self._fname('basis'))
             self.solver_state.set_currstep('solve_comp_jacobian_fcn_state_prod')
             w_j = iterate.comp_jacobian_fcn_state_prod(
                 self._fname('w'), fcn, basis_j, self.solver_state)
-            h_mat[:, j_val+1, 0:j_val+1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
-            h_mat[:, j_val+1, j_val] = w_j.norm()
+            h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
+            h_mat[:, -1, -1] = w_j.norm()
             self.solver_state.set_value_saved_state('h_mat', h_mat)
-            w_j /= h_mat[:, j_val+1, j_val]
+            w_j /= h_mat[:, -1, -1]
             self.solver_state.inc_iteration()
             w_j.dump(self._fname('basis'))
 
-            # solve least-squares minimization problem, using np.linalg.lstsq
+            # solve least-squares minimization problem for each tracer module
+            y_coeff = self.comp_krylov_basis_coeffs(h_mat)
 
-        self.solver_state.set_currstep('solve_comp_fcn')
-        delta = 1.0e-6
-        iterate_p_delta = iterate + delta
-        fcn_p_delta = iterate_p_delta.comp_fcn(self._fname('fcn_p_delta'), self.solver_state)
-        dfcn_darg = (fcn_p_delta - fcn) / delta
+            # construct approximate solution
+            res = lin_comb(self._tracer_module_names, y_coeff, self._fname, 'basis')
+            res.dump(self._fname('res', j_val))
+
+            if self.converged():
+                break
 
         logger.debug('returning')
-        return ((-1.0 / dfcn_darg) * fcn).dump(res_fname)
+        return res.dump(res_fname)
+
+    def comp_krylov_basis_coeffs(self, h_mat):
+        """solve least-squares minimization problem for each tracer module"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
+        y_coeff = np.zeros((self._tracer_module_cnt, h_mat.shape[-1]))
+        lstsq_rhs = np.zeros(h_mat.shape[-2])
+        beta = self.solver_state.get_value_saved_state('beta')
+        for ind in range(self._tracer_module_cnt):
+            lstsq_rhs[0] = beta[ind]
+            y_coeff[ind, :] = np.linalg.lstsq(h_mat[ind, :, :], lstsq_rhs, rcond=None)[0]
+            for j_val in range(y_coeff.shape[-1]):
+                logger.info('ycoeff[%d,%d]=%e', ind, j_val, y_coeff[ind, j_val])
+        logger.debug('returning')
+        return y_coeff
