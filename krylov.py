@@ -56,7 +56,7 @@ class KrylovSolver:
         """is solver converged"""
         return self.solver_state.get_iteration() >= 3
 
-    def solve(self, res_fname, iterate, fcn):
+    def solve(self, krylov_solve_res_fname, iterate, fcn):
         """apply Krylov method"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
@@ -68,8 +68,7 @@ class KrylovSolver:
                 h_mat[:, :-1, :-1] = self.solver_state.get_value_saved_state('h_mat')
             basis_j = ModelState(self._tracer_module_names, self._fname('basis'))
             self.solver_state.set_currstep('solve_comp_jacobian_fcn_state_prod')
-            w_j = iterate.comp_jacobian_fcn_state_prod(
-                self._fname('w'), fcn, basis_j, self.solver_state)
+            w_j = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self.solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()
             self.solver_state.set_value_saved_state('h_mat', h_mat)
@@ -82,13 +81,13 @@ class KrylovSolver:
 
             # construct approximate solution
             res = lin_comb(self._tracer_module_names, coeff, self._fname, 'basis')
-            res.dump(self._fname('res', j_val))
+            res.dump(self._fname('krylov_res', j_val))
 
             if self.converged():
                 break
 
         logger.debug('returning')
-        return res.dump(res_fname)
+        return res.dump(krylov_solve_res_fname)
 
     def comp_krylov_basis_coeffs(self, h_mat):
         """solve least-squares minimization problem for each tracer module"""

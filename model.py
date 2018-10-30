@@ -225,7 +225,7 @@ class ModelState:
             self -= h_val[:, i_val] * basis_i
         return h_val
 
-    def comp_fcn(self, res_fname, solver):
+    def comp_fcn(self, comp_fcn_res_fname, solver):
         """
         compute function whose root is being found, store result in res
 
@@ -233,46 +233,45 @@ class ModelState:
         re-invoke top-level script and exit, after storing computed result in solver
         """
         logger = logging.getLogger(__name__)
-        logger.debug('entering, res_fname="%s"', res_fname)
+        logger.debug('entering, comp_fcn_res_fname="%s"', comp_fcn_res_fname)
 
         # value of currstep upon entry
         currstep_in = solver.get_currstep()
 
         if solver.currstep_logged():
             logger.info('"%s" logged, skipping comp_fcn.sh and returning result', currstep_in)
-            return ModelState(self._tracer_module_names, res_fname)
+            return ModelState(self._tracer_module_names, comp_fcn_res_fname)
 
         logger.info('"%s" not logged, invoking comp_fcn.sh and exiting', currstep_in)
 
         solver.set_currstep('%s invoking comp_fcn.sh'%currstep_in)
 
-        fcn_arg_fname = os.path.join(solver.get_workdir(), 'fcn_arg.nc')
-        self.dump(fcn_arg_fname)
-        subprocess.Popen(['/bin/bash', './comp_fcn.sh', fcn_arg_fname, res_fname])
+        comp_fcn_arg_fname = os.path.join(solver.get_workdir(), 'fcn_arg.nc')
+        self.dump(comp_fcn_arg_fname)
+        subprocess.Popen(['/bin/bash', './comp_fcn.sh', comp_fcn_arg_fname, comp_fcn_res_fname])
 
         logger.debug('calling exit')
         sys.exit()
 
-    def comp_jacobian_fcn_state_prod(self, res_fname, fcn, direction, solver):
+    def comp_jacobian_fcn_state_prod(self, fcn, direction, solver):
         """
         compute the product of the Jacobian of fcn with a model state direction
 
         assumes direction is a unit vector
         """
         logger = logging.getLogger(__name__)
-        logger.debug('entering, res_fname="%s"', res_fname)
+        logger.debug('entering')
 
-        sigma = 5.0e-4
+        sigma = 1.0e-5 * self.norm()
+
+        comp_fcn_res_fname = os.path.join(solver.get_workdir(), 'fcn_res.nc')
 
         if not solver.currstep_logged():
-            # temporarily use res_fname to store result of comp_fcn
-            # we know here that comp_fcn will not return, because step has not been logged
-            iterate_p_sigma = self + sigma * direction
-            iterate_p_sigma.comp_fcn(res_fname, solver)
+            (self + sigma * direction).comp_fcn(comp_fcn_res_fname, solver)
 
-        # retrieve comp_fcn result from res_fname, and proceed with finite difference
+        # retrieve comp_fcn result from comp_fcn_res_fname, and proceed with finite difference
         logger.debug('returning')
-        return ((ModelState(self._tracer_module_names, res_fname) - fcn) / sigma).dump(res_fname)
+        return ((ModelState(self._tracer_module_names, comp_fcn_res_fname) - fcn) / sigma)
 
 def lin_comb(tracer_module_names, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelState objects in files"""
