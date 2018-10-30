@@ -16,7 +16,8 @@ class ModelState:
         if not vals_fname is None:
             self._tracer_modules = np.empty(shape=(self._tracer_module_cnt,), dtype=np.object)
             for ind in range(self._tracer_module_cnt):
-                self._tracer_modules[ind] = TracerModule(tracer_module_names[ind], vals_fname)
+                self._tracer_modules[ind] = TracerModule(tracer_module_names[ind],
+                                                         vals_fname=vals_fname)
 
     def dump(self, vals_fname):
         """dump ModelState object to a file"""
@@ -178,8 +179,6 @@ class ModelState:
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
-        elif isinstance(other, ModelState):
-            res._tracer_modules = other._tracer_modules / self._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -278,7 +277,7 @@ class ModelState:
 class TracerModule:
     """class for representing the a collection of model tracers"""
 
-    def __init__(self, name, vals_fname=None):
+    def __init__(self, name, dims=None, vals_fname=None):
         module_varnames = {'x':['x1', 'x2'], 'y':['y']}
 
         self._name = name
@@ -286,8 +285,12 @@ class TracerModule:
             self._varnames = module_varnames[name]
         except KeyError:
             raise KeyError('unknown TracerModule name=', name)
-        self._dims = {}
+        if dims is None != vals_fname is None:
+            raise ValueError('exactly one of dims and vals_fname must be passed')
+        if not dims is None:
+            self._dims = dims
         if not vals_fname is None:
+            self._dims = {}
             with nc.Dataset(vals_fname, mode='r') as fptr:
                 # get dims from first variable
                 dimnames0 = fptr.variables[self._varnames[0]].dimensions
@@ -333,18 +336,12 @@ class TracerModule:
             raise ValueError('unknown action=', action)
         return self
 
-    def metadata_only(self):
-        """create TracerModule object, copying metadata from self"""
-        res = TracerModule(self._name)
-        res._dims = self._dims # pylint: disable=W0212
-        return res
-
     def __neg__(self):
         """
         unary negation operator
         called to evaluate res = -self
         """
-        res = self.metadata_only()
+        res = TracerModule(self._name, dims=self._dims)
         res._vals = -self._vals # pylint: disable=W0212
         return res
 
@@ -353,7 +350,7 @@ class TracerModule:
         addition operator
         called to evaluate res = self + other
         """
-        res = self.metadata_only()
+        res = TracerModule(self._name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals + other # pylint: disable=W0212
         elif isinstance(other, TracerModule):
@@ -380,7 +377,7 @@ class TracerModule:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = self.metadata_only()
+        res = TracerModule(self._name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals - other # pylint: disable=W0212
         elif isinstance(other, TracerModule):
@@ -407,7 +404,7 @@ class TracerModule:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = self.metadata_only()
+        res = TracerModule(self._name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals * other # pylint: disable=W0212
         elif isinstance(other, TracerModule):
@@ -441,7 +438,7 @@ class TracerModule:
         division operator
         called to evaluate res = self / other
         """
-        res = self.metadata_only()
+        res = TracerModule(self._name, dims=self._dims)
         if isinstance(other, float):
             res._vals = (1.0 / other) * self._vals # pylint: disable=W0212
         elif isinstance(other, TracerModule):
@@ -455,11 +452,9 @@ class TracerModule:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = self.metadata_only()
+        res = TracerModule(self._name, dims=self._dims)
         if isinstance(other, float):
             res._vals = other / self._vals # pylint: disable=W0212
-        elif isinstance(other, TracerModule):
-            res._vals = other._vals / self._vals # pylint: disable=W0212
         else:
             return NotImplemented
         return res
