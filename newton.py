@@ -9,6 +9,7 @@ import sys
 import util
 from solver import SolverState
 from model import ModelState
+from krylov import KrylovSolver
 
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
@@ -61,15 +62,13 @@ class NewtonSolver:
 
         logger.info('computing increment')
 
-        self.solver_state.set_currstep('comp_increment')
-
-        delta = 1.0e-6
-        iterate_p_delta = iterate + delta
-        fcn_p_delta = iterate_p_delta.comp_fcn(self._fname('fcn_p_delta'), self.solver_state)
-        dfcn_darg = (fcn_p_delta - fcn) / delta
-
+        self.solver_state.set_currstep('instantiating KrylovSolver')
+        krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self.solver_state.get_iteration())
+        resume = self.solver_state.currstep_logged()
+        krylov = KrylovSolver(krylov_dir, self.tracer_module_names, fcn, resume)
+        self.solver_state.set_currstep('calling krylov.solve')
         logger.debug('returning')
-        return (-1.0 / dfcn_darg) * fcn
+        return krylov.solve(self._fname('increment'), iterate, fcn)
 
     def step(self):
         """perform a step of Newton's method"""

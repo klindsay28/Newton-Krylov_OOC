@@ -242,6 +242,18 @@ class ModelState:
         """is residual small"""
         return all(self.norm() < 1.0e-10)
 
+    def mod_gram_schmidt(self, cnt, fname_fcn, quantity):
+        """
+        inplace modified Gram-Schmidt projection
+        return projection coefficients
+        """
+        h_val = np.empty(shape=(self._module_cnt, cnt))
+        for i_val in range(0, cnt):
+            basis_i = ModelState(self._tracer_module_names, fname_fcn(quantity, i_val))
+            h_val[:, i_val] = self.dot(basis_i)
+            self -= h_val[:, i_val] * basis_i
+        return h_val
+
     def comp_fcn(self, res_fname, solver):
         """
         compute function whose root is being found, store result in res
