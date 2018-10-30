@@ -13,7 +13,7 @@ from model import ModelState
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
 
-    def __init__(self, workdir, iterate_fname, resume):
+    def __init__(self, workdir, iterate_fname, modelinfo, resume):
         """initialize Newton solver"""
 
         # ensure workdir exists
@@ -22,15 +22,17 @@ class NewtonSolver:
         self._workdir = workdir
         self.solver_state = SolverState(workdir, 'newton_state.json', resume)
         self.solver_state.log_saved_state()
+        self.tracer_module_names = modelinfo['tracer_module_names'].split(',')
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(iterate_fname).dump(self._fname('iterate'))
+            iterate = ModelState(self.tracer_module_names, iterate_fname)
+            iterate.dump(self._fname('iterate'))
             self.solver_state.set_currstep('init_comp_fcn')
             iterate.comp_fcn(self._fname('fcn'), self.solver_state)
 
-        self._iterate = ModelState(self._fname('iterate'))
-        self._fcn = ModelState(self._fname('fcn'))
+        self._iterate = ModelState(self.tracer_module_names, self._fname('iterate'))
+        self._fcn = ModelState(self.tracer_module_names, self._fname('fcn'))
 
     def _fname(self, quantity):
         """construct fname corresponding to particular quantity"""
@@ -117,6 +119,7 @@ def main(args):
 
     solver = NewtonSolver(workdir=solverinfo['workdir'],
                           iterate_fname=solverinfo['init_iterate_fname'],
+                          modelinfo=config['modelinfo'],
                           resume=args.resume)
 
     solver.log()
