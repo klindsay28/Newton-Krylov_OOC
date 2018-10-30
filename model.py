@@ -271,7 +271,7 @@ class ModelState:
 
         # retrieve comp_fcn result from comp_fcn_res_fname, and proceed with finite difference
         logger.debug('returning')
-        return ((ModelState(self._tracer_module_names, comp_fcn_res_fname) - fcn) / sigma)
+        return (ModelState(self._tracer_module_names, comp_fcn_res_fname) - fcn) / sigma
 
 def lin_comb(tracer_module_names, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelState objects in files"""
