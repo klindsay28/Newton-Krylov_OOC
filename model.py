@@ -249,6 +249,9 @@ class ModelState:
         self.dump(ext_cmd_in_fname)
         subprocess.Popen(['/bin/bash', ext_cmd, ext_cmd_in_fname, res_fname])
 
+        logger.debug('flushing solver_state')
+        solver_state.flush()
+
         logger.debug('calling exit')
         sys.exit()
 
@@ -268,12 +271,7 @@ class ModelState:
         solver_state.set_currstep('comp_jacobian_fcn_state_prod_comp_fcn')
         # skip computation of peturbed state if corresponding run_ext_cmd has already been run
         if not solver_state.currstep_logged():
-            try:
-                (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver_state)
-            except SystemExit:
-                logger.debug('flushing solver_state')
-                solver_state.flush()
-                raise
+            (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver_state)
 
         # retrieve comp_fcn result from res_fname, and proceed with finite difference
         logger.debug('returning')
