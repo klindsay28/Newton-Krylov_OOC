@@ -225,34 +225,34 @@ class ModelState:
             self -= h_val[:, i_val] * basis_i
         return h_val
 
-    def run_ext_cmd(self, ext_cmd, res_fname, solver):
+    def run_ext_cmd(self, ext_cmd, res_fname, solver_state):
         """
         Run an external command (e.g., a shell script).
         The external command is expected to take 2 arguments: in_fname, res_fname
         in_fname is populated with the contents of self
 
-        Skip running the command if currstep of the solver has been logged.
+        Skip running the command if currstep generated below has been logged in solver_state.
         """
         logger = logging.getLogger(__name__)
         logger.debug('entering, ext_cmd="%s", res_fname="%s"', ext_cmd, res_fname)
 
         currstep = 'calling %s for %s'%(ext_cmd, res_fname)
-        solver.set_currstep(currstep)
+        solver_state.set_currstep(currstep)
 
-        if solver.currstep_logged():
+        if solver_state.currstep_logged():
             logger.info('"%s" logged, skipping %s and returning result', currstep, ext_cmd)
             return ModelState(self._tracer_module_names, res_fname)
 
         logger.info('"%s" not logged, invoking %s and exiting', currstep, ext_cmd)
 
-        ext_cmd_in_fname = os.path.join(solver.get_workdir(), 'ext_in.nc')
+        ext_cmd_in_fname = os.path.join(solver_state.get_workdir(), 'ext_in.nc')
         self.dump(ext_cmd_in_fname)
         subprocess.Popen(['/bin/bash', ext_cmd, ext_cmd_in_fname, res_fname])
 
         logger.debug('calling exit')
         sys.exit()
 
-    def comp_jacobian_fcn_state_prod(self, fcn, direction, solver):
+    def comp_jacobian_fcn_state_prod(self, fcn, direction, solver_state):
         """
         compute the product of the Jacobian of fcn at self with the model state direction
 
@@ -263,16 +263,16 @@ class ModelState:
 
         sigma = 1.0e-5 * self.norm()
 
-        res_fname = os.path.join(solver.get_workdir(), 'fcn_res.nc')
+        res_fname = os.path.join(solver_state.get_workdir(), 'fcn_res.nc')
 
-        solver.set_currstep('comp_jacobian_fcn_state_prod_comp_fcn')
+        solver_state.set_currstep('comp_jacobian_fcn_state_prod_comp_fcn')
         # skip computation of peturbed state if corresponding run_ext_cmd has already been run
-        if not solver.currstep_logged():
+        if not solver_state.currstep_logged():
             try:
-                (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver)
+                (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver_state)
             except SystemExit:
-                logger.debug('flushing solver')
-                solver.flush()
+                logger.debug('flushing solver_state')
+                solver_state.flush()
                 raise
 
         # retrieve comp_fcn result from res_fname, and proceed with finite difference

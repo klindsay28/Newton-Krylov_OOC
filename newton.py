@@ -70,12 +70,12 @@ class NewtonSolver:
 
         logger.info('computing increment')
 
-        self._solver_state.set_currstep('instantiating KrylovSolver')
         krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self._solver_state.get_iteration())
+        self._solver_state.set_currstep('instantiating KrylovSolver')
         resume = self._solver_state.currstep_logged()
-        krylov = KrylovSolver(krylov_dir, self._tracer_module_names, fcn, resume)
+        krylov_solver = KrylovSolver(krylov_dir, self._tracer_module_names, fcn, resume)
         try:
-            increment = krylov.solve(self._fname('increment'), iterate, fcn)
+            increment = krylov_solver.solve(self._fname('increment'), iterate, fcn)
         except SystemExit:
             logger.debug('flushing self._solver_state')
             self._solver_state.flush()
@@ -132,17 +132,17 @@ def main(args):
         logger.warning('KILL file detected, exiting')
         sys.exit()
 
-    solver = NewtonSolver(workdir=solverinfo['workdir'],
-                          iterate_fname=solverinfo['init_iterate_fname'],
-                          modelinfo=config['modelinfo'],
-                          resume=args.resume)
+    newton_solver = NewtonSolver(workdir=solverinfo['workdir'],
+                                 iterate_fname=solverinfo['init_iterate_fname'],
+                                 modelinfo=config['modelinfo'],
+                                 resume=args.resume)
 
-    solver.log()
+    newton_solver.log()
 
-    if solver.converged():
+    if newton_solver.converged():
         logger.info('convergence criterion satisfied')
     else:
-        solver.step()
+        newton_solver.step()
 
 if __name__ == '__main__':
     main(_parse_args())
