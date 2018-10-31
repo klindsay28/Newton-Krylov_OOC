@@ -67,7 +67,6 @@ class KrylovSolver:
             if j_val > 0:
                 h_mat[:, :-1, :-1] = self._solver_state.get_value_saved_state('h_mat')
             basis_j = ModelState(self._tracer_module_names, self._fname('basis'))
-            self._solver_state.set_currstep('solve_comp_jacobian_fcn_state_prod')
             w_j = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()

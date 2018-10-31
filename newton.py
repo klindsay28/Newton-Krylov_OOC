@@ -16,6 +16,8 @@ class NewtonSolver:
 
     def __init__(self, workdir, iterate_fname, modelinfo, resume):
         """initialize Newton solver"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering, resume=%r', str(resume))
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
@@ -29,11 +31,17 @@ class NewtonSolver:
         if not resume:
             iterate = ModelState(self._tracer_module_names, iterate_fname)
             iterate.dump(self._fname('iterate'))
-            self._solver_state.set_currstep('init_comp_fcn')
-            iterate.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'), self._solver_state)
+            try:
+                iterate.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'), self._solver_state)
+            except SystemExit:
+                logger.debug('flushing self._solver_state')
+                self._solver_state.flush()
+                raise
 
         self._iterate = ModelState(self._tracer_module_names, self._fname('iterate'))
         self._fcn = ModelState(self._tracer_module_names, self._fname('fcn'))
+
+        logger.debug('returning')
 
     def _fname(self, quantity):
         """construct fname corresponding to particular quantity"""
@@ -66,21 +74,29 @@ class NewtonSolver:
         krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self._solver_state.get_iteration())
         resume = self._solver_state.currstep_logged()
         krylov = KrylovSolver(krylov_dir, self._tracer_module_names, fcn, resume)
-        self._solver_state.set_currstep('calling krylov.solve')
+        try:
+            increment = krylov.solve(self._fname('increment'), iterate, fcn)
+        except SystemExit:
+            logger.debug('flushing self._solver_state')
+            self._solver_state.flush()
+            raise
         logger.debug('returning')
-        return krylov.solve(self._fname('increment'), iterate, fcn)
+        return increment
 
     def step(self):
         """perform a step of Newton's method"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        self._solver_state.set_currstep('calling _comp_increment')
         increment = self._comp_increment(self._iterate, self._fcn)
         self._solver_state.inc_iteration()
         provisional = (self._iterate + increment).dump(self._fname('iterate'))
-        self._solver_state.set_currstep('step_comp_fcn')
-        provisional.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'), self._solver_state)
+        try:
+            provisional.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'), self._solver_state)
+        except SystemExit:
+            logger.debug('flushing self._solver_state')
+            self._solver_state.flush()
+            raise
 
         logger.debug('returning')
 
@@ -108,7 +124,7 @@ def main(args):
 
     logging.basicConfig(filename=solverinfo['logging_fname'],
                         filemode='a' if args.resume else 'w',
-                        format='%(asctime)s:%(process)s:%(funcName)s:%(message)s',
+                        format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
                         level=solverinfo['logging_level'])
     logger = logging.getLogger(__name__)
 

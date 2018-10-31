@@ -236,16 +236,14 @@ class ModelState:
         logger = logging.getLogger(__name__)
         logger.debug('entering, ext_cmd="%s", res_fname="%s"', ext_cmd, res_fname)
 
-        # value of currstep upon entry
-        currstep_in = solver.get_currstep()
+        currstep = 'calling %s for %s'%(ext_cmd, res_fname)
+        solver.set_currstep(currstep)
 
         if solver.currstep_logged():
-            logger.info('"%s" logged, skipping %s and returning result', currstep_in, ext_cmd)
+            logger.info('"%s" logged, skipping %s and returning result', currstep, ext_cmd)
             return ModelState(self._tracer_module_names, res_fname)
 
-        logger.info('"%s" not logged, invoking %s and exiting', currstep_in, ext_cmd)
-
-        solver.set_currstep('%s invoking %s'%(currstep_in, ext_cmd))
+        logger.info('"%s" not logged, invoking %s and exiting', currstep, ext_cmd)
 
         ext_cmd_in_fname = os.path.join(solver.get_workdir(), 'ext_in.nc')
         self.dump(ext_cmd_in_fname)
@@ -267,8 +265,15 @@ class ModelState:
 
         res_fname = os.path.join(solver.get_workdir(), 'fcn_res.nc')
 
+        solver.set_currstep('comp_jacobian_fcn_state_prod_comp_fcn')
+        # skip computation of peturbed state if corresponding run_ext_cmd has already been run
         if not solver.currstep_logged():
-            (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver)
+            try:
+                (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver)
+            except SystemExit:
+                logger.debug('flushing solver')
+                solver.flush()
+                raise
 
         # retrieve comp_fcn result from res_fname, and proceed with finite difference
         logger.debug('returning')

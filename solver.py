@@ -58,11 +58,15 @@ class SolverState:
         """set the value of currstep"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, stepval="%s"', stepval)
-        if not self.currstep_logged():
-            self._saved_state['step_log'].append(self._currstep)
-            self._write_saved_state()
+        self.flush()
         self._currstep = stepval
         logger.debug('returning')
+
+    def flush(self):
+        """append currstep to log and write saved state"""
+        if not self._currstep is None and not self.currstep_logged():
+            self._saved_state['step_log'].append(self._currstep)
+            self._write_saved_state()
 
     def get_currstep(self):
         """get the value of currstep"""
