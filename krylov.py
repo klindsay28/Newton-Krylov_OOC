@@ -32,13 +32,13 @@ class KrylovSolver:
         self._workdir = workdir
         self._tracer_module_names = tracer_module_names
         self._tracer_module_cnt = len(tracer_module_names)
-        self.solver_state = SolverState(workdir, 'krylov_state.json', resume)
-        self.solver_state.log_saved_state()
+        self._solver_state = SolverState(workdir, 'krylov_state.json', resume)
+        self._solver_state.log_saved_state()
 
         if not resume:
             # assume x0 = 0, so r0 = rhs - A*x0 = rhs = -fcn
             beta = fcn.norm()
-            self.solver_state.set_value_saved_state('beta', beta)
+            self._solver_state.set_value_saved_state('beta', beta)
             (-fcn / beta).dump(self._fname('basis'))
 
         logger.debug('returning')
@@ -46,7 +46,7 @@ class KrylovSolver:
     def _fname(self, quantity, iteration=None):
         """construct fname corresponding to particular quantity"""
         if iteration is None:
-            iteration = self.solver_state.get_iteration()
+            iteration = self._solver_state.get_iteration()
         return os.path.join(self._workdir, '%s_%02d.nc'%(quantity, iteration))
 
     def log(self):
@@ -54,7 +54,7 @@ class KrylovSolver:
 
     def converged(self):
         """is solver converged"""
-        return self.solver_state.get_iteration() >= 3
+        return self._solver_state.get_iteration() >= 3
 
     def solve(self, krylov_solve_res_fname, iterate, fcn):
         """apply Krylov method"""
@@ -62,18 +62,18 @@ class KrylovSolver:
         logger.debug('entering')
 
         while not self.converged():
-            j_val = self.solver_state.get_iteration()
+            j_val = self._solver_state.get_iteration()
             h_mat = np.zeros((self._tracer_module_cnt, j_val+2, j_val+1))
             if j_val > 0:
-                h_mat[:, :-1, :-1] = self.solver_state.get_value_saved_state('h_mat')
+                h_mat[:, :-1, :-1] = self._solver_state.get_value_saved_state('h_mat')
             basis_j = ModelState(self._tracer_module_names, self._fname('basis'))
-            self.solver_state.set_currstep('solve_comp_jacobian_fcn_state_prod')
-            w_j = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self.solver_state)
+            self._solver_state.set_currstep('solve_comp_jacobian_fcn_state_prod')
+            w_j = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()
-            self.solver_state.set_value_saved_state('h_mat', h_mat)
+            self._solver_state.set_value_saved_state('h_mat', h_mat)
             w_j /= h_mat[:, -1, -1]
-            self.solver_state.inc_iteration()
+            self._solver_state.inc_iteration()
             w_j.dump(self._fname('basis'))
 
             # solve least-squares minimization problem for each tracer module
@@ -95,7 +95,7 @@ class KrylovSolver:
         logger.debug('entering')
         coeff = np.zeros((self._tracer_module_cnt, h_mat.shape[-1]))
         lstsq_rhs = np.zeros(h_mat.shape[-2])
-        beta = self.solver_state.get_value_saved_state('beta')
+        beta = self._solver_state.get_value_saved_state('beta')
         for ind in range(self._tracer_module_cnt):
             lstsq_rhs[0] = beta[ind]
             coeff[ind, :] = np.linalg.lstsq(h_mat[ind, :, :], lstsq_rhs, rcond=None)[0]

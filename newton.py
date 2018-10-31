@@ -21,28 +21,28 @@ class NewtonSolver:
         util.mkdir_exist_okay(workdir)
 
         self._workdir = workdir
-        self.solver_state = SolverState(workdir, 'newton_state.json', resume)
-        self.solver_state.log_saved_state()
-        self.tracer_module_names = modelinfo['tracer_module_names'].split(',')
+        self._solver_state = SolverState(workdir, 'newton_state.json', resume)
+        self._solver_state.log_saved_state()
+        self._tracer_module_names = modelinfo['tracer_module_names'].split(',')
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(self.tracer_module_names, iterate_fname)
+            iterate = ModelState(self._tracer_module_names, iterate_fname)
             iterate.dump(self._fname('iterate'))
-            self.solver_state.set_currstep('init_comp_fcn')
-            iterate.comp_fcn(self._fname('fcn'), self.solver_state)
+            self._solver_state.set_currstep('init_comp_fcn')
+            iterate.comp_fcn(self._fname('fcn'), self._solver_state)
 
-        self._iterate = ModelState(self.tracer_module_names, self._fname('iterate'))
-        self._fcn = ModelState(self.tracer_module_names, self._fname('fcn'))
+        self._iterate = ModelState(self._tracer_module_names, self._fname('iterate'))
+        self._fcn = ModelState(self._tracer_module_names, self._fname('fcn'))
 
     def _fname(self, quantity):
         """construct fname corresponding to particular quantity"""
-        iteration = self.solver_state.get_iteration()
+        iteration = self._solver_state.get_iteration()
         return os.path.join(self._workdir, '%s_%02d.nc'%(quantity, iteration))
 
     def log(self):
         """write the state of the instance to the log"""
-        iteration = self.solver_state.get_iteration()
+        iteration = self._solver_state.get_iteration()
         msg = 'iteration=%02d,iterate'%iteration
         self._iterate.log(msg)
         msg = 'iteration=%02d,fcn'%iteration
@@ -62,11 +62,11 @@ class NewtonSolver:
 
         logger.info('computing increment')
 
-        self.solver_state.set_currstep('instantiating KrylovSolver')
-        krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self.solver_state.get_iteration())
-        resume = self.solver_state.currstep_logged()
-        krylov = KrylovSolver(krylov_dir, self.tracer_module_names, fcn, resume)
-        self.solver_state.set_currstep('calling krylov.solve')
+        self._solver_state.set_currstep('instantiating KrylovSolver')
+        krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self._solver_state.get_iteration())
+        resume = self._solver_state.currstep_logged()
+        krylov = KrylovSolver(krylov_dir, self._tracer_module_names, fcn, resume)
+        self._solver_state.set_currstep('calling krylov.solve')
         logger.debug('returning')
         return krylov.solve(self._fname('increment'), iterate, fcn)
 
@@ -75,12 +75,12 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        self.solver_state.set_currstep('calling _comp_increment')
+        self._solver_state.set_currstep('calling _comp_increment')
         increment = self._comp_increment(self._iterate, self._fcn)
-        self.solver_state.inc_iteration()
+        self._solver_state.inc_iteration()
         provisional = (self._iterate + increment).dump(self._fname('iterate'))
-        self.solver_state.set_currstep('step_comp_fcn')
-        provisional.comp_fcn(self._fname('fcn'), self.solver_state)
+        self._solver_state.set_currstep('step_comp_fcn')
+        provisional.comp_fcn(self._fname('fcn'), self._solver_state)
 
         logger.debug('returning')
 
