@@ -225,37 +225,38 @@ class ModelState:
             self -= h_val[:, i_val] * basis_i
         return h_val
 
-    def comp_fcn(self, comp_fcn_res_fname, solver):
+    def run_ext_cmd(self, ext_cmd, res_fname, solver):
         """
-        compute function whose root is being found, store result in res
+        Run an external command (e.g., a shell script).
+        The external command is expected to take 2 arguments: in_fname, res_fname
+        in_fname is populated with the contents of self
 
-        skip computation if the currstep has been logged in the solver
-        re-invoke top-level script and exit, after storing computed result in solver
+        Skip running the command if currstep of the solver has been logged.
         """
         logger = logging.getLogger(__name__)
-        logger.debug('entering, comp_fcn_res_fname="%s"', comp_fcn_res_fname)
+        logger.debug('entering, ext_cmd="%s", res_fname="%s"', ext_cmd, res_fname)
 
         # value of currstep upon entry
         currstep_in = solver.get_currstep()
 
         if solver.currstep_logged():
-            logger.info('"%s" logged, skipping comp_fcn.sh and returning result', currstep_in)
-            return ModelState(self._tracer_module_names, comp_fcn_res_fname)
+            logger.info('"%s" logged, skipping %s and returning result', currstep_in, ext_cmd)
+            return ModelState(self._tracer_module_names, res_fname)
 
-        logger.info('"%s" not logged, invoking comp_fcn.sh and exiting', currstep_in)
+        logger.info('"%s" not logged, invoking %s and exiting', currstep_in, ext_cmd)
 
-        solver.set_currstep('%s invoking comp_fcn.sh'%currstep_in)
+        solver.set_currstep('%s invoking %s'%(currstep_in, ext_cmd))
 
-        comp_fcn_arg_fname = os.path.join(solver.get_workdir(), 'fcn_arg.nc')
-        self.dump(comp_fcn_arg_fname)
-        subprocess.Popen(['/bin/bash', './comp_fcn.sh', comp_fcn_arg_fname, comp_fcn_res_fname])
+        ext_cmd_in_fname = os.path.join(solver.get_workdir(), 'ext_in.nc')
+        self.dump(ext_cmd_in_fname)
+        subprocess.Popen(['/bin/bash', ext_cmd, ext_cmd_in_fname, res_fname])
 
         logger.debug('calling exit')
         sys.exit()
 
     def comp_jacobian_fcn_state_prod(self, fcn, direction, solver):
         """
-        compute the product of the Jacobian of fcn with a model state direction
+        compute the product of the Jacobian of fcn at self with the model state direction
 
         assumes direction is a unit vector
         """
@@ -264,14 +265,14 @@ class ModelState:
 
         sigma = 1.0e-5 * self.norm()
 
-        comp_fcn_res_fname = os.path.join(solver.get_workdir(), 'fcn_res.nc')
+        res_fname = os.path.join(solver.get_workdir(), 'fcn_res.nc')
 
         if not solver.currstep_logged():
-            (self + sigma * direction).comp_fcn(comp_fcn_res_fname, solver)
+            (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver)
 
-        # retrieve comp_fcn result from comp_fcn_res_fname, and proceed with finite difference
+        # retrieve comp_fcn result from res_fname, and proceed with finite difference
         logger.debug('returning')
-        return (ModelState(self._tracer_module_names, comp_fcn_res_fname) - fcn) / sigma
+        return (ModelState(self._tracer_module_names, res_fname) - fcn) / sigma
 
 def lin_comb(tracer_module_names, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelState objects in files"""

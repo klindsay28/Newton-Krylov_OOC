@@ -30,7 +30,7 @@ class NewtonSolver:
             iterate = ModelState(self._tracer_module_names, iterate_fname)
             iterate.dump(self._fname('iterate'))
             self._solver_state.set_currstep('init_comp_fcn')
-            iterate.comp_fcn(self._fname('fcn'), self._solver_state)
+            iterate.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'), self._solver_state)
 
         self._iterate = ModelState(self._tracer_module_names, self._fname('iterate'))
         self._fcn = ModelState(self._tracer_module_names, self._fname('fcn'))
@@ -80,7 +80,7 @@ class NewtonSolver:
         self._solver_state.inc_iteration()
         provisional = (self._iterate + increment).dump(self._fname('iterate'))
         self._solver_state.set_currstep('step_comp_fcn')
-        provisional.comp_fcn(self._fname('fcn'), self._solver_state)
+        provisional.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'), self._solver_state)
 
         logger.debug('returning')
 
