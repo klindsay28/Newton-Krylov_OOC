@@ -23,6 +23,8 @@ class SolverState:
 
     def __init__(self, name, workdir, state_fname, resume):
         """initialize solver state"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering, name="%s"', name)
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
@@ -35,6 +37,9 @@ class SolverState:
             self._read_saved_state()
         else:
             self._saved_state = {'iteration':0, 'step_log':[]}
+            logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
+
+        logger.debug('returning')
 
     def get_workdir(self):
         """return value of workdir"""
