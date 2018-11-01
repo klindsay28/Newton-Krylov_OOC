@@ -1,4 +1,4 @@
 #!/bin/bash
 
 source activate iter_methods
-./newton.py --resume
+./nk_driver.py --resume
