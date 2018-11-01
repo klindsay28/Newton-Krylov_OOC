@@ -17,17 +17,17 @@ def main(args):
     ms_in = ModelState(['x', 'y'], args.in_fname)
     ms_res = 1.0 * ms_in
 
-    x1 = ms_in._tracer_modules[0]._vals[0, :]
+    x1 = ms_in.get_tracer_vals('x1')
+    x2 = ms_in.get_tracer_vals('x2')
+    y = ms_in.get_tracer_vals('y')
+
     sx1 = np.linspace(0.7, 0.8, np.size(x1)).reshape(np.shape(x1))
-    ms_res._tracer_modules[0]._vals[0, :] = np.cos(x1) - sx1 * x1
-
-    x2 = ms_in._tracer_modules[0]._vals[1, :]
     sx2 = np.linspace(0.8, 0.9, np.size(x1)).reshape(np.shape(x2))
-    ms_res._tracer_modules[0]._vals[1, :] = np.cos(x2) - sx2 * x2
-
-    y = ms_in._tracer_modules[1]._vals[:]
     sy = np.linspace(0.9, 1.0, np.size(x1)).reshape(np.shape(y))
-    ms_res._tracer_modules[1]._vals[:] = np.cos(y) - sy * y
+
+    ms_res.set_tracer_vals('x1', np.cos(x1) - sx1 * x2)
+    ms_res.set_tracer_vals('x2', np.cos(x2) - sx2 * x1)
+    ms_res.set_tracer_vals('y', np.cos(y) - sy * y * np.average(y))
 
     ms_res.dump(args.res_fname)
 

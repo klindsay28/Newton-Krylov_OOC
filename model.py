@@ -264,7 +264,7 @@ class ModelState:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        sigma = 1.0e-5 * self.norm()
+        sigma = 1.0e-6 * self.norm()
 
         res_fname = os.path.join(solver_state.get_workdir(), 'fcn_res.nc')
 
@@ -276,6 +276,23 @@ class ModelState:
         # retrieve comp_fcn result from res_fname, and proceed with finite difference
         logger.debug('returning')
         return (ModelState(self._tracer_module_names, res_fname) - fcn) / sigma
+
+    def get_tracer_vals(self, tracer_name):
+        """get tracer values"""
+        for tracer_module in self._tracer_modules:
+            try:
+                return tracer_module.get_tracer_vals(tracer_name)
+            except ValueError:
+                pass
+        raise ValueError('unknown tracer_name=', tracer_name)
+
+    def set_tracer_vals(self, tracer_name, vals):
+        """set tracer values"""
+        for tracer_module in self._tracer_modules:
+            try:
+                tracer_module.set_tracer_vals(tracer_name, vals)
+            except ValueError:
+                pass
 
 def lin_comb(tracer_module_names, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelState objects in files"""
@@ -490,3 +507,13 @@ class TracerModule:
         if ndims == 2:
             return np.einsum('ijk,ijk', self._vals, other._vals) # pylint: disable=W0212
         return np.einsum('ijkl,ijkl', self._vals, other._vals) # pylint: disable=W0212
+
+    def get_tracer_vals(self, tracer_name):
+        """get tracer values"""
+        ind = self._varnames.index(tracer_name)
+        return self._vals[ind, :]
+
+    def set_tracer_vals(self, tracer_name, vals):
+        """set tracer values"""
+        ind = self._varnames.index(tracer_name)
+        self._vals[ind, :] = vals
