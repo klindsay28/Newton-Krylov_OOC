@@ -68,7 +68,7 @@ class NewtonSolver:
         krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self._solver_state.get_iteration())
         self._solver_state.set_currstep('instantiating KrylovSolver')
         resume = self._solver_state.currstep_logged()
-        krylov_solver = KrylovSolver(krylov_dir, self._tracer_module_names, fcn, resume)
+        krylov_solver = KrylovSolver(krylov_dir, self._tracer_module_names, resume)
         try:
             increment = krylov_solver.solve(self._fname('increment'), iterate, fcn)
         except SystemExit:

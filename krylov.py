@@ -11,17 +11,17 @@ class KrylovSolver:
     """
     class for applying Krylov method to approximate the solution of system of linear equations
 
-    The specific Krylov method used is GMRES, algorithm 6.9 of
-    'Iterative Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad,
-    available at https://www-users.cs.umn.edu/~saad/books.html.
+    The specific Krylov method used is Left-Preconditioned GMRES, algorithm 9.4 of 'Iterative
+    Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad, available at
+    https://www-users.cs.umn.edu/~saad/books.html.
 
-    The solver is applied to J x = -fcn, where J is
+    The solver is applied to A x = -fcn, where A is
     ModelState.comp_jacobian_fcn_state_prod evaluated at iterate.
 
     Assumes x0 = 0.
     """
 
-    def __init__(self, workdir, tracer_module_names, fcn, resume):
+    def __init__(self, workdir, tracer_module_names, resume):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, resume=%r', str(resume))
@@ -35,12 +35,6 @@ class KrylovSolver:
         self._solver_state = SolverState(workdir, 'krylov_state.json', resume)
         self._solver_state.log_saved_state()
 
-        if not resume:
-            # assume x0 = 0, so r0 = rhs - A*x0 = rhs = -fcn
-            beta = fcn.norm()
-            self._solver_state.set_value_saved_state('beta', beta)
-            (-fcn / beta).dump(self._fname('basis'))
-
         logger.debug('returning')
 
     def _fname(self, quantity, iteration=None):
@@ -48,9 +42,6 @@ class KrylovSolver:
         if iteration is None:
             iteration = self._solver_state.get_iteration()
         return os.path.join(self._workdir, '%s_%02d.nc'%(quantity, iteration))
-
-    def log(self):
-        """write the state of the instance to the log"""
 
     def converged(self):
         """is solver converged"""
@@ -61,13 +52,25 @@ class KrylovSolver:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
+        if self._solver_state.get_iteration() == 0:
+            # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
+            precond_fcn = fcn.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
+                                          self._fname('precond_fcn'), self._solver_state)
+            self._solver_state.set_currstep('computing beta and basis_00')
+            if not self._solver_state.currstep_logged():
+                beta = precond_fcn.norm()
+                self._solver_state.set_value_saved_state('beta', beta)
+                (-precond_fcn / beta).dump(self._fname('basis'))
+
         while not self.converged():
             j_val = self._solver_state.get_iteration()
             h_mat = np.zeros((self._tracer_module_cnt, j_val+2, j_val+1))
             if j_val > 0:
                 h_mat[:, :-1, :-1] = self._solver_state.get_value_saved_state('h_mat')
             basis_j = ModelState(self._tracer_module_names, self._fname('basis'))
-            w_j = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
+            w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
+            w_j = w_raw.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
+                                    self._fname('w'), self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()
             self._solver_state.set_value_saved_state('h_mat', h_mat)
