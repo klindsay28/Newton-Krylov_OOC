@@ -236,10 +236,10 @@ class ModelState:
         solver_state.set_currstep(currstep)
 
         if solver_state.currstep_logged():
-            logger.info('"%s" logged, skipping %s and returning result', currstep, ext_cmd)
+            logger.debug('"%s" logged, skipping %s and returning result', currstep, ext_cmd)
             return ModelState(self._tracer_module_names, res_fname)
 
-        logger.info('"%s" not logged, invoking %s and exiting', currstep, ext_cmd)
+        logger.debug('"%s" not logged, invoking %s and exiting', currstep, ext_cmd)
 
         ext_cmd_in_fname = os.path.join(solver_state.get_workdir(), 'ext_in.nc')
         self.dump(ext_cmd_in_fname)

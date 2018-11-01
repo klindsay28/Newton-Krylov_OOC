@@ -21,12 +21,13 @@ class SolverState:
         step_log            steps of solver that have been logged in the current iteration
     """
 
-    def __init__(self, workdir, state_fname, resume):
+    def __init__(self, name, workdir, state_fname, resume):
         """initialize solver state"""
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
 
+        self._name = name
         self._workdir = workdir
         self._state_fname = os.path.join(self._workdir, state_fname)
         self._currstep = None
@@ -42,11 +43,12 @@ class SolverState:
     def inc_iteration(self):
         """increment iteration, reset step_log"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, iteration=%d', self._saved_state['iteration'])
+        logger.debug('entering, name="%s"', self._name)
         self._currstep = None
         self._saved_state['iteration'] += 1
         self._saved_state['step_log'] = []
         self._write_saved_state()
+        logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
         logger.debug('returning')
         return self._saved_state['iteration']
 
@@ -57,7 +59,7 @@ class SolverState:
     def set_currstep(self, stepval):
         """set the value of currstep"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, stepval="%s"', stepval)
+        logger.debug('entering, name="%s", stepval="%s"', self._name, stepval)
         self.flush()
         self._currstep = stepval
         logger.debug('returning')
@@ -92,6 +94,7 @@ class SolverState:
     def log_saved_state(self):
         """write saved state of solver to log"""
         logger = logging.getLogger(__name__)
+        logger.debug('name=%s', self._name)
         logger.debug('iteration=%d', self._saved_state['iteration'])
         for step_name in self._saved_state['step_log']:
             logger.debug('%s completed', step_name)

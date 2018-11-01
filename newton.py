@@ -24,7 +24,7 @@ class NewtonSolver:
         util.mkdir_exist_okay(workdir)
 
         self._workdir = workdir
-        self._solver_state = SolverState(workdir, 'newton_state.json', resume)
+        self._solver_state = SolverState('Newton', workdir, 'newton_state.json', resume)
         self._solver_state.log_saved_state()
         self._tracer_module_names = modelinfo['tracer_module_names'].split(',')
         self._tracer_module_cnt = len(self._tracer_module_names)
@@ -69,10 +69,10 @@ class NewtonSolver:
         complete_step = '_comp_increment complete'
 
         if self._solver_state.step_logged(complete_step):
-            logger.info('"%s" logged, returning result', complete_step)
+            logger.debug('"%s" logged, returning result', complete_step)
             return ModelState(self._tracer_module_names, self._fname('increment'))
 
-        logger.info('"%s" not logged, computing increment', complete_step)
+        logger.debug('"%s" not logged, computing increment', complete_step)
 
         krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self._solver_state.get_iteration())
         self._solver_state.set_currstep('instantiating KrylovSolver')

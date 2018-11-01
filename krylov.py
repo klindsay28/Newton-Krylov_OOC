@@ -32,7 +32,7 @@ class KrylovSolver:
         self._workdir = workdir
         self._tracer_module_names = tracer_module_names
         self._tracer_module_cnt = len(tracer_module_names)
-        self._solver_state = SolverState(workdir, 'krylov_state.json', resume)
+        self._solver_state = SolverState('Krylov', workdir, 'krylov_state.json', resume)
         self._solver_state.log_saved_state()
 
         logger.debug('returning')
