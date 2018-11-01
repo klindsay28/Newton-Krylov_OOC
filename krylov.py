@@ -45,7 +45,7 @@ class KrylovSolver:
 
     def converged(self):
         """is solver converged"""
-        return self._solver_state.get_iteration() >= 4
+        return self._solver_state.get_iteration() >= 3
 
     def solve(self, krylov_solve_res_fname, iterate, fcn):
         """apply Krylov method"""
@@ -62,7 +62,7 @@ class KrylovSolver:
                 self._solver_state.set_value_saved_state('beta', beta)
                 (-precond_fcn / beta).dump(self._fname('basis'))
 
-        while not self.converged():
+        while True:
             j_val = self._solver_state.get_iteration()
             h_mat = np.zeros((self._tracer_module_cnt, j_val+2, j_val+1))
             if j_val > 0:
@@ -75,8 +75,6 @@ class KrylovSolver:
             h_mat[:, -1, -1] = w_j.norm()
             self._solver_state.set_value_saved_state('h_mat', h_mat)
             w_j /= h_mat[:, -1, -1]
-            self._solver_state.inc_iteration()
-            w_j.dump(self._fname('basis'))
 
             # solve least-squares minimization problem for each tracer module
             coeff = self.comp_krylov_basis_coeffs(h_mat)
@@ -87,6 +85,9 @@ class KrylovSolver:
 
             if self.converged():
                 break
+
+            self._solver_state.inc_iteration()
+            w_j.dump(self._fname('basis'))
 
         logger.debug('returning')
         return res.dump(krylov_solve_res_fname)
