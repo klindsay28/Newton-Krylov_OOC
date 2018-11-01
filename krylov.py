@@ -45,7 +45,7 @@ class KrylovSolver:
 
     def converged(self):
         """is solver converged"""
-        return self._solver_state.get_iteration() >= 5
+        return self._solver_state.get_iteration() >= 4
 
     def solve(self, krylov_solve_res_fname, iterate, fcn):
         """apply Krylov method"""

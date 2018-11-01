@@ -76,6 +76,10 @@ class SolverState:
         """has currstep been logged in the current iteration"""
         return self._currstep in self._saved_state['step_log']
 
+    def step_logged(self, step):
+        """has step been logged in the current iteration"""
+        return step in self._saved_state['step_log']
+
     def set_value_saved_state(self, key, value):
         """add a key value pair to the saved_state dictionary"""
         self._saved_state[key] = value
