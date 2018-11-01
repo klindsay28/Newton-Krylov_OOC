@@ -52,8 +52,8 @@ class NewtonSolver:
         self._fcn.log(msg)
 
     def converged(self):
-        """is solver converged"""
-        return self._fcn.converged()
+        """is residual small"""
+        return all(self._fcn.norm() < 1.0e-7 * self._iterate.norm())
 
     def _comp_increment(self, iterate, fcn):
         """

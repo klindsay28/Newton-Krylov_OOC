@@ -209,10 +209,6 @@ class ModelState:
         """compute l2 norm of self"""
         return np.sqrt(self.dot(self))
 
-    def converged(self):
-        """is residual small"""
-        return all(self.norm() < 1.0e-10)
-
     def mod_gram_schmidt(self, cnt, fname_fcn, quantity):
         """
         inplace modified Gram-Schmidt projection
