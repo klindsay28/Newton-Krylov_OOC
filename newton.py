@@ -27,6 +27,7 @@ class NewtonSolver:
         self._solver_state = SolverState(workdir, 'newton_state.json', resume)
         self._solver_state.log_saved_state()
         self._tracer_module_names = modelinfo['tracer_module_names'].split(',')
+        self._tracer_module_cnt = len(self._tracer_module_names)
 
         # get solver started on an initial run
         if not resume:
@@ -117,9 +118,9 @@ class NewtonSolver:
             logger.info('Armijo_ind=%d', armijo_ind)
             armijo_cond = True
             alpha = 1.0e-4
-            for ind in range(self._iterate._tracer_module_cnt):
+            for ind in range(self._tracer_module_cnt):
                 logger.info('"%s":Armijo_factor=%e,fcn_norm=%e,prov_fcn_norm=%e',
-                            self._iterate._tracer_module_names[ind], armijo_factor[ind],
+                            self._tracer_module_names[ind], armijo_factor[ind],
                             fcn_norm[ind], prov_fcn_norm[ind])
                 if prov_fcn_norm[ind] > (1.0 - alpha * armijo_factor[ind]) * fcn_norm[ind]:
                     armijo_factor[ind] *= 0.5
