@@ -15,28 +15,27 @@ from krylov import KrylovSolver
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
 
-    def __init__(self, workdir, iterate_fname, modelinfo, resume):
+    def __init__(self, workdir, modelinfo, resume, rewind):
         """initialize Newton solver"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, resume=%r', str(resume))
+        logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
 
         self._workdir = workdir
-        self._solver_state = SolverState('Newton', workdir, 'newton_state.json', resume)
-        self._solver_state.log_saved_state()
+        self._solver_state = SolverState('Newton', workdir, resume, rewind)
         self._tracer_module_names = modelinfo['tracer_module_names'].split(',')
         self._tracer_module_cnt = len(self._tracer_module_names)
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(self._tracer_module_names, iterate_fname)
-            iterate.dump(self._fname('iterate'))
-            iterate.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'), self._solver_state)
+            ModelState(self._tracer_module_names,
+                       modelinfo['init_iterate_fname']).dump(self._fname('iterate'))
 
         self._iterate = ModelState(self._tracer_module_names, self._fname('iterate'))
-        self._fcn = ModelState(self._tracer_module_names, self._fname('fcn'))
+        self._fcn = self._iterate.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'),
+                                              self._solver_state)
 
         logger.debug('returning')
 
@@ -76,8 +75,9 @@ class NewtonSolver:
 
         krylov_dir = os.path.join(self._workdir, 'krylov_%02d'%self._solver_state.get_iteration())
         self._solver_state.set_currstep('instantiating KrylovSolver')
-        resume = self._solver_state.currstep_logged()
-        krylov_solver = KrylovSolver(krylov_dir, self._tracer_module_names, resume)
+        rewind = self._solver_state.currstep_was_rewound()
+        resume = True if rewind else self._solver_state.currstep_logged()
+        krylov_solver = KrylovSolver(krylov_dir, self._tracer_module_names, resume, rewind)
         try:
             increment = krylov_solver.solve(self._fname('increment'), iterate, fcn)
         except SystemExit:
@@ -160,7 +160,7 @@ def _parse_args():
 
     parser.add_argument('--resume', help="resume Newton's method from solver's saved state",
                         action='store_true', default=False)
-    parser.add_argument('--rewind', help="rewind last step to recover from error (not implemented)",
+    parser.add_argument('--rewind', help="rewind last step to recover from error",
                         action='store_true', default=False)
 
     return parser.parse_args()
@@ -183,9 +183,9 @@ def main(args):
         sys.exit()
 
     newton_solver = NewtonSolver(workdir=solverinfo['workdir'],
-                                 iterate_fname=solverinfo['init_iterate_fname'],
                                  modelinfo=config['modelinfo'],
-                                 resume=args.resume)
+                                 resume=args.resume,
+                                 rewind=args.rewind)
 
     while True:
         if all(newton_solver.converged()):

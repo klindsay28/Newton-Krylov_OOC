@@ -21,10 +21,10 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, workdir, tracer_module_names, resume):
+    def __init__(self, workdir, tracer_module_names, resume, rewind):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, resume=%r', str(resume))
+        logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
@@ -32,8 +32,7 @@ class KrylovSolver:
         self._workdir = workdir
         self._tracer_module_names = tracer_module_names
         self._tracer_module_cnt = len(tracer_module_names)
-        self._solver_state = SolverState('Krylov', workdir, 'krylov_state.json', resume)
-        self._solver_state.log_saved_state()
+        self._solver_state = SolverState('Krylov', workdir, resume, rewind)
 
         logger.debug('returning')
 

@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import sys
 import numpy as np
 import util
 
@@ -21,7 +22,7 @@ class SolverState:
         step_log            steps of solver that have been logged in the current iteration
     """
 
-    def __init__(self, name, workdir, state_fname, resume):
+    def __init__(self, name, workdir, resume, rewind):
         """initialize solver state"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, name="%s"', name)
@@ -31,11 +32,19 @@ class SolverState:
 
         self._name = name
         self._workdir = workdir
-        self._state_fname = os.path.join(self._workdir, state_fname)
+        self._state_fname = os.path.join(self._workdir, name+'_state.json')
         self._currstep = None
+        self._rewound_step = None
         if resume:
             self._read_saved_state()
+            self._log_saved_state()
+            if rewind:
+                self._rewound_step = self._saved_state['step_log'].pop()
+                logger.info('rewinding step %s for %s', self._rewound_step, self._name)
         else:
+            if rewind:
+                logger.error('rewind cannot be True if resume is False, name=%s', self._name)
+                sys.exit()
             self._saved_state = {'iteration':0, 'step_log':[]}
             logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
 
@@ -87,6 +96,10 @@ class SolverState:
         """has step been logged in the current iteration"""
         return step in self._saved_state['step_log']
 
+    def currstep_was_rewound(self):
+        """is currstep equal to the step that was rewound during __init__"""
+        return False if self._rewound_step is None else self._currstep == self._rewound_step
+
     def set_value_saved_state(self, key, value):
         """add a key value pair to the saved_state dictionary"""
         self._saved_state[key] = value
@@ -96,7 +109,7 @@ class SolverState:
         """get a value from the saved_state dictionary"""
         return self._saved_state[key]
 
-    def log_saved_state(self):
+    def _log_saved_state(self):
         """write saved state of solver to log"""
         logger = logging.getLogger(__name__)
         logger.debug('name=%s', self._name)
