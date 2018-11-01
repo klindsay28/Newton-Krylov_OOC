@@ -95,8 +95,6 @@ class NewtonSolver:
 
         increment = self._comp_increment(self._iterate, self._fcn)
 
-        fcn_norm = self._fcn.norm()
-
         self._solver_state.set_currstep('computing Armijo factor')
         if not self._solver_state.currstep_logged():
             armijo_ind = 0
@@ -108,25 +106,14 @@ class NewtonSolver:
             armijo_factor = self._solver_state.get_value_saved_state('armijo_factor')
 
         while True:
-
             # compute provisional candidate for next iterate
             prov = (self._iterate + armijo_factor * increment)
             prov_fcn = prov.run_ext_cmd('./comp_fcn.sh', self._fname('prov_fcn', armijo_ind),
                                         self._solver_state)
-            prov_fcn_norm = prov_fcn.norm()
 
             logger.info('Armijo_ind=%d', armijo_ind)
-            armijo_cond = True
-            alpha = 1.0e-4
-            for ind in range(self._tracer_module_cnt):
-                logger.info('"%s":Armijo_factor=%e,fcn_norm=%e,prov_fcn_norm=%e',
-                            self._tracer_module_names[ind], armijo_factor[ind],
-                            fcn_norm[ind], prov_fcn_norm[ind])
-                if prov_fcn_norm[ind] > (1.0 - alpha * armijo_factor[ind]) * fcn_norm[ind]:
-                    armijo_factor[ind] *= 0.5
-                    armijo_cond = False
 
-            if armijo_cond:
+            if self.armijo_cond(prov_fcn, armijo_factor):
                 logger.info("Armijo condition satisfied")
                 break
 
@@ -143,6 +130,25 @@ class NewtonSolver:
         self._fcn.dump(self._fname('fcn'))
 
         logger.debug('returning')
+
+    def armijo_cond(self, prov_fcn, armijo_factor):
+        """
+        Determine if Armijo condition is satisfied. Based on Eq. (A.1) of
+        Kelley, C. T., Solving nonlinear equations with Newton's method, 2003.
+        """
+        logger = logging.getLogger(__name__)
+        fcn_norm = self._fcn.norm()
+        prov_fcn_norm = prov_fcn.norm()
+        res = True
+        alpha = 1.0e-4
+        for ind in range(self._tracer_module_cnt):
+            logger.info('"%s":Armijo_factor=%e,fcn_norm=%e,prov_fcn_norm=%e',
+                        self._tracer_module_names[ind], armijo_factor[ind],
+                        fcn_norm[ind], prov_fcn_norm[ind])
+            if prov_fcn_norm[ind] > (1.0 - alpha * armijo_factor[ind]) * fcn_norm[ind]:
+                armijo_factor[ind] *= 0.5
+                res = False
+        return res
 
 def _parse_args():
     """parse command line arguments"""
