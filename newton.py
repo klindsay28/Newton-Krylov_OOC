@@ -73,6 +73,8 @@ class NewtonSolver:
         self._solver_state.set_currstep('instantiating KrylovSolver')
         rewind = self._solver_state.currstep_was_rewound()
         resume = True if rewind else self._solver_state.currstep_logged()
+        if not resume:
+            self.log()
         krylov_solver = KrylovSolver(krylov_dir, self._tracer_module_names, resume, rewind)
         try:
             increment = krylov_solver.solve(self._fname('increment'), iterate, fcn)
