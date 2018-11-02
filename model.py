@@ -9,27 +9,27 @@ import numpy as np
 import netCDF4 as nc
 
 # model static variables
-tracer_module_defs = None
-dot_prod_weight = None
+_tracer_module_defs = None
+_dot_prod_weight = None
 
 def model_init_static_vars(modelinfo):
     """read model static vars from a JSON file"""
     logger = logging.getLogger(__name__)
 
     fname = modelinfo['tracer_module_defs_fname']
-    logger.info('reading tracer_module_defs from %s', fname)
+    logger.info('reading _tracer_module_defs from %s', fname)
     with open(fname, mode='r') as fptr:
-        global tracer_module_defs # pylint: disable=W0603
-        tracer_module_defs = json.load(fptr)
+        global _tracer_module_defs # pylint: disable=W0603
+        _tracer_module_defs = json.load(fptr)
 
     fname = modelinfo['dot_prod_weight_fname']
     varname = modelinfo['dot_prod_weight_varname']
-    logger.info('reading %s from %s for dot_prod_weight', varname, fname)
+    logger.info('reading %s from %s for _dot_prod_weight', varname, fname)
     with nc.Dataset(fname, mode='r') as fptr:
-        global dot_prod_weight # pylint: disable=W0603
-        dot_prod_weight = fptr.variables[varname][:]
+        global _dot_prod_weight # pylint: disable=W0603
+        _dot_prod_weight = fptr.variables[varname][:]
     # normalize weight so that its sum is 1.0
-    dot_prod_weight = (1.0 / np.sum(dot_prod_weight)) * dot_prod_weight
+    _dot_prod_weight = (1.0 / np.sum(_dot_prod_weight)) * _dot_prod_weight
 
 class ModelState:
     """class for representing the state space of a model"""
@@ -326,8 +326,7 @@ class TracerModule:
 
     def __init__(self, name, dims=None, vals_fname=None):
         self._name = name
-        tracer_module_def = tracer_module_defs[name]
-        self._varnames = tracer_module_def['varnames']
+        self._varnames = _tracer_module_defs[name]['varnames']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if not dims is None:
@@ -519,10 +518,10 @@ class TracerModule:
         """compute dot product of self with other"""
         ndims = len(self._dims)
         if ndims == 1:
-            return np.einsum('j,ij,ij', dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
+            return np.einsum('j,ij,ij', _dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
         if ndims == 2:
-            return np.einsum('jk,ijk,ijk', dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
-        return np.einsum('jkl,ijkl,ijkl', dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
+            return np.einsum('jk,ijk,ijk', _dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
+        return np.einsum('jkl,ijkl,ijkl', _dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
