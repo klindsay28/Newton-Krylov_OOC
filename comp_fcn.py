@@ -4,7 +4,7 @@
 import argparse
 import configparser
 import numpy as np
-from model import init_tracer_module_defs, ModelState
+from model import model_init_static_vars, ModelState
 
 def _parse_args():
     """parse command line arguments"""
@@ -20,7 +20,7 @@ def main(args):
 
     config = configparser.ConfigParser()
     config.read(args.cfg_fname)
-    init_tracer_module_defs(config['modelinfo'])
+    model_init_static_vars(config['modelinfo'])
 
     ms_in = ModelState(['x', 'y'], args.in_fname)
     ms_res = 1.0 * ms_in

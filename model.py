@@ -10,13 +10,14 @@ import netCDF4 as nc
 
 tracer_module_defs = None
 
-def init_tracer_module_defs(modelinfo):
-    """read tracer_module_defs from a JSON file"""
+def model_init_static_vars(modelinfo):
+    """read model static vars from a JSON file"""
     logger = logging.getLogger(__name__)
-    global tracer_module_defs # pylint: disable=W0603
+
     fname = modelinfo['tracer_module_defs_fname']
     logger.info('reading tracer_module_defs from %s', fname)
     with open(modelinfo['tracer_module_defs_fname'], mode='r') as fptr:
+        global tracer_module_defs # pylint: disable=W0603
         tracer_module_defs = json.load(fptr)
 
 class ModelState:
