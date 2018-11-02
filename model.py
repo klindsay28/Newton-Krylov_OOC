@@ -1,11 +1,23 @@
 """class for representing the state space of a model, and operations on it"""
 
+import json
 import logging
 import os
 import subprocess
 import sys
 import numpy as np
 import netCDF4 as nc
+
+tracer_module_defs = None
+
+def init_tracer_module_defs(modelinfo):
+    """read tracer_module_defs from a JSON file"""
+    logger = logging.getLogger(__name__)
+    global tracer_module_defs # pylint: disable=W0603
+    fname = modelinfo['tracer_module_defs_fname']
+    logger.info('reading tracer_module_defs from %s', fname)
+    with open(modelinfo['tracer_module_defs_fname'], mode='r') as fptr:
+        tracer_module_defs = json.load(fptr)
 
 class ModelState:
     """class for representing the state space of a model"""
@@ -301,13 +313,9 @@ class TracerModule:
     """class for representing the a collection of model tracers"""
 
     def __init__(self, name, dims=None, vals_fname=None):
-        module_varnames = {'x':['x1', 'x2'], 'y':['y']}
-
         self._name = name
-        try:
-            self._varnames = module_varnames[name]
-        except KeyError:
-            raise KeyError('unknown TracerModule name=', name)
+        tracer_module_def = tracer_module_defs[name]
+        self._varnames = tracer_module_def['varnames']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if not dims is None:

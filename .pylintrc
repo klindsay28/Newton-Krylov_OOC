@@ -393,7 +393,7 @@ class-naming-style=PascalCase
 #class-rgx=
 
 # Naming style matching correct constant names.
-const-naming-style=UPPER_CASE
+const-naming-style=snake_case
 
 # Regular expression matching correct constant names. Overrides const-naming-
 # style.
@@ -419,7 +419,7 @@ good-names=i,
            _
 
 # Include a hint for the correct naming format with invalid-name.
-include-naming-hint=no
+include-naming-hint=yes
 
 # Naming style matching correct inline iteration names.
 inlinevar-naming-style=any

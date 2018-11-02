@@ -2,18 +2,26 @@
 """test problem for Newton-Krylov solver"""
 
 import argparse
+import configparser
 import numpy as np
-from model import ModelState
+from model import init_tracer_module_defs, ModelState
 
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(description="test problem for Newton-Krylov solver")
     parser.add_argument('in_fname', help='name of file with ModelState input')
     parser.add_argument('res_fname', help='name of file where output ModelState gets written')
+    parser.add_argument('--cfg_fname', help='name of configuration file',
+                        default='newton_krylov.cfg')
     return parser.parse_args()
 
 def main(args):
     """test problem for Newton-Krylov solver"""
+
+    config = configparser.ConfigParser()
+    config.read(args.cfg_fname)
+    init_tracer_module_defs(config['modelinfo'])
+
     ms_in = ModelState(['x', 'y'], args.in_fname)
     ms_res = 1.0 * ms_in
 

@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 from newton import NewtonSolver
+from model import init_tracer_module_defs
 
 def _parse_args():
     """parse command line arguments"""
@@ -39,6 +40,8 @@ def main(args):
     if os.path.exists('KILL'):
         logger.warning('KILL file detected, exiting')
         sys.exit()
+
+    init_tracer_module_defs(config['modelinfo'])
 
     newton_solver = NewtonSolver(workdir=solverinfo['workdir'],
                                  modelinfo=config['modelinfo'],
