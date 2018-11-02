@@ -211,16 +211,16 @@ class ModelState:
             return NotImplemented
         return self
 
-    def dot(self, other):
+    def dot_prod(self, other):
         """compute dot product of self with other"""
         res = np.empty(shape=(self._tracer_module_cnt,))
         for ind in range(self._tracer_module_cnt):
-            res[ind] = self._tracer_modules[ind].dot(other._tracer_modules[ind]) # pylint: disable=W0212
+            res[ind] = self._tracer_modules[ind].dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
 
     def norm(self):
         """compute l2 norm of self"""
-        return np.sqrt(self.dot(self))
+        return np.sqrt(self.dot_prod(self))
 
     def mod_gram_schmidt(self, cnt, fname_fcn, quantity):
         """
@@ -230,7 +230,7 @@ class ModelState:
         h_val = np.empty(shape=(self._tracer_module_cnt, cnt))
         for i_val in range(0, cnt):
             basis_i = ModelState(self._tracer_module_names, fname_fcn(quantity, i_val))
-            h_val[:, i_val] = self.dot(basis_i)
+            h_val[:, i_val] = self.dot_prod(basis_i)
             self -= h_val[:, i_val] * basis_i
         return h_val
 
@@ -339,7 +339,7 @@ class TracerModule:
                                          'vals_fname=', vals_fname)
                 # read values
                 if len(self._dims) > 3:
-                    raise ValueError('ndims too large (for implementation of dot)',
+                    raise ValueError('ndims too large (for implementation of dot_prod)',
                                      'TracerModule name=', name,
                                      'fals_fname=', vals_fname,
                                      'ndims=', len(self._dims))
@@ -504,7 +504,7 @@ class TracerModule:
             return NotImplemented
         return self
 
-    def dot(self, other):
+    def dot_prod(self, other):
         """compute dot product of self with other"""
         ndims = len(self._dims)
         if ndims == 1:
