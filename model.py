@@ -9,12 +9,16 @@ import numpy as np
 import netCDF4 as nc
 
 # model static variables
+_cfg_fname = None
 _tracer_module_defs = None
 _dot_prod_weight = None
 
-def model_init_static_vars(modelinfo):
+def model_init_static_vars(cfg_fname, modelinfo):
     """read model static vars from a JSON file"""
     logger = logging.getLogger(__name__)
+
+    global _cfg_fname # pylint: disable=W0603
+    _cfg_fname = cfg_fname
 
     fname = modelinfo['tracer_module_defs_fname']
     logger.info('reading _tracer_module_defs from %s', fname)
@@ -267,7 +271,7 @@ class ModelState:
 
         ext_cmd_in_fname = os.path.join(solver_state.get_workdir(), 'ext_in.nc')
         self.dump(ext_cmd_in_fname)
-        subprocess.Popen(['/bin/bash', ext_cmd, ext_cmd_in_fname, res_fname])
+        subprocess.Popen(['/bin/bash', ext_cmd, _cfg_fname, ext_cmd_in_fname, res_fname])
 
         logger.debug('flushing solver_state')
         solver_state.flush()

@@ -41,7 +41,7 @@ def main(args):
         logger.warning('KILL file detected, exiting')
         sys.exit()
 
-    model_init_static_vars(config['modelinfo'])
+    model_init_static_vars(args.cfg_fname, config['modelinfo'])
 
     newton_solver = NewtonSolver(workdir=solverinfo['workdir'],
                                  modelinfo=config['modelinfo'],

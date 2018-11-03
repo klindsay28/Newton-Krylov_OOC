@@ -20,7 +20,7 @@ def main(args):
 
     config = configparser.ConfigParser()
     config.read(args.cfg_fname)
-    model_init_static_vars(config['modelinfo'])
+    model_init_static_vars(args.cfg_fname, config['modelinfo'])
 
     ms_in = ModelState(['x', 'y'], args.in_fname)
     ms_res = 1.0 * ms_in
