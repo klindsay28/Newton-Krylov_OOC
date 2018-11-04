@@ -79,6 +79,12 @@ class ModelState:
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
+    def copy(self):
+        """return a copy of self"""
+        res = ModelState(self._tracer_module_names)
+        res._tracer_modules = np.copy(self._tracer_modules) # pylint: disable=W0212
+        return res
+
     def __neg__(self):
         """
         unary negation operator
@@ -402,6 +408,12 @@ class TracerModule:
         else:
             raise ValueError('unknown action=', action)
         return self
+
+    def copy(self):
+        """return a copy of self"""
+        res = TracerModule(self._name, dims=self._dims)
+        res._vals = np.copy(self._vals) # pylint: disable=W0212
+        return res
 
     def __neg__(self):
         """
