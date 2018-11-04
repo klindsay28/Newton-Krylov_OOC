@@ -348,7 +348,7 @@ def lin_comb(tracer_module_names, coeff, fname_fcn, quantity):
 class TracerModuleState:
     """class for representing the a collection of model tracers"""
 
-    def __init__(self, name, dims=None, vals_fname=None):
+    def __init__(self, tracer_module_name, dims=None, vals_fname=None):
         logger = logging.getLogger(__name__)
 
         if _tracer_module_defs is None:
@@ -356,8 +356,8 @@ class TracerModuleState:
             msg += ', model_init_static_vars must be called before TracerModuleState.__init__'
             logger.error(msg)
             sys.exit(1)
-        self._name = name
-        self._varnames = _tracer_module_defs[name]['varnames']
+        self._tracer_module_name = tracer_module_name
+        self._varnames = _tracer_module_defs[tracer_module_name]['varnames']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if not dims is None:
@@ -376,13 +376,13 @@ class TracerModuleState:
                 for varname in self._varnames:
                     if fptr.variables[varname].dimensions != dimnames0:
                         raise ValueError('not all vars have same dimensions',
-                                         'name=', name,
+                                         'tracer_module_name=', tracer_module_name,
                                          'vals_fname=', vals_fname)
                 # read values
                 if len(self._dims) > 3:
                     raise ValueError('ndims too large (for implementation of dot_prod)',
-                                     'name=', name,
-                                     'fals_fname=', vals_fname,
+                                     'tracer_module_name=', tracer_module_name,
+                                     'vals_fname=', vals_fname,
                                      'ndims=', len(self._dims))
                 for varind, varname in enumerate(self._varnames):
                     varid = fptr.variables[varname]
@@ -397,7 +397,7 @@ class TracerModuleState:
                 try:
                     if fptr.dimensions[dimname].size != dimlen:
                         raise ValueError('dimname already exists and has wrong size',
-                                         'name=', self._name,
+                                         'tracer_module_name=', self._tracer_module_name,
                                          'dimname=', dimname)
                 except KeyError:
                     fptr.createDimension(dimname, dimlen)
@@ -413,7 +413,7 @@ class TracerModuleState:
 
     def copy(self):
         """return a copy of self"""
-        res = TracerModuleState(self._name, dims=self._dims)
+        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         res._vals = np.copy(self._vals) # pylint: disable=W0212
         return res
 
@@ -422,7 +422,7 @@ class TracerModuleState:
         unary negation operator
         called to evaluate res = -self
         """
-        res = TracerModuleState(self._name, dims=self._dims)
+        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         res._vals = -self._vals # pylint: disable=W0212
         return res
 
@@ -431,7 +431,7 @@ class TracerModuleState:
         addition operator
         called to evaluate res = self + other
         """
-        res = TracerModuleState(self._name, dims=self._dims)
+        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals + other # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
@@ -458,7 +458,7 @@ class TracerModuleState:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = TracerModuleState(self._name, dims=self._dims)
+        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals - other # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
@@ -485,7 +485,7 @@ class TracerModuleState:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = TracerModuleState(self._name, dims=self._dims)
+        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals * other # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
@@ -519,7 +519,7 @@ class TracerModuleState:
         division operator
         called to evaluate res = self / other
         """
-        res = TracerModuleState(self._name, dims=self._dims)
+        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = (1.0 / other) * self._vals # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
@@ -533,7 +533,7 @@ class TracerModuleState:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = TracerModuleState(self._name, dims=self._dims)
+        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = other / self._vals # pylint: disable=W0212
         else:
