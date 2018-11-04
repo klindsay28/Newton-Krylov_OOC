@@ -17,5 +17,16 @@ logging.basicConfig(format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(
 
 model_init_static_vars(config['modelinfo'])
 
-x = ModelState(['x'], 'iterate_00.nc')
-x.log()
+var1 = ModelState(['x'], 'iterate_00.nc')
+var1.log('var1')
+
+var2 = var1
+var2.log('var2 = var1')
+
+var3 = var1.copy()
+var3.log('var3 = var1.copy()')
+
+var1 *= 2.0
+var1.log('var1 doubled')
+var2.log('var2')
+var3.log('var3')
