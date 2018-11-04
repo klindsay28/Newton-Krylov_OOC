@@ -357,7 +357,7 @@ class TracerModuleState:
             logger.error(msg)
             sys.exit(1)
         self._tracer_module_name = tracer_module_name
-        self._varnames = _tracer_module_defs[tracer_module_name]['varnames']
+        self._tracer_names = _tracer_module_defs[tracer_module_name]['tracer_names']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if not dims is None:
@@ -366,15 +366,15 @@ class TracerModuleState:
             self._dims = {}
             with nc.Dataset(vals_fname, mode='r') as fptr:
                 # get dims from first variable
-                dimnames0 = fptr.variables[self._varnames[0]].dimensions
+                dimnames0 = fptr.variables[self._tracer_names[0]].dimensions
                 for dimname in dimnames0:
                     self._dims[dimname] = fptr.dimensions[dimname].size
                 # all tracers are stored in a single array
                 # tracer index is the leading index
-                self._vals = np.empty(shape=(len(self._varnames),) + tuple(self._dims.values()))
+                self._vals = np.empty(shape=(len(self._tracer_names),) + tuple(self._dims.values()))
                 # check that all vars have the same dimensions
-                for varname in self._varnames:
-                    if fptr.variables[varname].dimensions != dimnames0:
+                for tracer_name in self._tracer_names:
+                    if fptr.variables[tracer_name].dimensions != dimnames0:
                         raise ValueError('not all vars have same dimensions',
                                          'tracer_module_name=', tracer_module_name,
                                          'vals_fname=', vals_fname)
@@ -384,8 +384,8 @@ class TracerModuleState:
                                      'tracer_module_name=', tracer_module_name,
                                      'vals_fname=', vals_fname,
                                      'ndims=', len(self._dims))
-                for varind, varname in enumerate(self._varnames):
-                    varid = fptr.variables[varname]
+                for varind, tracer_name in enumerate(self._tracer_names):
+                    varid = fptr.variables[tracer_name]
                     self._vals[varind, :] = varid[:]
 
     def dump(self, fptr, action):
@@ -402,11 +402,11 @@ class TracerModuleState:
                 except KeyError:
                     fptr.createDimension(dimname, dimlen)
             dimnames = tuple(self._dims.keys())
-            for varname in self._varnames:
-                fptr.createVariable(varname, 'f8', dimensions=dimnames)
+            for tracer_name in self._tracer_names:
+                fptr.createVariable(tracer_name, 'f8', dimensions=dimnames)
         elif action == 'write':
-            for varind, varname in enumerate(self._varnames):
-                fptr.variables[varname][:] = self._vals[varind, :]
+            for varind, tracer_name in enumerate(self._tracer_names):
+                fptr.variables[tracer_name][:] = self._vals[varind, :]
         else:
             raise ValueError('unknown action=', action)
         return self
@@ -564,10 +564,10 @@ class TracerModuleState:
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
-        ind = self._varnames.index(tracer_name)
+        ind = self._tracer_names.index(tracer_name)
         return self._vals[ind, :]
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""
-        ind = self._varnames.index(tracer_name)
+        ind = self._tracer_names.index(tracer_name)
         self._vals[ind, :] = vals

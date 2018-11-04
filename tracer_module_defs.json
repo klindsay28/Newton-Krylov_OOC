@@ -1,12 +1,12 @@
 {
     "x": {
-        "varnames": [
+        "tracer_names": [
             "x1",
             "x2"
         ]
     },
     "y": {
-        "varnames": [
+        "tracer_names": [
             "y"
         ]
     }
