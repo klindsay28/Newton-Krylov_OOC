@@ -9,16 +9,16 @@ import numpy as np
 import netCDF4 as nc
 
 # model static variables
-_cfg_fname = None
 _tracer_module_defs = None
 _dot_prod_weight = None
 
-def model_init_static_vars(cfg_fname, modelinfo):
+# cfg_fname is stored so that it can be passed to ext_cmd in run_ext_cmd
+# it is not needed in stand-alone usage of model.py
+_cfg_fname = None
+
+def model_init_static_vars(modelinfo, cfg_fname=None):
     """read model static vars from a JSON file"""
     logger = logging.getLogger(__name__)
-
-    global _cfg_fname # pylint: disable=W0603
-    _cfg_fname = cfg_fname
 
     fname = modelinfo['tracer_module_defs_fname']
     logger.info('reading _tracer_module_defs from %s', fname)
@@ -35,10 +35,20 @@ def model_init_static_vars(cfg_fname, modelinfo):
     # normalize weight so that its sum is 1.0
     _dot_prod_weight = (1.0 / np.sum(_dot_prod_weight)) * _dot_prod_weight
 
+    global _cfg_fname # pylint: disable=W0603
+    _cfg_fname = cfg_fname
+
 class ModelState:
     """class for representing the state space of a model"""
 
     def __init__(self, tracer_module_names, vals_fname=None):
+        logger = logging.getLogger(__name__)
+
+        if _tracer_module_defs is None:
+            msg = '_tracer_module_defs is None'
+            msg += ', model_init_static_vars must be called before ModelState.__init__'
+            logger.error(msg)
+            sys.exit(1)
         self._tracer_module_names = tracer_module_names
         self._tracer_module_cnt = len(tracer_module_names)
         if not vals_fname is None:
@@ -55,12 +65,16 @@ class ModelState:
                     self._tracer_modules[ind].dump(fptr, action)
         return self
 
-    def log(self, msg):
+    def log(self, msg=None):
         """write info of the instance to the log"""
         logger = logging.getLogger(__name__)
         val = self.norm()
-        for ind in range(self._tracer_module_cnt):
-            logger.info('%s,%s,%e', msg, self._tracer_module_names[ind], val[ind])
+        if msg is None:
+            for ind in range(self._tracer_module_cnt):
+                logger.info('%s,%e', self._tracer_module_names[ind], val[ind])
+        else:
+            for ind in range(self._tracer_module_cnt):
+                logger.info('%s,%s,%e', msg, self._tracer_module_names[ind], val[ind])
 
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
@@ -277,7 +291,7 @@ class ModelState:
         solver_state.flush()
 
         logger.debug('calling exit')
-        sys.exit()
+        sys.exit(0)
 
     def comp_jacobian_fcn_state_prod(self, fcn, direction, solver_state):
         """
@@ -329,6 +343,13 @@ class TracerModule:
     """class for representing the a collection of model tracers"""
 
     def __init__(self, name, dims=None, vals_fname=None):
+        logger = logging.getLogger(__name__)
+
+        if _tracer_module_defs is None:
+            msg = '_tracer_module_defs is None'
+            msg += ', model_init_static_vars must be called before TracerModule.__init__'
+            logger.error(msg)
+            sys.exit(1)
         self._name = name
         self._varnames = _tracer_module_defs[name]['varnames']
         if dims is None != vals_fname is None:

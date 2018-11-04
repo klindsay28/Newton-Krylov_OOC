@@ -44,7 +44,7 @@ class SolverState:
         else:
             if rewind:
                 logger.error('rewind cannot be True if resume is False, name=%s', self._name)
-                sys.exit()
+                sys.exit(1)
             self._saved_state = {'iteration':0, 'step_log':[]}
             logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
 

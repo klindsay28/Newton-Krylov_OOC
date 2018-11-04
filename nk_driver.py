@@ -9,7 +9,7 @@ import sys
 from newton import NewtonSolver
 from model import model_init_static_vars
 
-def _parse_args():
+def parse_args():
     """parse command line arguments"""
 
     parser = argparse.ArgumentParser(description="Newton's method example")
@@ -39,9 +39,9 @@ def main(args):
 
     if os.path.exists('KILL'):
         logger.warning('KILL file detected, exiting')
-        sys.exit()
+        sys.exit(0)
 
-    model_init_static_vars(args.cfg_fname, config['modelinfo'])
+    model_init_static_vars(config['modelinfo'], args.cfg_fname)
 
     newton_solver = NewtonSolver(workdir=solverinfo['workdir'],
                                  modelinfo=config['modelinfo'],
@@ -55,4 +55,4 @@ def main(args):
         newton_solver.step()
 
 if __name__ == '__main__':
-    main(_parse_args())
+    main(parse_args())
