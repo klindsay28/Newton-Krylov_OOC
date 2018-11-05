@@ -106,11 +106,22 @@ class NewtonSolver:
 
             logger.info('Armijo_ind=%d', armijo_ind)
 
-            if self.armijo_cond(prov_fcn, armijo_factor):
+            # Determine if Armijo condition is satisfied. Based on Eq. (A.1) of
+            # Kelley, C. T., Solving nonlinear equations with Newton's method, 2003.
+            fcn_norm = self._fcn.norm()
+            prov_fcn_norm = prov_fcn.norm()
+            prov_fcn.log_vals(['ArmijoFactor', 'fcn_norm', 'prov_fcn_norm'],
+                              np.stack([armijo_factor, fcn_norm, prov_fcn_norm], axis=1))
+            alpha = 1.0e-4
+            armijo_cond = prov_fcn_norm <= (1.0 - alpha * armijo_factor) * fcn_norm
+
+            # self.armijo_cond(prov_fcn, armijo_factor)
+            if armijo_cond.all():
                 logger.info("Armijo condition satisfied")
                 break
 
             logger.info("Armijo condition not satisfied")
+            armijo_factor = np.where(armijo_cond, armijo_factor, 0.5*armijo_factor)
             armijo_ind += 1
             self._solver_state.set_value_saved_state('armijo_ind', armijo_ind)
             self._solver_state.set_value_saved_state('armijo_factor', armijo_factor)
@@ -123,20 +134,3 @@ class NewtonSolver:
         self._fcn.dump(self._fname('fcn'))
 
         logger.debug('returning')
-
-    def armijo_cond(self, prov_fcn, armijo_factor):
-        """
-        Determine if Armijo condition is satisfied. Based on Eq. (A.1) of
-        Kelley, C. T., Solving nonlinear equations with Newton's method, 2003.
-        """
-        fcn_norm = self._fcn.norm()
-        prov_fcn_norm = prov_fcn.norm()
-        res = True
-        alpha = 1.0e-4
-        prov_fcn.log_vals(['ArmijoFactor', 'fcn_norm', 'prov_fcn_norm'],
-                          np.stack([armijo_factor, fcn_norm, prov_fcn_norm], axis=1))
-        for ind in range(prov_fcn.tracer_module_cnt()):
-            if prov_fcn_norm[ind] > (1.0 - alpha * armijo_factor[ind]) * fcn_norm[ind]:
-                armijo_factor[ind] *= 0.5
-                res = False
-        return res
