@@ -18,6 +18,7 @@ logging.basicConfig(format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(
 model_init_static_vars(config['modelinfo'])
 
 var1 = ModelState(['x'], 'iterate_00.nc')
+var1.log() # verify behavior of log method with no msg
 var1.log('var1')
 
 var2 = var1

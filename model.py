@@ -10,7 +10,7 @@ import netCDF4 as nc
 
 # model static variables
 _tracer_module_defs = None
-_dot_prod_weight = None
+_mean_weight = None
 
 # cfg_fname is stored so that it can be passed to ext_cmd in run_ext_cmd
 # it is not needed in stand-alone usage of model.py
@@ -26,14 +26,14 @@ def model_init_static_vars(modelinfo, cfg_fname=None):
         global _tracer_module_defs # pylint: disable=W0603
         _tracer_module_defs = json.load(fptr)
 
-    fname = modelinfo['dot_prod_weight_fname']
-    varname = modelinfo['dot_prod_weight_varname']
-    logger.info('reading %s from %s for _dot_prod_weight', varname, fname)
+    fname = modelinfo['mean_weight_fname']
+    varname = modelinfo['mean_weight_varname']
+    logger.info('reading %s from %s for _mean_weight', varname, fname)
     with nc.Dataset(fname, mode='r') as fptr:
-        global _dot_prod_weight # pylint: disable=W0603
-        _dot_prod_weight = fptr.variables[varname][:]
+        global _mean_weight # pylint: disable=W0603
+        _mean_weight = fptr.variables[varname][:]
     # normalize weight so that its sum is 1.0
-    _dot_prod_weight = (1.0 / np.sum(_dot_prod_weight)) * _dot_prod_weight
+    _mean_weight = (1.0 / np.sum(_mean_weight)) * _mean_weight
 
     global _cfg_fname # pylint: disable=W0603
     _cfg_fname = cfg_fname
@@ -65,13 +65,10 @@ class ModelState:
     def log(self, msg=None):
         """write info of the instance to the log"""
         logger = logging.getLogger(__name__)
-        val = self.norm()
-        if msg is None:
+        for prefix, vals in {'mean':self.mean(), 'norm':self.norm()}.items():
+            prefix_full = prefix if msg is None else msg+','+prefix
             for ind in range(self._tracer_module_cnt):
-                logger.info('%s,%e', self._tracer_module_names[ind], val[ind])
-        else:
-            for ind in range(self._tracer_module_cnt):
-                logger.info('%s,%s,%e', msg, self._tracer_module_names[ind], val[ind])
+                logger.info('%s,%s,%e', prefix_full, self._tracer_module_names[ind], vals[ind])
 
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
@@ -243,15 +240,22 @@ class ModelState:
             return NotImplemented
         return self
 
+    def mean(self):
+        """compute weighted mean of self"""
+        res = np.empty(shape=(self._tracer_module_cnt,))
+        for ind in range(self._tracer_module_cnt):
+            res[ind] = self._tracer_modules[ind].mean()
+        return res
+
     def dot_prod(self, other):
-        """compute dot product of self with other"""
+        """compute weighted dot product of self with other"""
         res = np.empty(shape=(self._tracer_module_cnt,))
         for ind in range(self._tracer_module_cnt):
             res[ind] = self._tracer_modules[ind].dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
 
     def norm(self):
-        """compute l2 norm of self"""
+        """compute weighted l2 norm of self"""
         return np.sqrt(self.dot_prod(self))
 
     def mod_gram_schmidt(self, cnt, fname_fcn, quantity):
@@ -547,14 +551,23 @@ class TracerModuleState:
             return NotImplemented
         return self
 
-    def dot_prod(self, other):
-        """compute dot product of self with other"""
+    def mean(self):
+        """compute weighted mean of self"""
         ndims = len(self._dims)
         if ndims == 1:
-            return np.einsum('j,ij,ij', _dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
+            return np.sum(np.einsum('j,ij', _mean_weight, self._vals))
         if ndims == 2:
-            return np.einsum('jk,ijk,ijk', _dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
-        return np.einsum('jkl,ijkl,ijkl', _dot_prod_weight, self._vals, other._vals) # pylint: disable=W0212
+            return np.sum(np.einsum('jk,ijk', _mean_weight, self._vals))
+        return np.sum(np.einsum('jkl,ijkl', _mean_weight, self._vals))
+
+    def dot_prod(self, other):
+        """compute weighted dot product of self with other"""
+        ndims = len(self._dims)
+        if ndims == 1:
+            return np.einsum('j,ij,ij', _mean_weight, self._vals, other._vals) # pylint: disable=W0212
+        if ndims == 2:
+            return np.einsum('jk,ijk,ijk', _mean_weight, self._vals, other._vals) # pylint: disable=W0212
+        return np.einsum('jkl,ijkl,ijkl', _mean_weight, self._vals, other._vals) # pylint: disable=W0212
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
