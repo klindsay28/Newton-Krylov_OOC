@@ -4,8 +4,7 @@ example of using model.py outside of nk_driver
 
 import configparser
 import logging
-from model import model_init_static_vars
-from model import ModelState
+from model import ModelStaticVars, ModelState
 from nk_driver import parse_args
 
 args = parse_args()
@@ -15,9 +14,9 @@ config.read(args.cfg_fname)
 logging.basicConfig(format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
                     level='INFO')
 
-model_init_static_vars(config['modelinfo'])
+ModelStaticVars(config['modelinfo'])
 
-var1 = ModelState(['x'], 'iterate_00.nc')
+var1 = ModelState('iterate_00.nc')
 var1.log() # verify behavior of log method with no msg
 var1.log('var1')
 

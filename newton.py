@@ -21,15 +21,12 @@ class NewtonSolver:
 
         self._workdir = workdir
         self._solver_state = SolverState('Newton', workdir, resume, rewind)
-        self._tracer_module_names = modelinfo['tracer_module_names'].split(',')
-        self._tracer_module_cnt = len(self._tracer_module_names)
 
         # get solver started on an initial run
         if not resume:
-            ModelState(self._tracer_module_names,
-                       modelinfo['init_iterate_fname']).dump(self._fname('iterate'))
+            ModelState(modelinfo['init_iterate_fname']).dump(self._fname('iterate'))
 
-        self._iterate = ModelState(self._tracer_module_names, self._fname('iterate'))
+        self._iterate = ModelState(self._fname('iterate'))
         self._fcn = self._iterate.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'),
                                               self._solver_state)
 
@@ -65,7 +62,7 @@ class NewtonSolver:
 
         if self._solver_state.step_logged(complete_step):
             logger.debug('"%s" logged, returning result', complete_step)
-            return ModelState(self._tracer_module_names, self._fname('increment'))
+            return ModelState(self._fname('increment'))
 
         logger.debug('"%s" not logged, computing increment', complete_step)
 
@@ -75,7 +72,7 @@ class NewtonSolver:
         resume = True if rewind else self._solver_state.currstep_logged()
         if not resume:
             self.log()
-        krylov_solver = KrylovSolver(krylov_dir, self._tracer_module_names, resume, rewind)
+        krylov_solver = KrylovSolver(krylov_dir, resume, rewind)
         try:
             increment = krylov_solver.solve(self._fname('increment'), iterate, fcn)
         except SystemExit:
@@ -134,15 +131,14 @@ class NewtonSolver:
         Determine if Armijo condition is satisfied. Based on Eq. (A.1) of
         Kelley, C. T., Solving nonlinear equations with Newton's method, 2003.
         """
-        logger = logging.getLogger(__name__)
         fcn_norm = self._fcn.norm()
         prov_fcn_norm = prov_fcn.norm()
         res = True
         alpha = 1.0e-4
-        for ind in range(self._tracer_module_cnt):
-            logger.info('"%s":Armijo_factor=%e,fcn_norm=%e,prov_fcn_norm=%e',
-                        self._tracer_module_names[ind], armijo_factor[ind],
-                        fcn_norm[ind], prov_fcn_norm[ind])
+        prov_fcn.log_vals('ArmijoFactor', armijo_factor)
+        prov_fcn.log_vals('fcn_norm', fcn_norm)
+        prov_fcn.log_vals('prov_fcn_norm', prov_fcn_norm)
+        for ind in range(prov_fcn.tracer_module_cnt()):
             if prov_fcn_norm[ind] > (1.0 - alpha * armijo_factor[ind]) * fcn_norm[ind]:
                 armijo_factor[ind] *= 0.5
                 res = False

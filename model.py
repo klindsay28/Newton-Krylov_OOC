@@ -9,73 +9,92 @@ import numpy as np
 import netCDF4 as nc
 
 # model static variables
-_tracer_module_defs = None
-_mean_weight = None
+_model_static_vars = None
 
-# cfg_fname is stored so that it can be passed to ext_cmd in run_ext_cmd
-# it is not needed in stand-alone usage of model.py
-_cfg_fname = None
+class ModelStaticVars:
+    """class to hold static vars"""
 
-def model_init_static_vars(modelinfo, cfg_fname=None):
-    """read model static vars from a JSON file"""
-    logger = logging.getLogger(__name__)
+    def __init__(self, modelinfo, cfg_fname=None):
+        logger = logging.getLogger(__name__)
 
-    fname = modelinfo['tracer_module_defs_fname']
-    logger.info('reading _tracer_module_defs from %s', fname)
-    with open(fname, mode='r') as fptr:
-        global _tracer_module_defs # pylint: disable=W0603
-        _tracer_module_defs = json.load(fptr)
+        # extract tracer_module_names from modelinfo config object
+        self.tracer_module_names = modelinfo['tracer_module_names'].split(',')
 
-    fname = modelinfo['mean_weight_fname']
-    varname = modelinfo['mean_weight_varname']
-    logger.info('reading %s from %s for _mean_weight', varname, fname)
-    with nc.Dataset(fname, mode='r') as fptr:
-        global _mean_weight # pylint: disable=W0603
-        _mean_weight = fptr.variables[varname][:]
-    # normalize weight so that its sum is 1.0
-    _mean_weight = (1.0 / np.sum(_mean_weight)) * _mean_weight
+        # extract tracer_module_defs from modelinfo config object
+        fname = modelinfo['tracer_module_defs_fname']
+        logger.info('reading tracer_module_defs from %s', fname)
+        with open(fname, mode='r') as fptr:
+            self.tracer_module_defs = json.load(fptr)
 
-    global _cfg_fname # pylint: disable=W0603
-    _cfg_fname = cfg_fname
+        # extract mean_weight from modelinfo config object
+        fname = modelinfo['mean_weight_fname']
+        varname = modelinfo['mean_weight_varname']
+        logger.info('reading %s from %s for mean_weight', varname, fname)
+        with nc.Dataset(fname, mode='r') as fptr:
+            self.mean_weight = fptr.variables[varname][:]
+        # normalize weight so that its sum is 1.0
+        self.mean_weight *= (1.0 / np.sum(self.mean_weight))
+
+        # cfg_fname is stored so that it can be passed to ext_cmd in run_ext_cmd
+        # it is not needed in stand-alone usage of model.py
+        self.cfg_fname = cfg_fname
+
+        # store contents in module level var, to ease use elsewhere
+        global _model_static_vars # pylint: disable=W0603
+        _model_static_vars = self
 
 class ModelState:
     """class for representing the state space of a model"""
 
-    def __init__(self, tracer_module_names, vals_fname=None):
-        if _tracer_module_defs is None:
-            msg = '_tracer_module_defs is None'
-            msg += ', model_init_static_vars must be called before ModelState.__init__'
+    def __init__(self, vals_fname=None):
+        if _model_static_vars is None:
+            msg = '_model_static_vars is None'
+            msg += ', ModelStaticVars.__init__ must be called before ModelState.__init__'
             raise RuntimeError(msg)
-        self._tracer_module_names = tracer_module_names
-        self._tracer_module_cnt = len(tracer_module_names)
         if not vals_fname is None:
-            self._tracer_modules = np.empty(shape=(self._tracer_module_cnt,), dtype=np.object)
-            for ind in range(self._tracer_module_cnt):
-                self._tracer_modules[ind] = TracerModuleState(tracer_module_names[ind],
-                                                              vals_fname=vals_fname)
+            cnt = len(_model_static_vars.tracer_module_names)
+            self._tracer_modules = np.empty(shape=(cnt,), dtype=np.object)
+            for ind in range(cnt):
+                self._tracer_modules[ind] = TracerModuleState(
+                    _model_static_vars.tracer_module_names[ind], vals_fname=vals_fname)
+
+    def tracer_module_cnt(self):
+        """return number of tracer modules"""
+        return self._tracer_modules.size
 
     def dump(self, vals_fname):
         """dump ModelState object to a file"""
         with nc.Dataset(vals_fname, mode='w') as fptr:
             for action in ['define', 'write']:
-                for ind in range(len(self._tracer_modules)):
+                for ind in range(self.tracer_module_cnt()):
                     self._tracer_modules[ind].dump(fptr, action)
         return self
 
+    def log_vals(self, msg, vals):
+        """write per-tracer module values to the log"""
+        logger = logging.getLogger(__name__)
+        if vals.ndim == 1:
+            for ind in range(self.tracer_module_cnt()):
+                logger.info('%s[%s]=%e', msg,
+                            _model_static_vars.tracer_module_names[ind], vals[ind])
+        elif vals.ndim == 2:
+            for ind in range(self.tracer_module_cnt()):
+                for j in range(vals.shape[1]):
+                    logger.info('%s[%s,%d]=%e', msg,
+                                _model_static_vars.tracer_module_names[ind], j, vals[ind, j])
+
     def log(self, msg=None):
         """write info of the instance to the log"""
-        logger = logging.getLogger(__name__)
         for prefix, vals in {'mean':self.mean(), 'norm':self.norm()}.items():
-            prefix_full = prefix if msg is None else msg+','+prefix
-            for ind in range(self._tracer_module_cnt):
-                logger.info('%s,%s,%e', prefix_full, self._tracer_module_names[ind], vals[ind])
+            msg_full = prefix if msg is None else msg+','+prefix
+            self.log_vals(msg_full, vals)
 
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
     def copy(self):
         """return a copy of self"""
-        res = ModelState(self._tracer_module_names)
+        res = ModelState()
         res._tracer_modules = np.copy(self._tracer_modules) # pylint: disable=W0212
         return res
 
@@ -84,7 +103,7 @@ class ModelState:
         unary negation operator
         called to evaluate res = -self
         """
-        res = ModelState(self._tracer_module_names)
+        res = ModelState()
         res._tracer_modules = -self._tracer_modules # pylint: disable=W0212
         return res
 
@@ -93,10 +112,10 @@ class ModelState:
         addition operator
         called to evaluate res = self + other
         """
-        res = ModelState(self._tracer_module_names)
+        res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
@@ -118,7 +137,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules += other
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             self._tracer_modules += other
         elif isinstance(other, ModelState):
             self._tracer_modules += other._tracer_modules # pylint: disable=W0212
@@ -131,10 +150,10 @@ class ModelState:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = ModelState(self._tracer_module_names)
+        res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
@@ -149,7 +168,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules -= other
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             self._tracer_modules -= other
         elif isinstance(other, ModelState):
             self._tracer_modules -= other._tracer_modules # pylint: disable=W0212
@@ -162,10 +181,10 @@ class ModelState:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = ModelState(self._tracer_module_names)
+        res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules * other._tracer_modules # pylint: disable=W0212
@@ -187,7 +206,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules *= other
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             self._tracer_modules *= other
         elif isinstance(other, ModelState):
             self._tracer_modules *= other._tracer_modules # pylint: disable=W0212
@@ -200,10 +219,10 @@ class ModelState:
         division operator
         called to evaluate res = self / other
         """
-        res = ModelState(self._tracer_module_names)
+        res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = (1.0 / other) * self._tracer_modules # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             res._tracer_modules = (1.0 / other) * self._tracer_modules # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules / other._tracer_modules # pylint: disable=W0212
@@ -216,10 +235,10 @@ class ModelState:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = ModelState(self._tracer_module_names)
+        res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -232,7 +251,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules *= (1.0 / other)
-        elif isinstance(other, np.ndarray) and other.shape == (self._tracer_module_cnt,):
+        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
             self._tracer_modules *= (1.0 / other)
         elif isinstance(other, ModelState):
             self._tracer_modules /= other._tracer_modules # pylint: disable=W0212
@@ -242,15 +261,15 @@ class ModelState:
 
     def mean(self):
         """compute weighted mean of self"""
-        res = np.empty(shape=(self._tracer_module_cnt,))
-        for ind in range(self._tracer_module_cnt):
+        res = np.empty(shape=(self.tracer_module_cnt(),))
+        for ind in range(self.tracer_module_cnt()):
             res[ind] = self._tracer_modules[ind].mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        res = np.empty(shape=(self._tracer_module_cnt,))
-        for ind in range(self._tracer_module_cnt):
+        res = np.empty(shape=(self.tracer_module_cnt(),))
+        for ind in range(self.tracer_module_cnt()):
             res[ind] = self._tracer_modules[ind].dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
 
@@ -258,14 +277,14 @@ class ModelState:
         """compute weighted l2 norm of self"""
         return np.sqrt(self.dot_prod(self))
 
-    def mod_gram_schmidt(self, cnt, fname_fcn, quantity):
+    def mod_gram_schmidt(self, basis_cnt, fname_fcn, quantity):
         """
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty(shape=(self._tracer_module_cnt, cnt))
-        for i_val in range(0, cnt):
-            basis_i = ModelState(self._tracer_module_names, fname_fcn(quantity, i_val))
+        h_val = np.empty(shape=(self.tracer_module_cnt(), basis_cnt))
+        for i_val in range(0, basis_cnt):
+            basis_i = ModelState(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)
             self -= h_val[:, i_val] * basis_i
         return h_val
@@ -286,13 +305,14 @@ class ModelState:
 
         if solver_state.currstep_logged():
             logger.debug('"%s" logged, skipping %s and returning result', currstep, ext_cmd)
-            return ModelState(self._tracer_module_names, res_fname)
+            return ModelState(res_fname)
 
         logger.debug('"%s" not logged, invoking %s and exiting', currstep, ext_cmd)
 
         ext_cmd_in_fname = os.path.join(solver_state.get_workdir(), 'ext_in.nc')
         self.dump(ext_cmd_in_fname)
-        subprocess.Popen(['/bin/bash', ext_cmd, _cfg_fname, ext_cmd_in_fname, res_fname])
+        subprocess.Popen(['/bin/bash', ext_cmd, _model_static_vars.cfg_fname,
+                          ext_cmd_in_fname, res_fname])
 
         logger.debug('flushing solver_state')
         solver_state.flush()
@@ -320,7 +340,7 @@ class ModelState:
 
         # retrieve comp_fcn result from res_fname, and proceed with finite difference
         logger.debug('returning')
-        return (ModelState(self._tracer_module_names, res_fname) - fcn) / sigma
+        return (ModelState(res_fname) - fcn) / sigma
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
@@ -339,23 +359,24 @@ class ModelState:
             except ValueError:
                 pass
 
-def lin_comb(tracer_module_names, coeff, fname_fcn, quantity):
+def lin_comb(coeff, fname_fcn, quantity):
     """compute a linear combination of ModelState objects in files"""
-    res = coeff[:, 0] * ModelState(tracer_module_names, fname_fcn(quantity, 0))
+    res = coeff[:, 0] * ModelState(fname_fcn(quantity, 0))
     for j_val in range(1, coeff.shape[-1]):
-        res += coeff[:, j_val] * ModelState(tracer_module_names, fname_fcn(quantity, j_val))
+        res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
     return res
 
 class TracerModuleState:
     """class for representing the a collection of model tracers"""
 
     def __init__(self, tracer_module_name, dims=None, vals_fname=None):
-        if _tracer_module_defs is None:
-            msg = '_tracer_module_defs is None'
-            msg += ', model_init_static_vars must be called before TracerModuleState.__init__'
+        if _model_static_vars is None:
+            msg = '_model_static_vars is None'
+            msg += ', ModelStaticVars.__init__ must be called before TracerModuleState.__init__'
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
-        self._tracer_names = _tracer_module_defs[tracer_module_name]['tracer_names']
+        tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
+        self._tracer_names = tracer_module_def['tracer_names']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if not dims is None:
@@ -555,19 +576,19 @@ class TracerModuleState:
         """compute weighted mean of self"""
         ndims = len(self._dims)
         if ndims == 1:
-            return np.sum(np.einsum('j,ij', _mean_weight, self._vals))
+            return np.sum(np.einsum('j,ij', _model_static_vars.mean_weight, self._vals))
         if ndims == 2:
-            return np.sum(np.einsum('jk,ijk', _mean_weight, self._vals))
-        return np.sum(np.einsum('jkl,ijkl', _mean_weight, self._vals))
+            return np.sum(np.einsum('jk,ijk', _model_static_vars.mean_weight, self._vals))
+        return np.sum(np.einsum('jkl,ijkl', _model_static_vars.mean_weight, self._vals))
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
         ndims = len(self._dims)
         if ndims == 1:
-            return np.einsum('j,ij,ij', _mean_weight, self._vals, other._vals) # pylint: disable=W0212
+            return np.einsum('j,ij,ij', _model_static_vars.mean_weight, self._vals, other._vals) # pylint: disable=W0212
         if ndims == 2:
-            return np.einsum('jk,ijk,ijk', _mean_weight, self._vals, other._vals) # pylint: disable=W0212
-        return np.einsum('jkl,ijkl,ijkl', _mean_weight, self._vals, other._vals) # pylint: disable=W0212
+            return np.einsum('jk,ijk,ijk', _model_static_vars.mean_weight, self._vals, other._vals) # pylint: disable=W0212
+        return np.einsum('jkl,ijkl,ijkl', _model_static_vars.mean_weight, self._vals, other._vals) # pylint: disable=W0212
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""

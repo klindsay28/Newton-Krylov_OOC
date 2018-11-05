@@ -21,7 +21,7 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, workdir, tracer_module_names, resume, rewind):
+    def __init__(self, workdir, resume, rewind):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
@@ -30,8 +30,6 @@ class KrylovSolver:
         util.mkdir_exist_okay(workdir)
 
         self._workdir = workdir
-        self._tracer_module_names = tracer_module_names
-        self._tracer_module_cnt = len(tracer_module_names)
         self._solver_state = SolverState('Krylov', workdir, resume, rewind)
 
         logger.debug('returning')
@@ -63,10 +61,10 @@ class KrylovSolver:
 
         while True:
             j_val = self._solver_state.get_iteration()
-            h_mat = np.zeros((self._tracer_module_cnt, j_val+2, j_val+1))
+            h_mat = np.zeros((iterate.tracer_module_cnt(), j_val+2, j_val+1))
             if j_val > 0:
                 h_mat[:, :-1, :-1] = self._solver_state.get_value_saved_state('h_mat')
-            basis_j = ModelState(self._tracer_module_names, self._fname('basis'))
+            basis_j = ModelState(self._fname('basis'))
             w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
             w_j = w_raw.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
                                     self._fname('w'), self._solver_state)
@@ -77,9 +75,10 @@ class KrylovSolver:
 
             # solve least-squares minimization problem for each tracer module
             coeff = self.comp_krylov_basis_coeffs(h_mat)
+            iterate.log_vals('KrylovCoeff', coeff)
 
             # construct approximate solution
-            res = lin_comb(self._tracer_module_names, coeff, self._fname, 'basis')
+            res = lin_comb(coeff, self._fname, 'basis')
             res.dump(self._fname('krylov_res', j_val))
 
             if self.converged():
@@ -93,16 +92,10 @@ class KrylovSolver:
 
     def comp_krylov_basis_coeffs(self, h_mat):
         """solve least-squares minimization problem for each tracer module"""
-        logger = logging.getLogger(__name__)
-        logger.debug('entering')
-        coeff = np.zeros((self._tracer_module_cnt, h_mat.shape[-1]))
+        coeff = np.zeros((h_mat.shape[0], h_mat.shape[-1]))
         lstsq_rhs = np.zeros(h_mat.shape[-2])
         beta = self._solver_state.get_value_saved_state('beta')
-        for ind in range(self._tracer_module_cnt):
+        for ind in range(h_mat.shape[0]):
             lstsq_rhs[0] = beta[ind]
             coeff[ind, :] = np.linalg.lstsq(h_mat[ind, :, :], lstsq_rhs, rcond=None)[0]
-            for j_val in range(coeff.shape[-1]):
-                logger.info('coeff[%s,%d]=%e', self._tracer_module_names[ind], j_val,
-                            coeff[ind, j_val])
-        logger.debug('returning')
         return coeff
