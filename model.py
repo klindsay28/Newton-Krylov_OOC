@@ -75,13 +75,16 @@ class ModelState:
         logger = logging.getLogger(__name__)
         if vals.ndim == 1:
             for ind in range(self.tracer_module_cnt()):
-                logger.info('%s[%s]=%e', msg,
-                            _model_static_vars.tracer_module_names[ind], vals[ind])
+                tracer_module_name = _model_static_vars.tracer_module_names[ind]
+                logger.info('%s[%s]=%e', msg, tracer_module_name, vals[ind])
         elif vals.ndim == 2:
             for ind in range(self.tracer_module_cnt()):
+                tracer_module_name = _model_static_vars.tracer_module_names[ind]
                 for j in range(vals.shape[1]):
-                    logger.info('%s[%s,%d]=%e', msg,
-                                _model_static_vars.tracer_module_names[ind], j, vals[ind, j])
+                    if isinstance(msg, (list, np.ndarray)):
+                        logger.info('%s[%s]=%e', msg[j], tracer_module_name, vals[ind, j])
+                    else:
+                        logger.info('%s[%s,%d]=%e', msg, tracer_module_name, j, vals[ind, j])
 
     def log(self, msg=None):
         """write info of the instance to the log"""

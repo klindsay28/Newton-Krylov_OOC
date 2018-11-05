@@ -41,10 +41,8 @@ class NewtonSolver:
     def log(self):
         """write the state of the instance to the log"""
         iteration = self._solver_state.get_iteration()
-        msg = 'iteration=%02d,iterate'%iteration
-        self._iterate.log(msg)
-        msg = 'iteration=%02d,fcn'%iteration
-        self._fcn.log(msg)
+        self._iterate.log('iteration=%02d,iterate'%iteration)
+        self._fcn.log('iteration=%02d,fcn'%iteration)
 
     def converged(self):
         """is residual small"""
@@ -135,9 +133,8 @@ class NewtonSolver:
         prov_fcn_norm = prov_fcn.norm()
         res = True
         alpha = 1.0e-4
-        prov_fcn.log_vals('ArmijoFactor', armijo_factor)
-        prov_fcn.log_vals('fcn_norm', fcn_norm)
-        prov_fcn.log_vals('prov_fcn_norm', prov_fcn_norm)
+        prov_fcn.log_vals(['ArmijoFactor', 'fcn_norm', 'prov_fcn_norm'],
+                          np.stack([armijo_factor, fcn_norm, prov_fcn_norm], axis=1))
         for ind in range(prov_fcn.tracer_module_cnt()):
             if prov_fcn_norm[ind] > (1.0 - alpha * armijo_factor[ind]) * fcn_norm[ind]:
                 armijo_factor[ind] *= 0.5
