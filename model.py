@@ -303,6 +303,12 @@ class ModelState:
         logger = logging.getLogger(__name__)
         logger.debug('entering, ext_cmd="%s", res_fname="%s"', ext_cmd, res_fname)
 
+        if _model_static_vars.cfg_fname is None:
+            msg = '_model_static_vars.cfg_fname is None'
+            msg += ', ModelStaticVars.__init__ must be called with cfg_fname argument'
+            msg += ' before ModelState.run_ext_cmd'
+            raise RuntimeError(msg)
+
         currstep = 'calling %s for %s'%(ext_cmd, res_fname)
         solver_state.set_currstep(currstep)
 
