@@ -1,13 +1,8 @@
 {
     "x": {
-        "tracer_names": [
-            "x1",
-            "x2"
-        ]
+        "tracer_names": ["x1", "x2"]
     },
     "y": {
-        "tracer_names": [
-            "y"
-        ]
+        "tracer_names": ["y"]
     }
 }
