@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import sys
 import numpy as np
 import util
 
@@ -43,8 +42,8 @@ class SolverState:
                 logger.info('rewinding step %s for %s', self._rewound_step, self._name)
         else:
             if rewind:
-                logger.error('rewind cannot be True if resume is False, name=%s', self._name)
-                sys.exit(1)
+                msg = 'rewind cannot be True if resume is False, name=%s'%self._name
+                raise RuntimeError(msg)
             self._saved_state = {'iteration':0, 'step_log':[]}
             logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
 
@@ -110,7 +109,7 @@ class SolverState:
             if not np.array_equal(self._saved_state[key], value):
                 raise RuntimeError('saved_state value not recovered on reread')
         else:
-            if not (self._saved_state[key] == value):
+            if not self._saved_state[key] == value:
                 raise RuntimeError('saved_state value not recovered on reread')
 
     def get_value_saved_state(self, key):

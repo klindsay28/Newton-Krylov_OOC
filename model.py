@@ -42,13 +42,10 @@ class ModelState:
     """class for representing the state space of a model"""
 
     def __init__(self, tracer_module_names, vals_fname=None):
-        logger = logging.getLogger(__name__)
-
         if _tracer_module_defs is None:
             msg = '_tracer_module_defs is None'
             msg += ', model_init_static_vars must be called before ModelState.__init__'
-            logger.error(msg)
-            sys.exit(1)
+            raise RuntimeError(msg)
         self._tracer_module_names = tracer_module_names
         self._tracer_module_cnt = len(tracer_module_names)
         if not vals_fname is None:
@@ -349,13 +346,10 @@ class TracerModuleState:
     """class for representing the a collection of model tracers"""
 
     def __init__(self, tracer_module_name, dims=None, vals_fname=None):
-        logger = logging.getLogger(__name__)
-
         if _tracer_module_defs is None:
             msg = '_tracer_module_defs is None'
             msg += ', model_init_static_vars must be called before TracerModuleState.__init__'
-            logger.error(msg)
-            sys.exit(1)
+            raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
         self._tracer_names = _tracer_module_defs[tracer_module_name]['tracer_names']
         if dims is None != vals_fname is None:
