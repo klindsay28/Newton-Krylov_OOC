@@ -104,6 +104,14 @@ class SolverState:
         """add a key value pair to the saved_state dictionary"""
         self._saved_state[key] = value
         self._write_saved_state()
+        # confirm that value can be read back in exactly
+        self._read_saved_state()
+        if isinstance(value, np.ndarray):
+            if not np.array_equal(self._saved_state[key], value):
+                raise RuntimeError('saved_state value not recovered on reread')
+        else:
+            if not (self._saved_state[key] == value):
+                raise RuntimeError('saved_state value not recovered on reread')
 
     def get_value_saved_state(self, key):
         """get a value from the saved_state dictionary"""
