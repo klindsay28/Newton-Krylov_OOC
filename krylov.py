@@ -5,7 +5,8 @@ import os
 import numpy as np
 import util
 from solver import SolverState
-from model import ModelState, lin_comb
+from model import ModelState, lin_comb, tracer_module_cnt, region_cnt, log_vals
+from model import to_region_scalar_ndarray, to_ndarray
 
 class KrylovSolver:
     """
@@ -44,41 +45,51 @@ class KrylovSolver:
         """is solver converged"""
         return self._solver_state.get_iteration() >= 3
 
+    def _solve0(self, fcn):
+        """
+        steps of solve that are only performed for iteration 0
+        This is step 1 of Saad's alogrithm 9.4.
+        """
+        # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
+        precond_fcn = fcn.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
+                                      self._fname('precond_fcn'), self._solver_state)
+        self._solver_state.set_currstep('computing beta and basis_00')
+        if not self._solver_state.currstep_logged():
+            beta = precond_fcn.norm()
+            (-precond_fcn / beta).dump(self._fname('basis'))
+            self._solver_state.set_value_saved_state('beta_ndarray', to_ndarray(beta))
+
     def solve(self, krylov_solve_res_fname, iterate, fcn):
         """apply Krylov method"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
         if self._solver_state.get_iteration() == 0:
-            # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-            precond_fcn = fcn.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
-                                          self._fname('precond_fcn'), self._solver_state)
-            self._solver_state.set_currstep('computing beta and basis_00')
-            if not self._solver_state.currstep_logged():
-                beta = precond_fcn.norm()
-                self._solver_state.set_value_saved_state('beta', beta)
-                (-precond_fcn / beta).dump(self._fname('basis'))
+            self._solve0(fcn)
 
         while True:
             j_val = self._solver_state.get_iteration()
-            h_mat = np.zeros((iterate.tracer_module_cnt(), j_val+2, j_val+1))
+            h_mat = to_region_scalar_ndarray(
+                np.zeros((tracer_module_cnt(), j_val+2, j_val+1, region_cnt())))
             if j_val > 0:
-                h_mat[:, :-1, :-1] = self._solver_state.get_value_saved_state('h_mat')
+                h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
+                    self._solver_state.get_value_saved_state('h_mat_ndarray'))
             basis_j = ModelState(self._fname('basis'))
             w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
             w_j = w_raw.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
                                     self._fname('w'), self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()
-            self._solver_state.set_value_saved_state('h_mat', h_mat)
             w_j /= h_mat[:, -1, -1]
+            h_mat_ndarray = to_ndarray(h_mat)
+            self._solver_state.set_value_saved_state('h_mat_ndarray', h_mat_ndarray)
 
             # solve least-squares minimization problem for each tracer module
-            coeff = self.comp_krylov_basis_coeffs(h_mat)
-            iterate.log_vals('KrylovCoeff', coeff)
+            coeff_ndarray = self.comp_krylov_basis_coeffs(h_mat_ndarray)
+            log_vals('KrylovCoeff', coeff_ndarray)
 
             # construct approximate solution
-            res = lin_comb(coeff, self._fname, 'basis')
+            res = lin_comb(to_region_scalar_ndarray(coeff_ndarray), self._fname, 'basis')
             res.dump(self._fname('krylov_res', j_val))
 
             if self.converged():
@@ -90,12 +101,14 @@ class KrylovSolver:
         logger.debug('returning')
         return res.dump(krylov_solve_res_fname)
 
-    def comp_krylov_basis_coeffs(self, h_mat):
+    def comp_krylov_basis_coeffs(self, h_mat_ndarray):
         """solve least-squares minimization problem for each tracer module"""
-        coeff = np.zeros((h_mat.shape[0], h_mat.shape[-1]))
-        lstsq_rhs = np.zeros(h_mat.shape[-2])
-        beta = self._solver_state.get_value_saved_state('beta')
-        for ind in range(h_mat.shape[0]):
-            lstsq_rhs[0] = beta[ind]
-            coeff[ind, :] = np.linalg.lstsq(h_mat[ind, :, :], lstsq_rhs, rcond=None)[0]
-        return coeff
+        coeff_ndarray = np.zeros((tracer_module_cnt(), h_mat_ndarray.shape[2], region_cnt()))
+        lstsq_rhs = np.zeros(h_mat_ndarray.shape[1])
+        beta_ndarray = self._solver_state.get_value_saved_state('beta_ndarray')
+        for tracer_module_ind in range(tracer_module_cnt()):
+            for region_ind in range(region_cnt()):
+                lstsq_rhs[0] = beta_ndarray[tracer_module_ind, region_ind]
+                coeff_ndarray[tracer_module_ind, :, region_ind] = np.linalg.lstsq(
+                    h_mat_ndarray[tracer_module_ind, :, :, region_ind], lstsq_rhs, rcond=None)[0]
+        return coeff_ndarray

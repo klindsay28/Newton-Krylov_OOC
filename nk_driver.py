@@ -49,7 +49,7 @@ def main(args):
                                  rewind=args.rewind)
 
     while True:
-        if all(newton_solver.converged()):
+        if newton_solver.converged_flat().all():
             logger.info('convergence criterion satisfied')
             break
         newton_solver.step()

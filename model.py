@@ -11,6 +11,17 @@ import netCDF4 as nc
 # model static variables
 _model_static_vars = None
 
+# functions to commonly accessed vars in _model_static_vars
+def tracer_module_cnt():
+    """return number of tracer modules"""
+    return len(_model_static_vars.tracer_module_names)
+
+def region_cnt():
+    """return number of regions specified by region_mask"""
+    return _model_static_vars.region_cnt
+
+################################################################################
+
 class ModelStaticVars:
     """class to hold static vars"""
 
@@ -31,9 +42,33 @@ class ModelStaticVars:
         varname = modelinfo['mean_weight_varname']
         logger.info('reading %s from %s for mean_weight', varname, fname)
         with nc.Dataset(fname, mode='r') as fptr:
-            self.mean_weight = fptr.variables[varname][:]
-        # normalize weight so that its sum is 1.0
-        self.mean_weight *= (1.0 / np.sum(self.mean_weight))
+            mean_weight_no_region_dim = fptr.variables[varname][:]
+
+        # extract region_mask from modelinfo config object
+        fname = modelinfo['region_mask_fname']
+        varname = modelinfo['region_mask_varname']
+        if not fname == 'None' and not varname == 'None':
+            logger.info('reading %s from %s for region_mask', varname, fname)
+            with nc.Dataset(fname, mode='r') as fptr:
+                self.region_mask = fptr.variables[varname][:]
+                if self.region_mask.shape != mean_weight_no_region_dim.shape:
+                    raise RuntimeError('region_mask and mean_weight must have the same shape')
+        else:
+            self.region_mask = np.ones_like(mean_weight_no_region_dim, dtype=np.int32)
+
+        # enforce that region_mask and mean_weight and both 0 where one of them is
+        self.region_mask = np.where(mean_weight_no_region_dim == 0.0, 0, self.region_mask)
+        mean_weight_no_region_dim = np.where(self.region_mask == 0, 0.0, mean_weight_no_region_dim)
+
+        self.region_cnt = self.region_mask.max()
+
+        # add region dimension to mean_weight and normalize
+        self.mean_weight = np.empty(shape=(self.region_cnt,) + mean_weight_no_region_dim.shape)
+        for region_ind in range(self.region_cnt):
+            self.mean_weight[region_ind, :] = np.where(self.region_mask == region_ind+1,
+                                                       mean_weight_no_region_dim, 0.0)
+            # normalize mean_weight so that its sum is 1.0 over each region
+            self.mean_weight[region_ind, :] *= 1.0 / np.sum(self.mean_weight[region_ind, :])
 
         # cfg_fname is stored so that it can be passed to ext_cmd in run_ext_cmd
         # it is not needed in stand-alone usage of model.py
@@ -43,57 +78,38 @@ class ModelStaticVars:
         global _model_static_vars # pylint: disable=W0603
         _model_static_vars = self
 
+################################################################################
+
 class ModelState:
     """class for representing the state space of a model"""
 
+    # give ModelState operators higher priority than those of numpy
+    __array_priority__ = 100
+
     def __init__(self, vals_fname=None):
         if _model_static_vars is None:
-            msg = '_model_static_vars is None'
-            msg += ', ModelStaticVars.__init__ must be called before ModelState.__init__'
+            msg = '_model_static_vars is None' \
+                  ', ModelStaticVars.__init__ must be called before ModelState.__init__'
             raise RuntimeError(msg)
         if not vals_fname is None:
-            cnt = len(_model_static_vars.tracer_module_names)
-            self._tracer_modules = np.empty(shape=(cnt,), dtype=np.object)
-            for ind in range(cnt):
+            self._tracer_modules = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
+            for ind in range(tracer_module_cnt()):
                 self._tracer_modules[ind] = TracerModuleState(
                     _model_static_vars.tracer_module_names[ind], vals_fname=vals_fname)
-
-    def tracer_module_cnt(self):
-        """return number of tracer modules"""
-        return self._tracer_modules.size
 
     def dump(self, vals_fname):
         """dump ModelState object to a file"""
         with nc.Dataset(vals_fname, mode='w') as fptr:
             for action in ['define', 'write']:
-                for ind in range(self.tracer_module_cnt()):
+                for ind in range(tracer_module_cnt()):
                     self._tracer_modules[ind].dump(fptr, action)
         return self
-
-    def log_vals(self, msg, vals):
-        """write per-tracer module values to the log"""
-        logger = logging.getLogger(__name__)
-        if vals.ndim == 1:
-            for ind in range(self.tracer_module_cnt()):
-                tracer_module_name = _model_static_vars.tracer_module_names[ind]
-                logger.info('%s[%s]=%e', msg, tracer_module_name, vals[ind])
-        elif vals.ndim == 2:
-            for ind in range(self.tracer_module_cnt()):
-                tracer_module_name = _model_static_vars.tracer_module_names[ind]
-                for j in range(vals.shape[1]):
-                    if isinstance(msg, (list, np.ndarray)):
-                        logger.info('%s[%s]=%e', msg[j], tracer_module_name, vals[ind, j])
-                    else:
-                        logger.info('%s[%s,%d]=%e', msg, tracer_module_name, j, vals[ind, j])
 
     def log(self, msg=None):
         """write info of the instance to the log"""
         for prefix, vals in {'mean':self.mean(), 'norm':self.norm()}.items():
             msg_full = prefix if msg is None else msg+','+prefix
-            self.log_vals(msg_full, vals)
-
-    # give ModelState operators higher priority than those of numpy
-    __array_priority__ = 100
+            log_vals(msg_full, vals)
 
     def copy(self):
         """return a copy of self"""
@@ -118,7 +134,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
@@ -140,7 +156,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules += other
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             self._tracer_modules += other
         elif isinstance(other, ModelState):
             self._tracer_modules += other._tracer_modules # pylint: disable=W0212
@@ -156,7 +172,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
@@ -171,7 +187,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules -= other
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             self._tracer_modules -= other
         elif isinstance(other, ModelState):
             self._tracer_modules -= other._tracer_modules # pylint: disable=W0212
@@ -187,7 +203,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules * other._tracer_modules # pylint: disable=W0212
@@ -209,7 +225,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules *= other
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             self._tracer_modules *= other
         elif isinstance(other, ModelState):
             self._tracer_modules *= other._tracer_modules # pylint: disable=W0212
@@ -224,9 +240,9 @@ class ModelState:
         """
         res = ModelState()
         if isinstance(other, float):
-            res._tracer_modules = (1.0 / other) * self._tracer_modules # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
-            res._tracer_modules = (1.0 / other) * self._tracer_modules # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+            res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules / other._tracer_modules # pylint: disable=W0212
         else:
@@ -241,7 +257,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -254,7 +270,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules *= (1.0 / other)
-        elif isinstance(other, np.ndarray) and other.shape == (self.tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
             self._tracer_modules *= (1.0 / other)
         elif isinstance(other, ModelState):
             self._tracer_modules /= other._tracer_modules # pylint: disable=W0212
@@ -264,15 +280,15 @@ class ModelState:
 
     def mean(self):
         """compute weighted mean of self"""
-        res = np.empty(shape=(self.tracer_module_cnt(),))
-        for ind in range(self.tracer_module_cnt()):
+        res = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
+        for ind in range(tracer_module_cnt()):
             res[ind] = self._tracer_modules[ind].mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        res = np.empty(shape=(self.tracer_module_cnt(),))
-        for ind in range(self.tracer_module_cnt()):
+        res = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
+        for ind in range(tracer_module_cnt()):
             res[ind] = self._tracer_modules[ind].dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
 
@@ -285,7 +301,7 @@ class ModelState:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty(shape=(self.tracer_module_cnt(), basis_cnt))
+        h_val = np.empty(shape=(tracer_module_cnt(), basis_cnt), dtype=np.object)
         for i_val in range(0, basis_cnt):
             basis_i = ModelState(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)
@@ -304,9 +320,9 @@ class ModelState:
         logger.debug('entering, ext_cmd="%s", res_fname="%s"', ext_cmd, res_fname)
 
         if _model_static_vars.cfg_fname is None:
-            msg = '_model_static_vars.cfg_fname is None'
-            msg += ', ModelStaticVars.__init__ must be called with cfg_fname argument'
-            msg += ' before ModelState.run_ext_cmd'
+            msg = '_model_static_vars.cfg_fname is None' \
+                  ', ModelStaticVars.__init__ must be called with cfg_fname argument' \
+                  ' before ModelState.run_ext_cmd'
             raise RuntimeError(msg)
 
         currstep = 'calling %s for %s'%(ext_cmd, res_fname)
@@ -368,20 +384,18 @@ class ModelState:
             except ValueError:
                 pass
 
-def lin_comb(coeff, fname_fcn, quantity):
-    """compute a linear combination of ModelState objects in files"""
-    res = coeff[:, 0] * ModelState(fname_fcn(quantity, 0))
-    for j_val in range(1, coeff.shape[-1]):
-        res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
-    return res
+################################################################################
 
 class TracerModuleState:
     """class for representing the a collection of model tracers"""
 
+    # give TracerModuleState operators higher priority than those of numpy
+    __array_priority__ = 100
+
     def __init__(self, tracer_module_name, dims=None, vals_fname=None):
         if _model_static_vars is None:
-            msg = '_model_static_vars is None'
-            msg += ', ModelStaticVars.__init__ must be called before TracerModuleState.__init__'
+            msg = '_model_static_vars is None' \
+                  ', ModelStaticVars.__init__ must be called before TracerModuleState.__init__'
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
         tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
@@ -408,10 +422,10 @@ class TracerModuleState:
                                          'vals_fname=', vals_fname)
                 # read values
                 if len(self._dims) > 3:
-                    raise ValueError('ndims too large (for implementation of dot_prod)',
+                    raise ValueError('ndim too large (for implementation of dot_prod)',
                                      'tracer_module_name=', tracer_module_name,
                                      'vals_fname=', vals_fname,
-                                     'ndims=', len(self._dims))
+                                     'ndim=', len(self._dims))
                 for varind, tracer_name in enumerate(self._tracer_names):
                     varid = fptr.variables[tracer_name]
                     self._vals[varind, :] = varid[:]
@@ -462,6 +476,8 @@ class TracerModuleState:
         res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals + other # pylint: disable=W0212
+        elif isinstance(other, RegionScalars):
+            res._vals = self._vals + other.broadcast(0.0) # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
             res._vals = self._vals + other._vals # pylint: disable=W0212
         else:
@@ -475,6 +491,8 @@ class TracerModuleState:
         """
         if isinstance(other, float):
             self._vals += other
+        elif isinstance(other, RegionScalars):
+            self._vals += other.broadcast(0.0)
         elif isinstance(other, TracerModuleState):
             self._vals += other._vals # pylint: disable=W0212
         else:
@@ -489,6 +507,8 @@ class TracerModuleState:
         res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals - other # pylint: disable=W0212
+        elif isinstance(other, RegionScalars):
+            res._vals = self._vals - other.broadcast(0.0) # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
             res._vals = self._vals - other._vals # pylint: disable=W0212
         else:
@@ -502,6 +522,8 @@ class TracerModuleState:
         """
         if isinstance(other, float):
             self._vals -= other
+        elif isinstance(other, RegionScalars):
+            self._vals -= other.broadcast(0.0)
         elif isinstance(other, TracerModuleState):
             self._vals -= other._vals # pylint: disable=W0212
         else:
@@ -516,6 +538,8 @@ class TracerModuleState:
         res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals * other # pylint: disable=W0212
+        elif isinstance(other, RegionScalars):
+            res._vals = self._vals * other.broadcast(1.0) # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
             res._vals = self._vals * other._vals # pylint: disable=W0212
         else:
@@ -536,6 +560,8 @@ class TracerModuleState:
         """
         if isinstance(other, float):
             self._vals *= other
+        elif isinstance(other, RegionScalars):
+            self._vals *= other.broadcast(1.0)
         elif isinstance(other, TracerModuleState):
             self._vals *= other._vals # pylint: disable=W0212
         else:
@@ -549,7 +575,9 @@ class TracerModuleState:
         """
         res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
-            res._vals = (1.0 / other) * self._vals # pylint: disable=W0212
+            res._vals = self._vals * (1.0 / other) # pylint: disable=W0212
+        elif isinstance(other, RegionScalars):
+            res._vals = self._vals * other.recip().broadcast(1.0) # pylint: disable=W0212
         elif isinstance(other, TracerModuleState):
             res._vals = self._vals / other._vals # pylint: disable=W0212
         else:
@@ -564,6 +592,8 @@ class TracerModuleState:
         res = TracerModuleState(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = other / self._vals # pylint: disable=W0212
+        elif isinstance(other, RegionScalars):
+            res._vals = other.broadcast(1.0) / self._vals # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -575,6 +605,8 @@ class TracerModuleState:
         """
         if isinstance(other, float):
             self._vals *= (1.0 / other)
+        elif isinstance(other, RegionScalars):
+            self._vals *= other.recip().broadcast(1.0)
         elif isinstance(other, TracerModuleState):
             self._vals /= other._vals # pylint: disable=W0212
         else:
@@ -583,21 +615,38 @@ class TracerModuleState:
 
     def mean(self):
         """compute weighted mean of self"""
-        ndims = len(self._dims)
-        if ndims == 1:
-            return np.sum(np.einsum('j,ij', _model_static_vars.mean_weight, self._vals))
-        if ndims == 2:
-            return np.sum(np.einsum('jk,ijk', _model_static_vars.mean_weight, self._vals))
-        return np.sum(np.einsum('jkl,ijkl', _model_static_vars.mean_weight, self._vals))
+        ndim = len(self._dims)
+        # i: region dimension
+        # j: tracer dimension
+        # k,l,m : grid dimensions
+        # sum over model grid dimensions, leaving region and tracer dimensions
+        if ndim == 1:
+            tmp = np.einsum('ik,jk', _model_static_vars.mean_weight, self._vals)
+        elif ndim == 2:
+            tmp = np.einsum('ikl,jkl', _model_static_vars.mean_weight, self._vals)
+        else:
+            tmp = np.einsum('iklm,jklm', _model_static_vars.mean_weight, self._vals)
+        # sum over tracer dimension, and return RegionScalars object
+        return RegionScalars(np.sum(tmp, axis=-1))
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        ndims = len(self._dims)
-        if ndims == 1:
-            return np.einsum('j,ij,ij', _model_static_vars.mean_weight, self._vals, other._vals) # pylint: disable=W0212
-        if ndims == 2:
-            return np.einsum('jk,ijk,ijk', _model_static_vars.mean_weight, self._vals, other._vals) # pylint: disable=W0212
-        return np.einsum('jkl,ijkl,ijkl', _model_static_vars.mean_weight, self._vals, other._vals) # pylint: disable=W0212
+        ndim = len(self._dims)
+        # i: region dimension
+        # j: tracer dimension
+        # k,l,m : grid dimensions
+        # sum over tracer and model grid dimensions, leaving region dimension
+        if ndim == 1:
+            tmp = np.einsum('ik,jk,jk', _model_static_vars.mean_weight, self._vals,
+                            other._vals) # pylint: disable=W0212
+        elif ndim == 2:
+            tmp = np.einsum('ikl,jkl,jkl', _model_static_vars.mean_weight, self._vals,
+                            other._vals) # pylint: disable=W0212
+        else:
+            tmp = np.einsum('iklm,jklm,jklm', _model_static_vars.mean_weight, self._vals,
+                            other._vals) # pylint: disable=W0212
+        # return RegionScalars object
+        return RegionScalars(tmp)
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
@@ -608,3 +657,175 @@ class TracerModuleState:
         """set tracer values"""
         ind = self._tracer_names.index(tracer_name)
         self._vals[ind, :] = vals
+
+################################################################################
+
+class RegionScalars:
+    """class to hold per-region scalars"""
+
+    def __init__(self, vals):
+        self._vals = np.array(vals)
+
+    def __mul__(self, other):
+        """
+        multiplication operator
+        called to evaluate res = self * other
+        """
+        if isinstance(other, float):
+            return RegionScalars(self._vals * other)
+        if isinstance(other, RegionScalars):
+            return RegionScalars(self._vals * other._vals) # pylint: disable=W0212
+        return NotImplemented
+
+    def __rmul__(self, other):
+        """
+        reversed multiplication operator
+        called to evaluate res = other * self
+        """
+        return self * other
+
+    def __truediv__(self, other):
+        """
+        division operator
+        called to evaluate res = self / other
+        """
+        if isinstance(other, float):
+            return RegionScalars(self._vals / other)
+        if isinstance(other, RegionScalars):
+            return RegionScalars(self._vals / other._vals) # pylint: disable=W0212
+        return NotImplemented
+
+    def __rtruediv__(self, other):
+        """
+        reversed division operator
+        called to evaluate res = other / self
+        """
+        if isinstance(other, float):
+            return RegionScalars(other / self._vals)
+        return NotImplemented
+
+    def vals(self):
+        """return vals from object"""
+        return self._vals
+
+    def recip(self):
+        """return RegionScalars object with reciprocal operator applied to vals in self"""
+        return RegionScalars(1.0 / self._vals)
+
+    def sqrt(self):
+        """return RegionScalars object with sqrt applied to vals in self"""
+        return RegionScalars(np.sqrt(self._vals))
+
+    def broadcast(self, fill_value):
+        """
+        broadcast vals from self to an array of same shape as region_mask
+        values in the results are:
+            fill_value    where region_mask is <= 0 (e.g. complement of computational domain)
+            _vals[ind]    where region_mask == ind+1
+        """
+        res = np.full(shape=_model_static_vars.region_mask.shape, fill_value=fill_value)
+        for region_ind in range(region_cnt()):
+            res = np.where(_model_static_vars.region_mask == region_ind+1,
+                           self._vals[region_ind], res)
+        return res
+
+################################################################################
+
+def to_ndarray(array_in):
+    """
+    Create an ndarray, res, from an ndarray of RegionScalars.
+    res.ndim is 1 greater than array_in.ndim.
+    The implicit RegionScalars dimension is placed last in res.
+    """
+
+    res = np.empty(shape=array_in.shape+(region_cnt(),))
+
+    if array_in.ndim == 0:
+        res[:] = array_in[()].vals()
+    elif array_in.ndim == 1:
+        for ind0 in range(array_in.shape[0]):
+            res[ind0, :] = array_in[ind0].vals()
+    elif array_in.ndim == 2:
+        for ind0 in range(array_in.shape[0]):
+            for ind1 in range(array_in.shape[1]):
+                res[ind0, ind1, :] = array_in[ind0, ind1].vals()
+    elif array_in.ndim == 3:
+        for ind0 in range(array_in.shape[0]):
+            for ind1 in range(array_in.shape[1]):
+                for ind2 in range(array_in.shape[2]):
+                    res[ind0, ind1, ind2, :] = array_in[ind0, ind1, ind2].vals()
+    else:
+        raise ValueError('array_in.ndim=%d not handled'%array_in.ndim)
+
+    return res
+
+def to_region_scalar_ndarray(array_in):
+    """
+    Create an ndarray of RegionScalars, res, from an ndarray.
+    res.ndim is 1 less than array_in.ndim.
+    The last dimension of array_in corresponds to to implicit RegionScalars dimension in res.
+    """
+
+    if array_in.shape[-1] != region_cnt():
+        raise ValueError('last dimension must have length region_cnt()')
+
+    res = np.empty(shape=array_in.shape[:-1], dtype=np.object)
+
+    if array_in.ndim == 1:
+        res[()] = RegionScalars(array_in[:])
+    elif array_in.ndim == 2:
+        for ind0 in range(array_in.shape[0]):
+            res[ind0] = RegionScalars(array_in[ind0, :])
+    elif array_in.ndim == 3:
+        for ind0 in range(array_in.shape[0]):
+            for ind1 in range(array_in.shape[1]):
+                res[ind0, ind1] = RegionScalars(array_in[ind0, ind1, :])
+    elif array_in.ndim == 4:
+        for ind0 in range(array_in.shape[0]):
+            for ind1 in range(array_in.shape[1]):
+                for ind2 in range(array_in.shape[2]):
+                    res[ind0, ind1, ind2] = RegionScalars(array_in[ind0, ind1, ind2, :])
+    else:
+        raise ValueError('array_in.ndim=%d not handled'%array_in.ndim)
+
+    return res
+
+def lin_comb(coeff, fname_fcn, quantity):
+    """compute a linear combination of ModelState objects in files"""
+    res = coeff[:, 0] * ModelState(fname_fcn(quantity, 0))
+    for j_val in range(1, coeff.shape[-1]):
+        res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
+    return res
+
+def log_vals(msg, vals):
+    """write per-tracer module values to the log"""
+    logger = logging.getLogger(__name__)
+
+    # simplify subsequent logic by converting implicit RegionScalars dimension
+    # to an additional ndarray dimension
+    if isinstance(vals.ravel()[0], RegionScalars):
+        log_vals(msg, to_ndarray(vals))
+        return
+
+    # suppress printing of last index if its span is 1
+    if vals.shape[-1] == 1:
+        log_vals(msg, vals[..., 0])
+        return
+
+    if vals.ndim == 1:
+        for ind in range(tracer_module_cnt()):
+            tracer_module_name = _model_static_vars.tracer_module_names[ind]
+            logger.info('%s[%s]=%e', msg, tracer_module_name, vals[ind])
+    elif vals.ndim == 2:
+        for ind in range(tracer_module_cnt()):
+            tracer_module_name = _model_static_vars.tracer_module_names[ind]
+            for j in range(vals.shape[1]):
+                logger.info('%s[%s,%d]=%e', msg, tracer_module_name, j, vals[ind, j])
+    elif vals.ndim == 3:
+        for ind in range(tracer_module_cnt()):
+            tracer_module_name = _model_static_vars.tracer_module_names[ind]
+            for i in range(vals.shape[1]):
+                for j in range(vals.shape[2]):
+                    logger.info('%s[%s,%d,%d]=%e', msg, tracer_module_name, i, j, vals[ind, i, j])
+    else:
+        raise ValueError('vals.ndim=%d not handled'%vals.ndim)

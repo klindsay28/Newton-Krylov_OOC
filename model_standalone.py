@@ -4,7 +4,8 @@ example of using model.py outside of nk_driver
 
 import configparser
 import logging
-from model import ModelStaticVars, ModelState
+import numpy as np
+from model import ModelStaticVars, ModelState, RegionScalars, region_cnt, log_vals
 from nk_driver import parse_args
 
 args = parse_args()
@@ -13,20 +14,22 @@ config.read(args.cfg_fname)
 
 logging.basicConfig(format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
                     level='INFO')
+logger = logging.getLogger(__name__)
 
 ModelStaticVars(config['modelinfo'])
 
 var1 = ModelState('iterate_00.nc')
-var1.log() # verify behavior of log method with no msg
-var1.log('var1')
+logger.info('calling var1.log')
+var1.log()
+logger.info('calling var1.log with msg')
+var1.log('msg')
 
-var2 = var1
-var2.log('var2 = var1')
+rhs = np.array([RegionScalars(np.linspace(1.0, 2.0, region_cnt())),
+                RegionScalars(np.linspace(2.0, 3.0, region_cnt()))])
+logger.info('rhs')
+log_vals('rhs', rhs)
 
-var3 = var1.copy()
-var3.log('var3 = var1.copy()')
+logger.info('multiplying var1 by rhs')
 
-var1 *= 2.0
-var1.log('var1 doubled')
-var2.log('var2')
-var3.log('var3')
+var1 *= rhs
+var1.log()

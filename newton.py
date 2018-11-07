@@ -5,7 +5,7 @@ import os
 import numpy as np
 import util
 from solver import SolverState
-from model import ModelState
+from model import ModelState, log_vals, to_region_scalar_ndarray, to_ndarray
 from krylov import KrylovSolver
 
 class NewtonSolver:
@@ -44,9 +44,9 @@ class NewtonSolver:
         self._iterate.log('iteration=%02d,iterate'%iteration)
         self._fcn.log('iteration=%02d,fcn'%iteration)
 
-    def converged(self):
+    def converged_flat(self):
         """is residual small"""
-        return self._fcn.norm() < 1.0e-7 * self._iterate.norm()
+        return to_ndarray(self._fcn.norm()) < 1.0e-7 * to_ndarray(self._iterate.norm())
 
     def _comp_increment(self, iterate, fcn):
         """
@@ -92,15 +92,16 @@ class NewtonSolver:
         if not self._solver_state.currstep_logged():
             armijo_ind = 0
             self._solver_state.set_value_saved_state('armijo_ind', armijo_ind)
-            armijo_factor = np.where(self.converged(), 0.0, 1.0)
-            self._solver_state.set_value_saved_state('armijo_factor', armijo_factor)
+            armijo_factor_flat = np.where(self.converged_flat(), 0.0, 1.0)
+            self._solver_state.set_value_saved_state('armijo_factor_flat', armijo_factor_flat)
         else:
             armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
-            armijo_factor = self._solver_state.get_value_saved_state('armijo_factor')
+            armijo_factor_flat = self._solver_state.get_value_saved_state('armijo_factor_flat')
 
         while True:
             # compute provisional candidate for next iterate
-            prov = (self._iterate + armijo_factor * increment)
+            armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
+            prov = self._iterate + armijo_factor * increment
             prov_fcn = prov.run_ext_cmd('./comp_fcn.sh', self._fname('prov_fcn', armijo_ind),
                                         self._solver_state)
 
@@ -110,21 +111,23 @@ class NewtonSolver:
             # Kelley, C. T., Solving nonlinear equations with Newton's method, 2003.
             fcn_norm = self._fcn.norm()
             prov_fcn_norm = prov_fcn.norm()
-            prov_fcn.log_vals(['ArmijoFactor', 'fcn_norm', 'prov_fcn_norm'],
-                              np.stack([armijo_factor, fcn_norm, prov_fcn_norm], axis=1))
+            log_vals('ArmijoFactor ', armijo_factor)
+            log_vals('fcn_norm     ', fcn_norm)
+            log_vals('prov_fcn_norm', prov_fcn_norm)
             alpha = 1.0e-4
-            armijo_cond = prov_fcn_norm <= (1.0 - alpha * armijo_factor) * fcn_norm
+            armijo_cond_flat = to_ndarray(prov_fcn_norm) \
+                <= (1.0 - alpha * armijo_factor_flat) * to_ndarray(fcn_norm)
 
-            # self.armijo_cond(prov_fcn, armijo_factor)
-            if armijo_cond.all():
+            if armijo_cond_flat.all():
                 logger.info("Armijo condition satisfied")
                 break
 
             logger.info("Armijo condition not satisfied")
-            armijo_factor = np.where(armijo_cond, armijo_factor, 0.5*armijo_factor)
+            armijo_factor_flat = np.where(armijo_cond_flat,
+                                          armijo_factor_flat, 0.5*armijo_factor_flat)
             armijo_ind += 1
             self._solver_state.set_value_saved_state('armijo_ind', armijo_ind)
-            self._solver_state.set_value_saved_state('armijo_factor', armijo_factor)
+            self._solver_state.set_value_saved_state('armijo_factor_flat', armijo_factor_flat)
 
         self._solver_state.inc_iteration()
 
