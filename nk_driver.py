@@ -56,5 +56,7 @@ def main(args):
             break
         newton_solver.step()
 
+    newton_solver.log()
+
 if __name__ == '__main__':
     main(parse_args())
