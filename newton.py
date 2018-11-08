@@ -2,11 +2,14 @@
 
 import logging
 import os
+
 import numpy as np
+
 import util
-from solver import SolverState
-from model import ModelState, log_vals, to_region_scalar_ndarray, to_ndarray
+
 from krylov import KrylovSolver
+from model import ModelState, log_vals, to_ndarray, to_region_scalar_ndarray, tracer_module_cnt
+from solver import SolverState
 
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
@@ -41,8 +44,9 @@ class NewtonSolver:
     def log(self):
         """write the state of the instance to the log"""
         iteration = self._solver_state.get_iteration()
-        self._iterate.log('iteration=%02d,iterate'%iteration)
-        self._fcn.log('iteration=%02d,fcn'%iteration)
+        for ind in range(tracer_module_cnt()):
+            self._iterate.log('iteration=%02d,iterate'%iteration, ind)
+            self._fcn.log('iteration=%02d,fcn'%iteration, ind)
 
     def converged_flat(self):
         """is residual small"""
@@ -111,9 +115,10 @@ class NewtonSolver:
             # Kelley, C. T., Solving nonlinear equations with Newton's method, 2003.
             fcn_norm = self._fcn.norm()
             prov_fcn_norm = prov_fcn.norm()
-            log_vals('ArmijoFactor ', armijo_factor)
-            log_vals('fcn_norm     ', fcn_norm)
-            log_vals('prov_fcn_norm', prov_fcn_norm)
+            for ind in range(tracer_module_cnt()):
+                log_vals('ArmijoFactor', armijo_factor, ind)
+                log_vals('fcn_norm', fcn_norm, ind)
+                log_vals('prov_fcn_norm', prov_fcn_norm, ind)
             alpha = 1.0e-4
             armijo_cond_flat = to_ndarray(prov_fcn_norm) \
                 <= (1.0 - alpha * armijo_factor_flat) * to_ndarray(fcn_norm)

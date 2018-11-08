@@ -3,8 +3,10 @@
 
 import argparse
 import configparser
+
 import numpy as np
-from model import ModelStaticVars, ModelState
+
+from model import ModelState, ModelStaticVars
 
 def _parse_args():
     """parse command line arguments"""

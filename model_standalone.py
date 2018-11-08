@@ -4,8 +4,10 @@ example of using model.py outside of nk_driver
 
 import configparser
 import logging
+
 import numpy as np
-from model import ModelStaticVars, ModelState, RegionScalars, region_cnt, log_vals
+
+from model import ModelState, ModelStaticVars, RegionScalars, log_vals, region_cnt
 from nk_driver import parse_args
 
 args = parse_args()

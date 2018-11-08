@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import sys
+
 import numpy as np
 import netCDF4 as nc
 
@@ -25,22 +26,23 @@ def region_cnt():
 class ModelStaticVars:
     """class to hold static vars"""
 
-    def __init__(self, modelinfo, cfg_fname=None):
+    def __init__(self, modelinfo, cfg_fname=None, lvl=logging.DEBUG):
         logger = logging.getLogger(__name__)
+        logger.debug('entering, cfg_fname="%s"', cfg_fname)
 
         # extract tracer_module_names from modelinfo config object
         self.tracer_module_names = modelinfo['tracer_module_names'].split(',')
 
         # extract tracer_module_defs from modelinfo config object
         fname = modelinfo['tracer_module_defs_fname']
-        logger.info('reading tracer_module_defs from %s', fname)
+        logger.log(lvl, 'reading tracer_module_defs from %s', fname)
         with open(fname, mode='r') as fptr:
             self.tracer_module_defs = json.load(fptr)
 
         # extract mean_weight from modelinfo config object
         fname = modelinfo['mean_weight_fname']
         varname = modelinfo['mean_weight_varname']
-        logger.info('reading %s from %s for mean_weight', varname, fname)
+        logger.log(lvl, 'reading %s from %s for mean_weight', varname, fname)
         with nc.Dataset(fname, mode='r') as fptr:
             mean_weight_no_region_dim = fptr.variables[varname][:]
 
@@ -48,7 +50,7 @@ class ModelStaticVars:
         fname = modelinfo['region_mask_fname']
         varname = modelinfo['region_mask_varname']
         if not fname == 'None' and not varname == 'None':
-            logger.info('reading %s from %s for region_mask', varname, fname)
+            logger.log(lvl, 'reading %s from %s for region_mask', varname, fname)
             with nc.Dataset(fname, mode='r') as fptr:
                 self.region_mask = fptr.variables[varname][:]
                 if self.region_mask.shape != mean_weight_no_region_dim.shape:
@@ -78,6 +80,8 @@ class ModelStaticVars:
         global _model_static_vars # pylint: disable=W0603
         _model_static_vars = self
 
+        logger.debug('returning')
+
 ################################################################################
 
 class ModelState:
@@ -105,11 +109,15 @@ class ModelState:
                     self._tracer_modules[ind].dump(fptr, action)
         return self
 
-    def log(self, msg=None):
+    def log(self, msg=None, ind=None):
         """write info of the instance to the log"""
+        if ind is None:
+            for ind_tmp in range(tracer_module_cnt()):
+                self.log(msg, ind_tmp)
+
         for prefix, vals in {'mean':self.mean(), 'norm':self.norm()}.items():
             msg_full = prefix if msg is None else msg+','+prefix
-            log_vals(msg_full, vals)
+            log_vals(msg_full, vals, ind)
 
     def copy(self):
         """return a copy of self"""
@@ -797,35 +805,39 @@ def lin_comb(coeff, fname_fcn, quantity):
         res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
     return res
 
-def log_vals(msg, vals):
+def log_vals(msg, vals, ind=None):
     """write per-tracer module values to the log"""
     logger = logging.getLogger(__name__)
+
+    # loop over tracer modules
+    if ind is None:
+        for ind_tmp in range(tracer_module_cnt()):
+            log_vals(msg, vals, ind_tmp)
+        return
+
+    # can now assume ind is present
 
     # simplify subsequent logic by converting implicit RegionScalars dimension
     # to an additional ndarray dimension
     if isinstance(vals.ravel()[0], RegionScalars):
-        log_vals(msg, to_ndarray(vals))
+        log_vals(msg, to_ndarray(vals), ind)
         return
 
     # suppress printing of last index if its span is 1
     if vals.shape[-1] == 1:
-        log_vals(msg, vals[..., 0])
+        log_vals(msg, vals[..., 0], ind)
         return
 
+    tracer_module_name = _model_static_vars.tracer_module_names[ind]
+
     if vals.ndim == 1:
-        for ind in range(tracer_module_cnt()):
-            tracer_module_name = _model_static_vars.tracer_module_names[ind]
-            logger.info('%s[%s]=%e', msg, tracer_module_name, vals[ind])
+        logger.info('%s[%s]=%e', msg, tracer_module_name, vals[ind])
     elif vals.ndim == 2:
-        for ind in range(tracer_module_cnt()):
-            tracer_module_name = _model_static_vars.tracer_module_names[ind]
-            for j in range(vals.shape[1]):
-                logger.info('%s[%s,%d]=%e', msg, tracer_module_name, j, vals[ind, j])
+        for j in range(vals.shape[1]):
+            logger.info('%s[%s,%d]=%e', msg, tracer_module_name, j, vals[ind, j])
     elif vals.ndim == 3:
-        for ind in range(tracer_module_cnt()):
-            tracer_module_name = _model_static_vars.tracer_module_names[ind]
-            for i in range(vals.shape[1]):
-                for j in range(vals.shape[2]):
-                    logger.info('%s[%s,%d,%d]=%e', msg, tracer_module_name, i, j, vals[ind, i, j])
+        for i in range(vals.shape[1]):
+            for j in range(vals.shape[2]):
+                logger.info('%s[%s,%d,%d]=%e', msg, tracer_module_name, i, j, vals[ind, i, j])
     else:
         raise ValueError('vals.ndim=%d not handled'%vals.ndim)

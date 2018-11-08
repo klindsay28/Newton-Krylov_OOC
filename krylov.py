@@ -3,10 +3,12 @@
 import logging
 import os
 import numpy as np
+
 import util
+
+from model import ModelState, lin_comb, log_vals, region_cnt, to_ndarray
+from model import to_region_scalar_ndarray, tracer_module_cnt
 from solver import SolverState
-from model import ModelState, lin_comb, tracer_module_cnt, region_cnt, log_vals
-from model import to_region_scalar_ndarray, to_ndarray
 
 class KrylovSolver:
     """

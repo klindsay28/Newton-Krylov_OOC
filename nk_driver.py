@@ -6,8 +6,9 @@ import configparser
 import logging
 import os
 import sys
-from newton import NewtonSolver
+
 from model import ModelStaticVars
+from newton import NewtonSolver
 
 def parse_args():
     """parse command line arguments"""
@@ -41,7 +42,8 @@ def main(args):
         logger.warning('KILL file detected, exiting')
         sys.exit(0)
 
-    ModelStaticVars(config['modelinfo'], args.cfg_fname)
+    ModelStaticVars(config['modelinfo'], args.cfg_fname,
+                    logging.DEBUG if args.resume else logging.INFO)
 
     newton_solver = NewtonSolver(workdir=solverinfo['workdir'],
                                  modelinfo=config['modelinfo'],
