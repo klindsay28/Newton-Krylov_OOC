@@ -14,16 +14,19 @@ from solver import SolverState
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
 
-    def __init__(self, workdir, modelinfo, resume, rewind):
+    def __init__(self, solverinfo, modelinfo, resume, rewind):
         """initialize Newton solver"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
 
         # ensure workdir exists
-        util.mkdir_exist_okay(workdir)
+        util.mkdir_exist_okay(solverinfo['workdir'])
 
-        self._workdir = workdir
-        self._solver_state = SolverState('Newton', workdir, resume, rewind)
+        self._workdir = solverinfo['workdir']
+        self._rel_tol = solverinfo.getfloat('newton_rel_tol')
+        self._max_iter = solverinfo.getint('newton_max_iter')
+        self._post_newton_fp_iter = solverinfo.getboolean('post_newton_fp_iter')
+        self._solver_state = SolverState('Newton', self._workdir, resume, rewind)
 
         # get solver started on an initial run
         if not resume:
@@ -50,7 +53,7 @@ class NewtonSolver:
 
     def converged_flat(self):
         """is residual small"""
-        return to_ndarray(self._fcn.norm()) < 1.0e-7 * to_ndarray(self._iterate.norm())
+        return to_ndarray(self._fcn.norm()) < self._rel_tol * to_ndarray(self._iterate.norm())
 
     def _comp_increment(self, iterate, fcn):
         """
@@ -106,7 +109,8 @@ class NewtonSolver:
             # compute provisional candidate for next iterate
             armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
-            prov_fcn = prov.run_ext_cmd('./comp_fcn.sh', self._fname('prov_fcn', armijo_ind),
+            fname_quantity = 'prov_fcn_pre' if self._post_newton_fp_iter else 'prov_fcn'
+            prov_fcn = prov.run_ext_cmd('./comp_fcn.sh', self._fname(fname_quantity, armijo_ind),
                                         self._solver_state)
 
             logger.info('Armijo_ind=%d', armijo_ind)
@@ -134,11 +138,22 @@ class NewtonSolver:
             self._solver_state.set_value_saved_state('armijo_ind', armijo_ind)
             self._solver_state.set_value_saved_state('armijo_factor_flat', armijo_factor_flat)
 
+            if armijo_ind > 10:
+                raise RuntimeError('Armijo_ind exceeds limit')
+
+        if self._post_newton_fp_iter:
+            prov += prov_fcn
+            prov_fcn = prov.run_ext_cmd('./comp_fcn.sh', self._fname('prov_fcn', armijo_ind),
+                                        self._solver_state)
+
         self._solver_state.inc_iteration()
 
         self._iterate = prov
         self._iterate.dump(self._fname('iterate'))
         self._fcn = prov_fcn
         self._fcn.dump(self._fname('fcn'))
+
+        if self._solver_state.get_iteration() >= self._max_iter:
+            raise RuntimeError('number of maximum Newton iterations exceeded')
 
         logger.debug('returning')

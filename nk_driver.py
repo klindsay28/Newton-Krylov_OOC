@@ -45,7 +45,7 @@ def main(args):
     ModelStaticVars(config['modelinfo'], args.cfg_fname,
                     logging.DEBUG if args.resume else logging.INFO)
 
-    newton_solver = NewtonSolver(workdir=solverinfo['workdir'],
+    newton_solver = NewtonSolver(solverinfo=solverinfo,
                                  modelinfo=config['modelinfo'],
                                  resume=args.resume,
                                  rewind=args.rewind)

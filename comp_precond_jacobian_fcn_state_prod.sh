@@ -7,6 +7,6 @@ cfg_fname=$1
 in_fname=$2
 res_fname=$3
 
-ncks -O $in_fname $res_fname
+./comp_precond_jacobian_fcn_state_prod.py --cfg_fname $cfg_fname $in_fname $res_fname
 
 ./postrun.sh $cfg_fname

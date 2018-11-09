@@ -17,6 +17,14 @@ def tracer_module_cnt():
     """return number of tracer modules"""
     return len(_model_static_vars.tracer_module_names)
 
+def tracer_module_names():
+    """return list of tracer module names"""
+    return _model_static_vars.tracer_module_names
+
+def tracer_names():
+    """return list of all tracer names"""
+    return _model_static_vars.tracer_names
+
 def region_cnt():
     """return number of regions specified by region_mask"""
     return _model_static_vars.region_cnt
@@ -38,6 +46,12 @@ class ModelStaticVars:
         logger.log(lvl, 'reading tracer_module_defs from %s', fname)
         with open(fname, mode='r') as fptr:
             self.tracer_module_defs = json.load(fptr)
+
+        # extracer tracer_names from tracer_module_defs
+        self.tracer_names = []
+        for tracer_module_name in self.tracer_module_names:
+            tracer_module_def = self.tracer_module_defs[tracer_module_name]
+            self.tracer_names.extend(tracer_module_def['tracer_names'])
 
         # extract mean_weight from modelinfo config object
         fname = modelinfo['mean_weight_fname']
@@ -99,7 +113,7 @@ class ModelState:
             self._tracer_modules = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
             for ind in range(tracer_module_cnt()):
                 self._tracer_modules[ind] = TracerModuleState(
-                    _model_static_vars.tracer_module_names[ind], vals_fname=vals_fname)
+                    tracer_module_names()[ind], vals_fname=vals_fname)
 
     def dump(self, vals_fname):
         """dump ModelState object to a file"""
@@ -344,8 +358,8 @@ class ModelState:
 
         ext_cmd_in_fname = os.path.join(solver_state.get_workdir(), 'ext_in.nc')
         self.dump(ext_cmd_in_fname)
-        subprocess.Popen(['/bin/bash', ext_cmd, _model_static_vars.cfg_fname,
-                          ext_cmd_in_fname, res_fname])
+        args = ['/bin/bash', ext_cmd, _model_static_vars.cfg_fname, ext_cmd_in_fname, res_fname]
+        subprocess.Popen(args)
 
         logger.debug('flushing solver_state')
         solver_state.flush()
@@ -362,7 +376,7 @@ class ModelState:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        sigma = 1.0e-6 * self.norm()
+        sigma = 1.0e-4 * self.norm()
 
         res_fname = os.path.join(solver_state.get_workdir(), 'fcn_res.nc')
 
@@ -824,11 +838,11 @@ def log_vals(msg, vals, ind=None):
         return
 
     # suppress printing of last index if its span is 1
-    if vals.shape[-1] == 1:
+    if vals.shape[-1] == 1 and vals.ndim >= 2:
         log_vals(msg, vals[..., 0], ind)
         return
 
-    tracer_module_name = _model_static_vars.tracer_module_names[ind]
+    tracer_module_name = tracer_module_names()[ind]
 
     if vals.ndim == 1:
         logger.info('%s[%s]=%e', msg, tracer_module_name, vals[ind])

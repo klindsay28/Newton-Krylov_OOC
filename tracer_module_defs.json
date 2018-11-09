@@ -1,8 +1,8 @@
 {
-    "x": {
-        "tracer_names": ["x1", "x2"]
+    "IAGE": {
+        "tracer_names": ["IAGE"]
     },
-    "y": {
-        "tracer_names": ["y"]
+    "PO4_POP": {
+        "tracer_names": ["PO4", "POP"]
     }
 }
