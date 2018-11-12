@@ -6,9 +6,9 @@ t_beg = 0.0
 t_end = 365.0
 t_del = t_end - t_beg
 
-nz = 100
+nz = 50
 
-z_edge = np.linspace(0.0, 1000.0, 1+nz)
+z_edge = np.linspace(0.0, 500.0, 1+nz)
 z_mid = 0.5 * (z_edge[:-1] + z_edge[1:])
 
 dz = np.ediff1d(z_edge)
@@ -20,12 +20,12 @@ def mixing_coeff(time):
     """return vertical mixing coefficient, m2 d-1"""
 
     bldepth_min = 50.0
-    bldepth_max = 200.0
+    bldepth_max = 150.0
     bldepth_del = bldepth_max - bldepth_min
     bldepth = bldepth_min \
         + bldepth_del * (0.5 + 0.5 * np.cos((2 * np.pi) * ((time / 365.0) - 0.25)))
-    # z_lin ranges from 0.0 to 1.0 over span of 60.0 m, is 0.5 at bldepth
-    z_lin = np.maximum(0.0, np.minimum(1.0, 0.5 + (z_edge - bldepth) * (1.0 / 60.0)))
+    # z_lin ranges from 0.0 to 1.0 over span of 50.0 m, is 0.5 at bldepth
+    z_lin = np.maximum(0.0, np.minimum(1.0, 0.5 + (z_edge - bldepth) * (1.0 / 50.0)))
     res_log10_shallow = 0.0
     res_log10_deep = -5.0
     res_log10_del = res_log10_deep - res_log10_shallow
