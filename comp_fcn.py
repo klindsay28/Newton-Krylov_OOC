@@ -58,7 +58,7 @@ def comp_tend(time, tracer_vals_flat):
     tracer_names_loc = tracer_names()
     tracer_cnt = len(tracer_names_loc)
     tracer_vals = tracer_vals_flat.reshape((tracer_cnt, -1))
-    dtracer_vals_dt = np.empty_like(tracer_vals)
+    dtracer_vals_dt = np.empty((tracer_cnt, nz))
     kappa = mixing_coeff(time)
     for tracer_module_name in tracer_module_names():
         if tracer_module_name == 'iage':
@@ -66,28 +66,47 @@ def comp_tend(time, tracer_vals_flat):
             comp_tend_iage(kappa, tracer_vals[tracer_ind, :], dtracer_vals_dt[tracer_ind, :])
         if tracer_module_name == 'phosphorus':
             tracer_ind0 = tracer_names_loc.index('po4')
-            comp_tend_phosphorus(kappa, tracer_vals[tracer_ind0:tracer_ind0+3, :],
-                                 dtracer_vals_dt[tracer_ind0:tracer_ind0+3, :])
+            comp_tend_phosphorus(kappa, tracer_vals[tracer_ind0:tracer_ind0+6, :],
+                                 dtracer_vals_dt[tracer_ind0:tracer_ind0+6, :])
     return dtracer_vals_dt.reshape(-1)
 
 def comp_tend_iage(kappa, tracer_vals, dtracer_vals_dt):
-    """compute tendency for iage"""
+    """
+    compute tendency for iage
+    tendency units are tr_units x d-1
+    """
     # age 1/year
     dtracer_vals_dt[:] = (1.0 / 365.0) + mixing_tend(kappa, tracer_vals)
     # restore in surface to 0 at a rate of 24.0/day
     dtracer_vals_dt[0] = -24.0 * tracer_vals[0]
 
 def comp_tend_phosphorus(kappa, tracer_vals, dtracer_vals_dt):
-    """compute tendency for phosphorus tracers"""
+    """
+    compute tendency for phosphorus tracers
+    tendency units are tr_units x d-1
+    """
+
+    # light has e-folding decay of 25m, po4 half-saturation = 0.5
+    po4 = tracer_vals[0, :]
+    po4_lim = np.where(po4 > 0.0, po4 / (po4 + 0.5), 0.0)
+    po4_uptake = np.exp((-1.0 / 25.0) * z_mid) * po4_lim
+
+    comp_tend_phosphorus_core(kappa, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :])
+    comp_tend_phosphorus_core(kappa, po4_uptake, tracer_vals[3:6, :], dtracer_vals_dt[3:6, :])
+
+    # restore po4_s to po4
+    dtracer_vals_dt[3, 0] -= 1.0 * (dtracer_vals_dt[3, 0] - dtracer_vals_dt[0, 0])
+
+def comp_tend_phosphorus_core(kappa, po4_uptake, tracer_vals, dtracer_vals_dt):
+    """
+    core fuction for computing tendency for phosphorus tracers
+    tendency units are tr_units x d-1
+    """
 
     po4 = tracer_vals[0, :]
     dop = tracer_vals[1, :]
     pop = tracer_vals[2, :]
 
-    # compute tendencies, units are per-day
-    # light has e-folding decay of 25m, po4 half-saturation = 0.5
-    po4_lim = po4 / (po4 + 0.5)
-    po4_uptake = np.where(po4 > 0.0, np.exp((-1.0 / 25.0) * z_mid) * po4_lim, 0.0)
     # dop remin rate is 1% / day
     dop_remin = np.where(dop > 0.0, 0.01 * dop, 0.0)
     # pop remin rate is 0.5% / day
@@ -104,14 +123,14 @@ def mixing_tend(kappa, tracer_vals):
     """tracer tendency from mixing"""
     tracer_grad = np.zeros(1+nz)
     tracer_grad[1:-1] = np.ediff1d(tracer_vals) * dz_mid_r
-    tracer_flux = -1.0 * kappa * tracer_grad
-    return -1.0 * np.ediff1d(tracer_flux) * dz_r
+    tracer_flux_neg = kappa * tracer_grad
+    return np.ediff1d(tracer_flux_neg) * dz_r
 
 def sinking_tend(tracer_vals):
     """tracer tendency from sinking"""
-    tracer_flux = np.zeros(1+nz)
-    tracer_flux[1:-1] = 1.0 * tracer_vals[:-1] # assume velocity is 1 m/day
-    return -1.0 * np.ediff1d(tracer_flux) * dz_r
+    tracer_flux_neg = np.zeros(1+nz)
+    tracer_flux_neg[1:-1] = -tracer_vals[:-1] # assume velocity is 1 m/day
+    return np.ediff1d(tracer_flux_neg) * dz_r
 
 def write_hist(sol, hist_fname):
     """write generated tracer values to hist_fname"""
