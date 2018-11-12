@@ -31,48 +31,48 @@ def main(args):
     ms_res = ms_in.copy()
 
     for tracer_module_name in tracer_module_names():
-        if tracer_module_name == 'IAGE':
-            comp_precond_IAGE(ms_in, ms_res)
-        # if tracer_module_name == 'PO4_POP':
-        #     comp_precond_PO4_POP(ms_in, ms_res)
+        if tracer_module_name == 'iage':
+            comp_precond_iage(ms_in, ms_res)
+        # if tracer_module_name == 'po4_pop':
+        #     comp_precond_po4_pop(ms_in, ms_res)
 
     ms_res.dump(args.res_fname)
 
-def comp_precond_IAGE(ms_in, ms_res):
-    """apply preconditioner for IAGE"""
-    rhs = (1.0 / t_del) * ms_in.get_tracer_vals('IAGE')
+def comp_precond_iage(ms_in, ms_res):
+    """apply preconditioner for iage"""
+    rhs = (1.0 / t_del) * ms_in.get_tracer_vals('iage')
 
     mca = mixing_coeff_log_avg()
 
     l_and_u = (1, 1)
-    ab = np.zeros((3, nz))
-    ab[0, 1:] = mca[1:-1] * dz_mid_r * dz_r[:-1]
-    ab[1, :-1] -= mca[1:-1] * dz_mid_r * dz_r[:-1]
-    ab[1, 1:] -= mca[1:-1] * dz_mid_r * dz_r[1:]
-    ab[2, :-1] = mca[1:-1] * dz_mid_r * dz_r[1:]
-    ab[1, 0] = -24.0
-    ab[0, 1] = 0
+    matrix_diagonals = np.zeros((3, nz))
+    matrix_diagonals[0, 1:] = mca[1:-1] * dz_mid_r * dz_r[:-1]
+    matrix_diagonals[1, :-1] -= mca[1:-1] * dz_mid_r * dz_r[:-1]
+    matrix_diagonals[1, 1:] -= mca[1:-1] * dz_mid_r * dz_r[1:]
+    matrix_diagonals[2, :-1] = mca[1:-1] * dz_mid_r * dz_r[1:]
+    matrix_diagonals[1, 0] = -24.0
+    matrix_diagonals[0, 1] = 0
 
-    res = solve_banded(l_and_u, ab, rhs)
+    res = solve_banded(l_and_u, matrix_diagonals, rhs)
 
-    ms_res.set_tracer_vals('IAGE', res)
+    ms_res.set_tracer_vals('iage', res)
 
-# def comp_precond_PO4_POP(ms_in, ms_res):
-#     """apply preconditioner for PO4_POP"""
-#     # d(d[PO4,POP]_dt)/d[PO4,POP] x res = in
+# def comp_precond_po4_pop(ms_in, ms_res):
+#     """apply preconditioner for po4_pop"""
+#     # d(d[po4,pop]_dt)/d[po4,pop] x res = in
 #
 #     # ignore mixing_tend
-#     # dPO4_dt = -PO4_uptake + POP_remin
-#     # dPOP_dt = PO4_uptake - POP_remin + sinking_tend(POP)
-#     dPO4_dt = ms_in.get_tracer_vals('PO4')
-#     dPOP_dt = ms_in.get_tracer_vals('POP')
-#     # dPO4_dt + dPOP_dt = sinking_tend_POP = -d/dz POP_flux = -d/dz (5.0 m/d * POP)
-#     POP = -0.2 * np.cumsum(dz * (dPO4_dt + dPOP_dt))
-#     PO4_uptake = 0.1 * POP - dPO4_dt
-#     PO4_lim = np.where((z_mid < 100.0), np.exp((1.0 / 25.0) * z_mid) * PO4_uptake, 0.0)
-#     PO4 = PO4_lim * (PO4_iterate + 0.5)**2 / 0.5
-#     ms_res.set_tracer_vals('PO4', PO4)
-#     ms_res.set_tracer_vals('POP', POP)
+#     # dpo4_dt = -po4_uptake + pop_remin
+#     # dpop_dt = po4_uptake - pop_remin + sinking_tend(pop)
+#     dpo4_dt = ms_in.get_tracer_vals('po4')
+#     dpop_dt = ms_in.get_tracer_vals('pop')
+#     # dpo4_dt + dpop_dt = sinking_tend_pop = -d/dz pop_flux = -d/dz (5.0 m/d * pop)
+#     pop = -0.2 * np.cumsum(dz * (dpo4_dt + dpop_dt))
+#     po4_uptake = 0.1 * pop - dpo4_dt
+#     po4_lim = np.where((z_mid < 100.0), np.exp((1.0 / 25.0) * z_mid) * po4_uptake, 0.0)
+#     po4 = po4_lim * (po4_iterate + 0.5)**2 / 0.5
+#     ms_res.set_tracer_vals('po4', po4)
+#     ms_res.set_tracer_vals('pop', pop)
 
 if __name__ == '__main__':
     main(_parse_args())

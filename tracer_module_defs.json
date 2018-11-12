@@ -1,8 +1,8 @@
 {
-    "IAGE": {
-        "tracer_names": ["IAGE"]
+    "iage": {
+        "tracer_names": ["iage"]
     },
-    "PO4_POP": {
-        "tracer_names": ["PO4", "POP"]
+    "phosphorus": {
+        "tracer_names": ["po4", "dop", "pop"]
     }
 }
