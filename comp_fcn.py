@@ -109,8 +109,8 @@ def comp_tend_phosphorus_core(kappa, po4_uptake, tracer_vals, dtracer_vals_dt):
 
     # dop remin rate is 1% / day
     dop_remin = np.where(dop > 0.0, 0.01 * dop, 0.0)
-    # pop remin rate is 0.5% / day
-    pop_remin = np.where(pop > 0.0, 0.005 * pop, 0.0)
+    # pop remin rate is 1% / day
+    pop_remin = np.where(pop > 0.0, 0.01 * pop, 0.0)
 
     sigma = 0.67
 
