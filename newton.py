@@ -143,6 +143,7 @@ class NewtonSolver:
 
         if self._post_newton_fp_iter:
             prov += prov_fcn
+            prov.copy_shadow_tracers_to_real_tracers()
             prov_fcn = prov.run_ext_cmd('./comp_fcn.sh', self._fname('prov_fcn', armijo_ind),
                                         self._solver_state)
 

@@ -47,18 +47,20 @@ class ModelStaticVars:
         with open(fname, mode='r') as fptr:
             self.tracer_module_defs = json.load(fptr)
 
-        # extracer tracer_names from tracer_module_defs
+        self._check_shadow_tracers(lvl)
+
+        # extracer tracer_names in use from tracer_module_defs
         self.tracer_names = []
         for tracer_module_name in self.tracer_module_names:
             tracer_module_def = self.tracer_module_defs[tracer_module_name]
             self.tracer_names.extend(tracer_module_def['tracer_names'])
 
-        # extract mean_weight from modelinfo config object
-        fname = modelinfo['mean_weight_fname']
-        varname = modelinfo['mean_weight_varname']
-        logger.log(lvl, 'reading %s from %s for mean_weight', varname, fname)
+        # extract grid_weight from modelinfo config object
+        fname = modelinfo['grid_weight_fname']
+        varname = modelinfo['grid_weight_varname']
+        logger.log(lvl, 'reading %s from %s for grid_weight', varname, fname)
         with nc.Dataset(fname, mode='r') as fptr:
-            mean_weight_no_region_dim = fptr.variables[varname][:]
+            grid_weight_no_region_dim = fptr.variables[varname][:]
 
         # extract region_mask from modelinfo config object
         fname = modelinfo['region_mask_fname']
@@ -67,24 +69,24 @@ class ModelStaticVars:
             logger.log(lvl, 'reading %s from %s for region_mask', varname, fname)
             with nc.Dataset(fname, mode='r') as fptr:
                 self.region_mask = fptr.variables[varname][:]
-                if self.region_mask.shape != mean_weight_no_region_dim.shape:
-                    raise RuntimeError('region_mask and mean_weight must have the same shape')
+                if self.region_mask.shape != grid_weight_no_region_dim.shape:
+                    raise RuntimeError('region_mask and grid_weight must have the same shape')
         else:
-            self.region_mask = np.ones_like(mean_weight_no_region_dim, dtype=np.int32)
+            self.region_mask = np.ones_like(grid_weight_no_region_dim, dtype=np.int32)
 
-        # enforce that region_mask and mean_weight and both 0 where one of them is
-        self.region_mask = np.where(mean_weight_no_region_dim == 0.0, 0, self.region_mask)
-        mean_weight_no_region_dim = np.where(self.region_mask == 0, 0.0, mean_weight_no_region_dim)
+        # enforce that region_mask and grid_weight and both 0 where one of them is
+        self.region_mask = np.where(grid_weight_no_region_dim == 0.0, 0, self.region_mask)
+        grid_weight_no_region_dim = np.where(self.region_mask == 0, 0.0, grid_weight_no_region_dim)
 
         self.region_cnt = self.region_mask.max()
 
-        # add region dimension to mean_weight and normalize
-        self.mean_weight = np.empty(shape=(self.region_cnt,) + mean_weight_no_region_dim.shape)
+        # add region dimension to grid_weight and normalize
+        self.grid_weight = np.empty(shape=(self.region_cnt,) + grid_weight_no_region_dim.shape)
         for region_ind in range(self.region_cnt):
-            self.mean_weight[region_ind, :] = np.where(self.region_mask == region_ind+1,
-                                                       mean_weight_no_region_dim, 0.0)
-            # normalize mean_weight so that its sum is 1.0 over each region
-            self.mean_weight[region_ind, :] *= 1.0 / np.sum(self.mean_weight[region_ind, :])
+            self.grid_weight[region_ind, :] = np.where(self.region_mask == region_ind+1,
+                                                       grid_weight_no_region_dim, 0.0)
+            # normalize grid_weight so that its sum is 1.0 over each region
+            self.grid_weight[region_ind, :] *= 1.0 / np.sum(self.grid_weight[region_ind, :])
 
         # cfg_fname is stored so that it can be passed to ext_cmd in run_ext_cmd
         # it is not needed in stand-alone usage of model.py
@@ -95,6 +97,27 @@ class ModelStaticVars:
         _model_static_vars = self
 
         logger.debug('returning')
+
+    def _check_shadow_tracers(self, lvl):
+        """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
+        # This check is done for all entries in tracer_module_defs, whether they are being used or
+        # not. If a tracer module does not have any shadow tracers, add an empty shadow_tracer
+        # dictionary to tracer_module_defs, to ease subsequent coding.
+        logger = logging.getLogger(__name__)
+        for tracer_module_name, tracer_module_def in self.tracer_module_defs.items():
+            try:
+                shadow_tracers = tracer_module_def['shadow_tracers']
+            except KeyError:
+                shadow_tracers = {}
+                tracer_module_def['shadow_tracers'] = {}
+                logger.log(lvl, 'tracer module %s has no shadow tracers', tracer_module_name)
+            tracer_names_loc = tracer_module_def['tracer_names']
+            for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
+                shadow_tracer_ind = tracer_names_loc.index(shadow_tracer_name)
+                real_tracer_ind = tracer_names_loc.index(real_tracer_name)
+                logger.log(lvl, 'tracer module %s has %s (ind=%d) as a shadow for %s (ind=%d)',
+                           tracer_module_name, shadow_tracer_name, shadow_tracer_ind,
+                           real_tracer_name, real_tracer_ind)
 
 ################################################################################
 
@@ -406,6 +429,11 @@ class ModelState:
             except ValueError:
                 pass
 
+    def copy_shadow_tracers_to_real_tracers(self):
+        """copy shadow tracers to their real counterparts"""
+        for tracer_module in self._tracer_modules:
+            tracer_module.copy_shadow_tracers_to_real_tracers()
+
 ################################################################################
 
 class TracerModuleState:
@@ -420,8 +448,8 @@ class TracerModuleState:
                   ', ModelStaticVars.__init__ must be called before TracerModuleState.__init__'
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
-        tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
-        self._tracer_names = tracer_module_def['tracer_names']
+        self._tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
+        self._tracer_names = self._tracer_module_def['tracer_names']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if not dims is None:
@@ -451,6 +479,12 @@ class TracerModuleState:
                 for varind, tracer_name in enumerate(self._tracer_names):
                     varid = fptr.variables[tracer_name]
                     self._vals[varind, :] = varid[:]
+
+        # set +tracer_weight, for use in mean and dot_prod
+        # tracers that are shadowed get a weight of 0
+        self._tracer_weight = np.ones(len(self._tracer_names))
+        for tracer_name in self._tracer_module_def['shadow_tracers'].values():
+            self._tracer_weight[self._tracer_names.index(tracer_name)] = 0.0
 
     def dump(self, fptr, action):
         """
@@ -643,11 +677,14 @@ class TracerModuleState:
         # k,l,m : grid dimensions
         # sum over model grid dimensions, leaving region and tracer dimensions
         if ndim == 1:
-            tmp = np.einsum('ik,jk', _model_static_vars.mean_weight, self._vals)
+            tmp = np.einsum('ik,j,jk', _model_static_vars.grid_weight, self._tracer_weight,
+                            self._vals)
         elif ndim == 2:
-            tmp = np.einsum('ikl,jkl', _model_static_vars.mean_weight, self._vals)
+            tmp = np.einsum('ikl,j,jkl', _model_static_vars.grid_weight, self._tracer_weight,
+                            self._vals)
         else:
-            tmp = np.einsum('iklm,jklm', _model_static_vars.mean_weight, self._vals)
+            tmp = np.einsum('iklm,j,jklm', _model_static_vars.grid_weight, self._tracer_weight,
+                            self._vals)
         # sum over tracer dimension, and return RegionScalars object
         return RegionScalars(np.sum(tmp, axis=-1))
 
@@ -659,14 +696,14 @@ class TracerModuleState:
         # k,l,m : grid dimensions
         # sum over tracer and model grid dimensions, leaving region dimension
         if ndim == 1:
-            tmp = np.einsum('ik,jk,jk', _model_static_vars.mean_weight, self._vals,
-                            other._vals) # pylint: disable=W0212
+            tmp = np.einsum('ik,j,jk,jk', _model_static_vars.grid_weight, self._tracer_weight,
+                            self._vals, other._vals) # pylint: disable=W0212
         elif ndim == 2:
-            tmp = np.einsum('ikl,jkl,jkl', _model_static_vars.mean_weight, self._vals,
-                            other._vals) # pylint: disable=W0212
+            tmp = np.einsum('ikl,j,jkl,jkl', _model_static_vars.grid_weight, self._tracer_weight,
+                            self._vals, other._vals) # pylint: disable=W0212
         else:
-            tmp = np.einsum('iklm,jklm,jklm', _model_static_vars.mean_weight, self._vals,
-                            other._vals) # pylint: disable=W0212
+            tmp = np.einsum('iklm,j,jklm,jklm', _model_static_vars.grid_weight, self._tracer_weight,
+                            self._vals, other._vals) # pylint: disable=W0212
         # return RegionScalars object
         return RegionScalars(tmp)
 
@@ -679,6 +716,16 @@ class TracerModuleState:
         """set tracer values"""
         ind = self._tracer_names.index(tracer_name)
         self._vals[ind, :] = vals
+
+    def copy_shadow_tracers_to_real_tracers(self):
+        """copy shadow tracers to their real counterparts"""
+        tracer_module_def = _model_static_vars.tracer_module_defs[self._tracer_module_name]
+        try:
+            shadow_tracers = tracer_module_def['shadow_tracers']
+        except KeyError:
+            return
+        for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
+            self.set_tracer_vals(real_tracer_name, self.get_tracer_vals(shadow_tracer_name))
 
 ################################################################################
 

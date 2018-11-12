@@ -3,6 +3,7 @@
         "tracer_names": ["iage"]
     },
     "phosphorus": {
-        "tracer_names": ["po4", "dop", "pop", "po4_s", "dop_s", "pop_s"]
+        "tracer_names": ["po4", "dop", "pop", "po4_s", "dop_s", "pop_s"],
+        "shadow_tracers": {"po4_s": "po4", "dop_s": "dop", "pop_s": "pop"}
     }
 }

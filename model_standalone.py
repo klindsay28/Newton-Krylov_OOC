@@ -15,7 +15,7 @@ config = configparser.ConfigParser()
 config.read(args.cfg_fname)
 
 logging.basicConfig(format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
-                    level='INFO')
+                    level='DEBUG')
 logger = logging.getLogger(__name__)
 
 ModelStaticVars(config['modelinfo'])
