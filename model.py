@@ -370,7 +370,7 @@ class ModelState:
                   ' before ModelState.run_ext_cmd'
             raise RuntimeError(msg)
 
-        currstep = 'calling %s for %s'%(ext_cmd, res_fname)
+        currstep = 'calling %s for %s' % (ext_cmd, res_fname)
         solver_state.set_currstep(currstep)
 
         if solver_state.currstep_logged():
@@ -433,6 +433,19 @@ class ModelState:
         """copy shadow tracers to their real counterparts"""
         for tracer_module in self._tracer_modules:
             tracer_module.copy_shadow_tracers_to_real_tracers()
+        return self
+
+    def copy_real_tracers_to_shadow_tracers(self):
+        """overwrite shadow tracers with their real counterparts"""
+        for tracer_module in self._tracer_modules:
+            tracer_module.copy_real_tracers_to_shadow_tracers()
+        return self
+
+    def apply_tracer_weight(self):
+        """multiply tracer values by tracer_weight"""
+        for tracer_module in self._tracer_modules:
+            tracer_module.apply_tracer_weight()
+        return self
 
 ################################################################################
 
@@ -480,7 +493,7 @@ class TracerModuleState:
                     varid = fptr.variables[tracer_name]
                     self._vals[varind, :] = varid[:]
 
-        # set +tracer_weight, for use in mean and dot_prod
+        # set _tracer_weight, for use in mean and dot_prod
         # tracers that are shadowed get a weight of 0
         self._tracer_weight = np.ones(len(self._tracer_names))
         for tracer_name in self._tracer_module_def['shadow_tracers'].values():
@@ -677,14 +690,11 @@ class TracerModuleState:
         # k,l,m : grid dimensions
         # sum over model grid dimensions, leaving region and tracer dimensions
         if ndim == 1:
-            tmp = np.einsum('ik,j,jk', _model_static_vars.grid_weight, self._tracer_weight,
-                            self._vals)
+            tmp = np.einsum('ik,jk', _model_static_vars.grid_weight, self._vals)
         elif ndim == 2:
-            tmp = np.einsum('ikl,j,jkl', _model_static_vars.grid_weight, self._tracer_weight,
-                            self._vals)
+            tmp = np.einsum('ikl,jkl', _model_static_vars.grid_weight, self._vals)
         else:
-            tmp = np.einsum('iklm,j,jklm', _model_static_vars.grid_weight, self._tracer_weight,
-                            self._vals)
+            tmp = np.einsum('iklm,jklm', _model_static_vars.grid_weight, self._vals)
         # sum over tracer dimension, and return RegionScalars object
         return RegionScalars(np.sum(tmp, axis=-1))
 
@@ -696,14 +706,14 @@ class TracerModuleState:
         # k,l,m : grid dimensions
         # sum over tracer and model grid dimensions, leaving region dimension
         if ndim == 1:
-            tmp = np.einsum('ik,j,jk,jk', _model_static_vars.grid_weight, self._tracer_weight,
-                            self._vals, other._vals) # pylint: disable=W0212
+            tmp = np.einsum('ik,jk,jk', _model_static_vars.grid_weight, self._vals,
+                            other._vals) # pylint: disable=W0212
         elif ndim == 2:
-            tmp = np.einsum('ikl,j,jkl,jkl', _model_static_vars.grid_weight, self._tracer_weight,
-                            self._vals, other._vals) # pylint: disable=W0212
+            tmp = np.einsum('ikl,jkl,jkl', _model_static_vars.grid_weight, self._vals,
+                            other._vals) # pylint: disable=W0212
         else:
-            tmp = np.einsum('iklm,j,jklm,jklm', _model_static_vars.grid_weight, self._tracer_weight,
-                            self._vals, other._vals) # pylint: disable=W0212
+            tmp = np.einsum('iklm,jklm,jklm', _model_static_vars.grid_weight, self._vals,
+                            other._vals) # pylint: disable=W0212
         # return RegionScalars object
         return RegionScalars(tmp)
 
@@ -719,13 +729,20 @@ class TracerModuleState:
 
     def copy_shadow_tracers_to_real_tracers(self):
         """copy shadow tracers to their real counterparts"""
-        tracer_module_def = _model_static_vars.tracer_module_defs[self._tracer_module_name]
-        try:
-            shadow_tracers = tracer_module_def['shadow_tracers']
-        except KeyError:
-            return
+        shadow_tracers = self._tracer_module_def['shadow_tracers']
         for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
             self.set_tracer_vals(real_tracer_name, self.get_tracer_vals(shadow_tracer_name))
+
+    def copy_real_tracers_to_shadow_tracers(self):
+        """overwrite shadow tracers with their real counterparts"""
+        shadow_tracers = self._tracer_module_def['shadow_tracers']
+        for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
+            self.set_tracer_vals(shadow_tracer_name, self.get_tracer_vals(real_tracer_name))
+
+    def apply_tracer_weight(self):
+        """multiply tracer values by tracer_weight"""
+        for tracer_ind in range(len(self._tracer_names)):
+            self._vals[tracer_ind, :] *= self._tracer_weight[tracer_ind]
 
 ################################################################################
 
@@ -824,7 +841,7 @@ def to_ndarray(array_in):
                 for ind2 in range(array_in.shape[2]):
                     res[ind0, ind1, ind2, :] = array_in[ind0, ind1, ind2].vals()
     else:
-        raise ValueError('array_in.ndim=%d not handled'%array_in.ndim)
+        raise ValueError('array_in.ndim=%d not handled' % array_in.ndim)
 
     return res
 
@@ -855,7 +872,7 @@ def to_region_scalar_ndarray(array_in):
                 for ind2 in range(array_in.shape[2]):
                     res[ind0, ind1, ind2] = RegionScalars(array_in[ind0, ind1, ind2, :])
     else:
-        raise ValueError('array_in.ndim=%d not handled'%array_in.ndim)
+        raise ValueError('array_in.ndim=%d not handled' % array_in.ndim)
 
     return res
 
@@ -901,4 +918,4 @@ def log_vals(msg, vals, ind=None):
             for j in range(vals.shape[2]):
                 logger.info('%s[%s,%d,%d]=%e', msg, tracer_module_name, i, j, vals[ind, i, j])
     else:
-        raise ValueError('vals.ndim=%d not handled'%vals.ndim)
+        raise ValueError('vals.ndim=%d not handled' % vals.ndim)

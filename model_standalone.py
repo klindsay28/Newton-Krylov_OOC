@@ -20,18 +20,14 @@ logger = logging.getLogger(__name__)
 
 ModelStaticVars(config['modelinfo'])
 
-var1 = ModelState('iterate_00.nc')
-logger.info('calling var1.log')
-var1.log()
-logger.info('calling var1.log with msg')
-var1.log('msg')
+ms = ModelState('work/krylov_00/precond_fcn_00.nc')
+ms.log('precond_fcn_00')
 
-rhs = np.array([RegionScalars(np.linspace(1.0, 2.0, region_cnt())),
-                RegionScalars(np.linspace(2.0, 3.0, region_cnt()))])
-logger.info('rhs')
-log_vals('rhs', rhs)
+ms = ModelState('work/krylov_00/basis_00.nc')
+ms.log('basis_00')
 
-logger.info('multiplying var1 by rhs')
+ms = ModelState('work/krylov_00/ext_in.nc')
+ms.log('ext_in')
 
-var1 *= rhs
-var1.log()
+ms = ModelState('work/krylov_00/fcn_res.nc')
+ms.log('fcn_res')

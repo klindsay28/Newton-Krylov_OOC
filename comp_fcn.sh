@@ -8,4 +8,6 @@ res_fname=$3
 
 ./comp_fcn.py --cfg_fname $cfg_fname $in_fname $res_fname
 
+./apply_tracer_weight.py --cfg_fname $cfg_fname $res_fname
+
 ./postrun.sh $cfg_fname

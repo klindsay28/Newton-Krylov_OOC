@@ -33,8 +33,8 @@ def main(args):
     for tracer_module_name in tracer_module_names():
         if tracer_module_name == 'iage':
             comp_precond_iage(ms_in, ms_res)
-        # if tracer_module_name == 'po4_pop':
-        #     comp_precond_po4_pop(ms_in, ms_res)
+        # if tracer_module_name == 'phosphorus':
+        #     comp_precond_phosphorus(ms_in, ms_res)
 
     ms_res.dump(args.res_fname)
 
@@ -57,9 +57,9 @@ def comp_precond_iage(ms_in, ms_res):
 
     ms_res.set_tracer_vals('iage', res)
 
-# def comp_precond_po4_pop(ms_in, ms_res):
-#     """apply preconditioner for po4_pop"""
-#     # d(d[po4,pop]_dt)/d[po4,pop] x res = in
+# def comp_precond_phosphorus(ms_in, ms_res):
+#     """apply preconditioner for phosphorus"""
+#     # d(d[po4_s,dop_s,pop_s]_dt)/d[po4_s,dop_s,pop_s] x res = in
 #
 #     # ignore mixing_tend
 #     # dpo4_dt = -po4_uptake + pop_remin

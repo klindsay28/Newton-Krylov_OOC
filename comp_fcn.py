@@ -73,17 +73,17 @@ def comp_tend(time, tracer_vals_flat):
 def comp_tend_iage(kappa, tracer_vals, dtracer_vals_dt):
     """
     compute tendency for iage
-    tendency units are tr_units x d-1
+    tendency units are tr_units / day
     """
     # age 1/year
     dtracer_vals_dt[:] = (1.0 / 365.0) + mixing_tend(kappa, tracer_vals)
-    # restore in surface to 0 at a rate of 24.0/day
+    # restore in surface to 0 at a rate of 24.0 / day
     dtracer_vals_dt[0] = -24.0 * tracer_vals[0]
 
 def comp_tend_phosphorus(kappa, tracer_vals, dtracer_vals_dt):
     """
     compute tendency for phosphorus tracers
-    tendency units are tr_units x d-1
+    tendency units are tr_units / day
     """
 
     # light has e-folding decay of 25m, po4 half-saturation = 0.5
@@ -94,13 +94,17 @@ def comp_tend_phosphorus(kappa, tracer_vals, dtracer_vals_dt):
     comp_tend_phosphorus_core(kappa, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :])
     comp_tend_phosphorus_core(kappa, po4_uptake, tracer_vals[3:6, :], dtracer_vals_dt[3:6, :])
 
-    # restore po4_s to po4
-    dtracer_vals_dt[3, 0] -= 1.0 * (dtracer_vals_dt[3, 0] - dtracer_vals_dt[0, 0])
+    # restore po4_s to po4, at a rate of 1 / day
+    # compensate equally from and dop and pop, so that total shadow phosphorus is conserved
+    rest_term = 1.0 * (dtracer_vals_dt[0, 0] - dtracer_vals_dt[3, 0])
+    dtracer_vals_dt[3, 0] += rest_term
+    dtracer_vals_dt[4, 0] -= 0.67 * rest_term
+    dtracer_vals_dt[5, 0] -= 0.33 * rest_term
 
 def comp_tend_phosphorus_core(kappa, po4_uptake, tracer_vals, dtracer_vals_dt):
     """
     core fuction for computing tendency for phosphorus tracers
-    tendency units are tr_units x d-1
+    tendency units are tr_units / day
     """
 
     po4 = tracer_vals[0, :]
@@ -129,7 +133,7 @@ def mixing_tend(kappa, tracer_vals):
 def sinking_tend(tracer_vals):
     """tracer tendency from sinking"""
     tracer_flux_neg = np.zeros(1+nz)
-    tracer_flux_neg[1:-1] = -tracer_vals[:-1] # assume velocity is 1 m/day
+    tracer_flux_neg[1:-1] = -tracer_vals[:-1] # assume velocity is 1 m / day
     return np.ediff1d(tracer_flux_neg) * dz_r
 
 def write_hist(sol, hist_fname):

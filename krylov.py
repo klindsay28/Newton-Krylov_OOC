@@ -41,7 +41,7 @@ class KrylovSolver:
         """construct fname corresponding to particular quantity"""
         if iteration is None:
             iteration = self._solver_state.get_iteration()
-        return os.path.join(self._workdir, '%s_%02d.nc'%(quantity, iteration))
+        return os.path.join(self._workdir, '%s_%02d.nc' % (quantity, iteration))
 
     def converged(self):
         """is solver converged"""
