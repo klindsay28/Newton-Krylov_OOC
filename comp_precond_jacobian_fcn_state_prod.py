@@ -5,7 +5,7 @@ import argparse
 import configparser
 
 import numpy as np
-from scipy.linalg import solve_banded, null_space
+from scipy.linalg import solve_banded, svd
 from scipy.sparse import diags
 from scipy.sparse.linalg import spsolve
 
@@ -78,16 +78,13 @@ def comp_precond_phosphorus(ms_in, ms_res):
 
     res = spsolve(matrix, rhs)
 
-    matrix_ns = null_space(matrix.todense())
-    res -= res.mean()/matrix_ns[:, 0].mean() * matrix_ns[:, 0]
+    U, S, Vh = svd(matrix.todense())
+    min_sv_ind = S.argmin()
+    res -= (res.mean()/Vh[min_sv_ind,:].mean()) * Vh[min_sv_ind,:]
 
     ms_res.set_tracer_vals('po4_s', res[0:nz] - po4_s)
     ms_res.set_tracer_vals('dop_s', res[nz:2*nz] - dop_s)
     ms_res.set_tracer_vals('pop_s', res[2*nz:3*nz] - pop_s)
-
-    # ms_res.set_tracer_vals('po4_s', ns[0:nz])
-    # ms_res.set_tracer_vals('dop_s', ns[nz:2*nz])
-    # ms_res.set_tracer_vals('pop_s', ns[2*nz:3*nz])
 
 def diag_0_phosphorus(mca):
     """return main diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
