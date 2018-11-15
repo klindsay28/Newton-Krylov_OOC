@@ -24,7 +24,7 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, workdir, resume, rewind):
+    def __init__(self, modelinfo, workdir, resume, rewind):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
@@ -32,6 +32,7 @@ class KrylovSolver:
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
 
+        self._modelinfo = modelinfo
         self._workdir = workdir
         self._solver_state = SolverState('Krylov', workdir, resume, rewind)
 
@@ -53,7 +54,7 @@ class KrylovSolver:
         This is step 1 of Saad's alogrithm 9.4.
         """
         # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-        precond_fcn = fcn.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
+        precond_fcn = fcn.run_ext_cmd(self._modelinfo['apply_precond_jacobian_script'],
                                       self._fname('precond_fcn'), self._solver_state)
         self._solver_state.set_currstep('computing beta and basis_00')
         if not self._solver_state.currstep_logged():
@@ -77,8 +78,9 @@ class KrylovSolver:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state('h_mat_ndarray'))
             basis_j = ModelState(self._fname('basis'))
-            w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
-            w_j = w_raw.run_ext_cmd('./comp_precond_jacobian_fcn_state_prod.sh',
+            w_raw = iterate.comp_jacobian_fcn_state_prod(self._modelinfo['newton_fcn_script'],
+                                                         fcn, basis_j, self._solver_state)
+            w_j = w_raw.run_ext_cmd(self._modelinfo['apply_precond_jacobian_script'],
                                     self._fname('w'), self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()

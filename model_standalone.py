@@ -6,7 +6,7 @@ import configparser
 import logging
 import sys
 
-from model import ModelState, ModelStaticVars, shadow_tracers_on
+from model import ModelState, ModelStaticVars
 from nk_driver import parse_args
 
 args = parse_args()

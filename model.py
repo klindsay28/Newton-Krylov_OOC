@@ -398,7 +398,7 @@ class ModelState:
         logger.debug('calling exit')
         sys.exit(0)
 
-    def comp_jacobian_fcn_state_prod(self, fcn, direction, solver_state):
+    def comp_jacobian_fcn_state_prod(self, newton_fcn_script, fcn, direction, solver_state):
         """
         compute the product of the Jacobian of fcn at self with the model state direction
 
@@ -414,7 +414,7 @@ class ModelState:
         solver_state.set_currstep('comp_jacobian_fcn_state_prod_comp_fcn')
         # skip computation of peturbed state if corresponding run_ext_cmd has already been run
         if not solver_state.currstep_logged():
-            (self + sigma * direction).run_ext_cmd('./comp_fcn.sh', res_fname, solver_state)
+            (self + sigma * direction).run_ext_cmd(newton_fcn_script, res_fname, solver_state)
 
         # retrieve comp_fcn result from res_fname, and proceed with finite difference
         logger.debug('returning')

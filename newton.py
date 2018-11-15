@@ -21,13 +21,12 @@ class NewtonSolver:
         logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
 
         # ensure workdir exists
-        util.mkdir_exist_okay(solverinfo['workdir'])
+        workdir = solverinfo['workdir']
+        util.mkdir_exist_okay(workdir)
 
-        self._workdir = solverinfo['workdir']
-        self._rel_tol = solverinfo.getfloat('newton_rel_tol')
-        self._max_iter = solverinfo.getint('newton_max_iter')
-        self._post_newton_fp_iter = solverinfo.getint('post_newton_fp_iter')
-        self._solver_state = SolverState('Newton', self._workdir, resume, rewind)
+        self._solverinfo = solverinfo
+        self._modelinfo = modelinfo
+        self._solver_state = SolverState('Newton', workdir, resume, rewind)
 
         # get solver started on an initial run
         if not resume:
@@ -36,8 +35,8 @@ class NewtonSolver:
 
         self._iterate = ModelState(self._fname('iterate'))
         if self._solver_state.get_iteration() == 0:
-            self._fcn = self._iterate.run_ext_cmd('./comp_fcn.sh', self._fname('fcn'),
-                                                  self._solver_state)
+            self._fcn = self._iterate.run_ext_cmd(self._modelinfo['newton_fcn_script'],
+                                                  self._fname('fcn'), self._solver_state)
         else:
             self._fcn = ModelState(self._fname('fcn'))
 
@@ -47,7 +46,7 @@ class NewtonSolver:
         """construct fname corresponding to particular quantity"""
         if iteration is None:
             iteration = self._solver_state.get_iteration()
-        return os.path.join(self._workdir, '%s_%02d.nc' % (quantity, iteration))
+        return os.path.join(self._solverinfo['workdir'], '%s_%02d.nc' % (quantity, iteration))
 
     def log(self, iterate, fcn, msg=None):
         """write the state of the instance to the log"""
@@ -62,7 +61,8 @@ class NewtonSolver:
 
     def converged_flat(self):
         """is residual small"""
-        return to_ndarray(self._fcn.norm()) < self._rel_tol * to_ndarray(self._iterate.norm())
+        rel_tol = self._solverinfo.getfloat('newton_rel_tol')
+        return to_ndarray(self._fcn.norm()) < rel_tol * to_ndarray(self._iterate.norm())
 
     def _comp_increment(self):
         """
@@ -80,13 +80,14 @@ class NewtonSolver:
 
         logger.debug('"%s" not logged, computing increment', complete_step)
 
-        krylov_dir = os.path.join(self._workdir, 'krylov_%02d' % self._solver_state.get_iteration())
+        krylov_dir = os.path.join(self._solverinfo['workdir'],
+                                  'krylov_%02d' % self._solver_state.get_iteration())
         self._solver_state.set_currstep('instantiating KrylovSolver')
         rewind = self._solver_state.currstep_was_rewound()
         resume = True if rewind else self._solver_state.currstep_logged()
         if not resume:
             self.log(self._iterate, self._fcn)
-        krylov_solver = KrylovSolver(krylov_dir, resume, rewind)
+        krylov_solver = KrylovSolver(self._modelinfo, krylov_dir, resume, rewind)
         try:
             increment = krylov_solver.solve(self._fname('increment'), self._iterate, self._fcn)
         except SystemExit:
@@ -125,7 +126,7 @@ class NewtonSolver:
             armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
             prov.dump(self._fname('prov_Armijo_%02d' % armijo_ind))
-            prov_fcn = prov.run_ext_cmd('./comp_fcn.sh',
+            prov_fcn = prov.run_ext_cmd(self._modelinfo['newton_fcn_script'],
                                         self._fname('prov_fcn_Armijo_%02d' % armijo_ind),
                                         self._solver_state)
 
@@ -178,8 +179,8 @@ class NewtonSolver:
             # shadow tracers are on, then this is the same as the final comp_fcn result from Armijo
             # iterations.
             if shadow_tracers_on():
-                prov.run_ext_cmd('./comp_fcn.sh', self._fname('prov_fcn_fp_%02d' % fp_iter),
-                                 self._solver_state)
+                prov.run_ext_cmd(self._modelinfo['newton_fcn_script'],
+                                 self._fname('prov_fcn_fp_%02d' % fp_iter), self._solver_state)
             else:
                 armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
                 prov_fcn = ModelState(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
@@ -189,7 +190,7 @@ class NewtonSolver:
             prov = ModelState(self._fname('prov_fp_%02d' % fp_iter))
             prov_fcn = ModelState(self._fname('prov_fcn_fp_%02d' % fp_iter))
 
-        while fp_iter < self._post_newton_fp_iter:
+        while fp_iter < self._solverinfo.getint('post_newton_fp_iter'):
             self._solver_state.set_currstep('performing fp iteration %02d' % fp_iter)
             if not self._solver_state.currstep_logged():
                 if fp_iter == 0:
@@ -199,7 +200,7 @@ class NewtonSolver:
                 prov.dump(self._fname('prov_fp_%02d' % (fp_iter+1)))
             else:
                 prov = ModelState(self._fname('prov_fp_%02d' % (fp_iter+1)))
-            prov_fcn = prov.run_ext_cmd('./comp_fcn.sh',
+            prov_fcn = prov.run_ext_cmd(self._modelinfo['newton_fcn_script'],
                                         self._fname('prov_fcn_fp_%02d'% (fp_iter+1)),
                                         self._solver_state)
             fp_iter += 1
@@ -213,7 +214,7 @@ class NewtonSolver:
         self._fcn = prov_fcn
         self._fcn.dump(self._fname('fcn'))
 
-        if self._solver_state.get_iteration() >= self._max_iter:
+        if self._solver_state.get_iteration() >= self._solverinfo.getint('newton_max_iter'):
             raise RuntimeError('number of maximum Newton iterations exceeded')
 
         logger.debug('returning')
