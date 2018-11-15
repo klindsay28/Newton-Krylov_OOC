@@ -29,6 +29,13 @@ def region_cnt():
     """return number of regions specified by region_mask"""
     return _model_static_vars.region_cnt
 
+def shadow_tracers_on():
+    """are any shadow tracers being run"""
+    for tracer_module_name in _model_static_vars.tracer_module_names:
+        if _model_static_vars.tracer_module_defs[tracer_module_name]['shadow_tracers']:
+            return True
+    return False
+
 ################################################################################
 
 class ModelStaticVars:
@@ -151,6 +158,7 @@ class ModelState:
         if ind is None:
             for ind_tmp in range(tracer_module_cnt()):
                 self.log(msg, ind_tmp)
+            return
 
         for prefix, vals in {'mean':self.mean(), 'norm':self.norm()}.items():
             msg_full = prefix if msg is None else msg+','+prefix

@@ -41,7 +41,7 @@ def main(args):
     # get dense output, if requested
     sol = solve_ivp(comp_tend, (t_beg, t_end), tracer_vals_init.reshape(-1), 'Radau',
                     np.linspace(t_beg, t_end, 101 if args.hist_fname != 'None' else 2),
-                    atol=1.0e-8, rtol=1.0e-8)
+                    atol=1.0e-10, rtol=1.0e-10)
 
     if not args.hist_fname == 'None':
         write_hist(sol, args.hist_fname)

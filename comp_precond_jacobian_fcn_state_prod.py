@@ -5,7 +5,9 @@ import argparse
 import configparser
 
 import numpy as np
-from scipy.linalg import solve_banded
+from scipy.linalg import solve_banded, null_space
+from scipy.sparse import diags
+from scipy.sparse.linalg import spsolve
 
 from comp_fcn_common import t_del, nz, dz_r, dz_mid_r, mixing_coeff_log_avg
 from model import ModelState, ModelStaticVars, tracer_module_names
@@ -33,14 +35,16 @@ def main(args):
     for tracer_module_name in tracer_module_names():
         if tracer_module_name == 'iage':
             comp_precond_iage(ms_in, ms_res)
-        # if tracer_module_name == 'phosphorus':
-        #     comp_precond_phosphorus(ms_in, ms_res)
+        if tracer_module_name == 'phosphorus':
+            comp_precond_phosphorus(ms_in, ms_res)
 
     ms_res.dump(args.res_fname)
 
 def comp_precond_iage(ms_in, ms_res):
     """apply preconditioner for iage"""
-    rhs = (1.0 / t_del) * ms_in.get_tracer_vals('iage')
+
+    iage_in = ms_in.get_tracer_vals('iage')
+    rhs = (1.0 / t_del) * iage_in
 
     mca = mixing_coeff_log_avg()
 
@@ -55,24 +59,91 @@ def comp_precond_iage(ms_in, ms_res):
 
     res = solve_banded(l_and_u, matrix_diagonals, rhs)
 
-    ms_res.set_tracer_vals('iage', res)
+    ms_res.set_tracer_vals('iage', res - iage_in)
 
-# def comp_precond_phosphorus(ms_in, ms_res):
-#     """apply preconditioner for phosphorus"""
-#     # d(d[po4_s,dop_s,pop_s]_dt)/d[po4_s,dop_s,pop_s] x res = in
-#
-#     # ignore mixing_tend
-#     # dpo4_dt = -po4_uptake + pop_remin
-#     # dpop_dt = po4_uptake - pop_remin + sinking_tend(pop)
-#     dpo4_dt = ms_in.get_tracer_vals('po4')
-#     dpop_dt = ms_in.get_tracer_vals('pop')
-#     # dpo4_dt + dpop_dt = sinking_tend_pop = -d/dz pop_flux = -d/dz (5.0 m/d * pop)
-#     pop = -0.2 * np.cumsum(dz * (dpo4_dt + dpop_dt))
-#     po4_uptake = 0.1 * pop - dpo4_dt
-#     po4_lim = np.where((z_mid < 100.0), np.exp((1.0 / 25.0) * z_mid) * po4_uptake, 0.0)
-#     po4 = po4_lim * (po4_iterate + 0.5)**2 / 0.5
-#     ms_res.set_tracer_vals('po4', po4)
-#     ms_res.set_tracer_vals('pop', pop)
+def comp_precond_phosphorus(ms_in, ms_res):
+    """apply preconditioner for phosphorus"""
+
+    po4_s = ms_in.get_tracer_vals('po4_s')
+    dop_s = ms_in.get_tracer_vals('dop_s')
+    pop_s = ms_in.get_tracer_vals('pop_s')
+    rhs = (1.0 / t_del) * np.concatenate((po4_s, dop_s, pop_s))
+
+    mca = mixing_coeff_log_avg()
+
+    matrix = diags([diag_0_phosphorus(mca),
+                    diag_p_1_phosphorus(mca), diag_p_nz_phosphorus(), diag_p_2nz_phosphorus(),
+                    diag_m_1_phosphorus(mca), diag_m_nz_phosphorus(), diag_m_2nz_phosphorus()],
+                   [0, 1, nz, 2*nz, -1, -nz, -2*nz], format='csr')
+
+    res = spsolve(matrix, rhs)
+
+    matrix_ns = null_space(matrix.todense())
+    res -= res.mean()/matrix_ns[:, 0].mean() * matrix_ns[:, 0]
+
+    ms_res.set_tracer_vals('po4_s', res[0:nz] - po4_s)
+    ms_res.set_tracer_vals('dop_s', res[nz:2*nz] - dop_s)
+    ms_res.set_tracer_vals('pop_s', res[2*nz:3*nz] - pop_s)
+
+    # ms_res.set_tracer_vals('po4_s', ns[0:nz])
+    # ms_res.set_tracer_vals('dop_s', ns[nz:2*nz])
+    # ms_res.set_tracer_vals('pop_s', ns[2*nz:3*nz])
+
+def diag_0_phosphorus(mca):
+    """return main diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
+    diag_0_single_tracer = np.zeros(nz)
+    diag_0_single_tracer[:-1] -= mca[1:-1] * dz_mid_r * dz_r[:-1]
+    diag_0_single_tracer[1:] -= mca[1:-1] * dz_mid_r * dz_r[1:]
+    diag_0_po4_s = diag_0_single_tracer.copy()
+    diag_0_po4_s[0] -= 1.0 # po4_s restoring in top layer
+    diag_0_dop_s = diag_0_single_tracer.copy()
+    diag_0_dop_s -= 0.01 # dop_s remin
+    diag_0_pop_s = diag_0_single_tracer.copy()
+    diag_0_pop_s -= 0.01 # pop_s remin
+    diag_0_pop_s[:-1] -= 1.0 * dz_r[:-1] # pop_s sinking loss to layer below
+    return np.concatenate((diag_0_po4_s, diag_0_dop_s, diag_0_pop_s))
+
+def diag_p_1_phosphorus(mca):
+    """return +1 upper diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
+    diag_p_1_single_tracer = mca[1:-1] * dz_mid_r * dz_r[:-1]
+    diag_p_1_po4_s = diag_p_1_single_tracer.copy()
+    zero = np.zeros(1)
+    diag_p_1_dop_s = diag_p_1_single_tracer.copy()
+    diag_p_1_pop_s = diag_p_1_single_tracer.copy()
+    return np.concatenate((diag_p_1_po4_s, zero, diag_p_1_dop_s, zero, diag_p_1_pop_s))
+
+def diag_p_nz_phosphorus():
+    """return +nz upper diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
+    diag_p_1_dop_po4 = 0.01 * np.ones(nz) # dop_s remin
+    diag_p_1_pop_dop = np.zeros(nz)
+    return np.concatenate((diag_p_1_dop_po4, diag_p_1_pop_dop))
+
+def diag_p_2nz_phosphorus():
+    """return +2nz upper diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
+    return 0.01 * np.ones(nz) # pop_s remin
+
+def diag_m_1_phosphorus(mca):
+    """return +1 upper diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
+    diag_m_1_single_tracer = mca[1:-1] * dz_mid_r * dz_r[1:]
+    diag_m_1_po4_s = diag_m_1_single_tracer.copy()
+    zero = np.zeros(1)
+    diag_m_1_dop_s = diag_m_1_single_tracer.copy()
+    diag_m_1_pop_s = diag_m_1_single_tracer.copy()
+    diag_m_1_pop_s += 1.0 * dz_r[1:] # pop_s sinking gain from layer above
+    return np.concatenate((diag_m_1_po4_s, zero, diag_m_1_dop_s, zero, diag_m_1_pop_s))
+
+def diag_m_nz_phosphorus():
+    """return -nz lower diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
+    diag_p_1_po4_dop = np.zeros(nz)
+    diag_p_1_po4_dop[0] = 0.67 # po4_s restoring conservation balance
+    diag_p_1_dop_pop = np.zeros(nz)
+    return np.concatenate((diag_p_1_po4_dop, diag_p_1_dop_pop))
+
+def diag_m_2nz_phosphorus():
+    """return -2nz lower diagonal of Jacobian preconditioner for phosphorus shadow tracers"""
+    diag_p_1_po4_pop = np.zeros(nz)
+    diag_p_1_po4_pop[0] = 0.33 # po4_s restoring conservation balance
+    return diag_p_1_po4_pop
 
 if __name__ == '__main__':
     main(_parse_args())
