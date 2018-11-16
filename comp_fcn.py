@@ -4,8 +4,8 @@
 import argparse
 import configparser
 
-import netCDF4 as nc
 import numpy as np
+from netCDF4 import Dataset
 from scipy.integrate import solve_ivp
 
 from comp_fcn_common import t_beg, t_end, nz, z_mid, dz_r, dz_mid_r, mixing_coeff
@@ -140,7 +140,7 @@ def write_hist(sol, hist_fname):
     """write generated tracer values to hist_fname"""
     tracer_names_loc = tracer_names()
     tracer_cnt = len(tracer_names_loc)
-    with nc.Dataset(hist_fname, mode='w') as fptr:
+    with Dataset(hist_fname, mode='w') as fptr:
         fptr.createDimension('time', None)
         fptr.createDimension('depth', nz)
 

@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 import numpy as np
-import netCDF4 as nc
+from netCDF4 import Dataset
 
 # model static variables
 _model_static_vars = None
@@ -66,7 +66,7 @@ class ModelStaticVars:
         fname = modelinfo['grid_weight_fname']
         varname = modelinfo['grid_weight_varname']
         logger.log(lvl, 'reading %s from %s for grid_weight', varname, fname)
-        with nc.Dataset(fname, mode='r') as fptr:
+        with Dataset(fname, mode='r') as fptr:
             grid_weight_no_region_dim = fptr.variables[varname][:]
 
         # extract region_mask from modelinfo config object
@@ -74,7 +74,7 @@ class ModelStaticVars:
         varname = modelinfo['region_mask_varname']
         if not fname == 'None' and not varname == 'None':
             logger.log(lvl, 'reading %s from %s for region_mask', varname, fname)
-            with nc.Dataset(fname, mode='r') as fptr:
+            with Dataset(fname, mode='r') as fptr:
                 self.region_mask = fptr.variables[varname][:]
                 if self.region_mask.shape != grid_weight_no_region_dim.shape:
                     raise RuntimeError('region_mask and grid_weight must have the same shape')
@@ -147,7 +147,7 @@ class ModelState:
 
     def dump(self, vals_fname):
         """dump ModelState object to a file"""
-        with nc.Dataset(vals_fname, mode='w') as fptr:
+        with Dataset(vals_fname, mode='w') as fptr:
             for action in ['define', 'write']:
                 for ind in range(tracer_module_cnt()):
                     self._tracer_modules[ind].dump(fptr, action)
@@ -477,7 +477,7 @@ class TracerModuleState:
             self._dims = dims
         if not vals_fname is None:
             self._dims = {}
-            with nc.Dataset(vals_fname, mode='r') as fptr:
+            with Dataset(vals_fname, mode='r') as fptr:
                 # get dims from first variable
                 dimnames0 = fptr.variables[self._tracer_names[0]].dimensions
                 for dimname in dimnames0:
