@@ -3,7 +3,7 @@
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code.
-extension-pkg-whitelist=netCDF4
+extension-pkg-whitelist=
 
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
@@ -393,7 +393,7 @@ class-naming-style=PascalCase
 #class-rgx=
 
 # Naming style matching correct constant names.
-const-naming-style=snake_case
+const-naming-style=UPPER_CASE
 
 # Regular expression matching correct constant names. Overrides const-naming-
 # style.
@@ -419,7 +419,7 @@ good-names=i,
            _
 
 # Include a hint for the correct naming format with invalid-name.
-include-naming-hint=yes
+include-naming-hint=no
 
 # Naming style matching correct inline iteration names.
 inlinevar-naming-style=any
