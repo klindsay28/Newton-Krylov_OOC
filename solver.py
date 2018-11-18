@@ -81,7 +81,7 @@ class SolverState:
 
     def flush(self):
         """append currstep to log and write saved state"""
-        if not self._currstep is None and not self.currstep_logged():
+        if self._currstep is not None and not self.currstep_logged():
             self._saved_state['step_log'].append(self._currstep)
             self._write_saved_state()
 

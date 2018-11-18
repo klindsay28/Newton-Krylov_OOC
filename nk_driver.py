@@ -5,10 +5,9 @@ import argparse
 import configparser
 import logging
 import os
-import sys
 
 from model import ModelStaticVars
-from newton import NewtonSolver
+from newton_solver import NewtonSolver
 
 def parse_args():
     """parse command line arguments"""
@@ -40,7 +39,7 @@ def main(args):
 
     if os.path.exists('KILL'):
         logger.warning('KILL file detected, exiting')
-        sys.exit(0)
+        raise SystemExit
 
     ModelStaticVars(config['modelinfo'], args.cfg_fname,
                     logging.DEBUG if args.resume else logging.INFO)
@@ -53,6 +52,7 @@ def main(args):
     while True:
         if newton_solver.converged_flat().all():
             logger.info('convergence criterion satisfied')
+            newton_solver.log()
             break
         newton_solver.step()
 

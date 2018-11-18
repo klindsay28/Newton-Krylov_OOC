@@ -1,5 +1,6 @@
 """class for representing the state space of a model, and operations on it"""
 
+import importlib
 import json
 import logging
 import os
@@ -45,6 +46,18 @@ class ModelStaticVars:
         logger = logging.getLogger(__name__)
         logger.debug('entering, cfg_fname="%s"', cfg_fname)
 
+        # import NewtonFcn and related settings
+        mod_import = importlib.import_module(modelinfo['newton_fcn_modname'])
+        self.fcn_lib_file = mod_import.__file__
+        fcnlib = mod_import.NewtonFcn()
+        self.cmd_fcn = {}
+        self.cmd_fcn['comp_fcn'] = fcnlib.comp_fcn
+        self.cmd_fcn['apply_precond_jacobian'] = fcnlib.apply_precond_jacobian
+
+        self.cmd_ext = {}
+        self.cmd_ext['comp_fcn'] = modelinfo.getboolean('comp_fcn_ext')
+        self.cmd_ext['apply_precond_jacobian'] = modelinfo.getboolean('apply_precond_jacobian_ext')
+
         # extract tracer_module_names from modelinfo config object
         self.tracer_module_names = modelinfo['tracer_module_names'].split(',')
 
@@ -67,6 +80,7 @@ class ModelStaticVars:
         varname = modelinfo['grid_weight_varname']
         logger.log(lvl, 'reading %s from %s for grid_weight', varname, fname)
         with Dataset(fname, mode='r') as fptr:
+            fptr.set_auto_mask(False)
             grid_weight_no_region_dim = fptr.variables[varname][:]
 
         # extract region_mask from modelinfo config object
@@ -75,6 +89,7 @@ class ModelStaticVars:
         if not fname == 'None' and not varname == 'None':
             logger.log(lvl, 'reading %s from %s for region_mask', varname, fname)
             with Dataset(fname, mode='r') as fptr:
+                fptr.set_auto_mask(False)
                 self.region_mask = fptr.variables[varname][:]
                 if self.region_mask.shape != grid_weight_no_region_dim.shape:
                     raise RuntimeError('region_mask and grid_weight must have the same shape')
@@ -95,11 +110,11 @@ class ModelStaticVars:
             # normalize grid_weight so that its sum is 1.0 over each region
             self.grid_weight[region_ind, :] *= 1.0 / np.sum(self.grid_weight[region_ind, :])
 
-        # cfg_fname is stored so that it can be passed to ext_cmd in run_ext_cmd
+        # cfg_fname is stored so that it can be passed to cmd in run_cmd
         # it is not needed in stand-alone usage of model.py
         self.cfg_fname = cfg_fname
 
-        # store contents in module level var, to ease use elsewhere
+        # store contents in module level var, to enable use elsewhere
         global _model_static_vars # pylint: disable=W0603
         _model_static_vars = self
 
@@ -139,7 +154,7 @@ class ModelState:
             msg = '_model_static_vars is None' \
                   ', ModelStaticVars.__init__ must be called before ModelState.__init__'
             raise RuntimeError(msg)
-        if not vals_fname is None:
+        if vals_fname is not None:
             self._tracer_modules = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
             for ind in range(tracer_module_cnt()):
                 self._tracer_modules[ind] = TracerModuleState(
@@ -361,44 +376,59 @@ class ModelState:
             self -= h_val[:, i_val] * basis_i
         return h_val
 
-    def run_ext_cmd(self, ext_cmd, res_fname, solver_state):
+    def run_cmd(self, cmd, res_fname, solver_state):
         """
-        Run an external command (e.g., a shell script).
+        Run a command/function from newton_fcn_modname.
         The external command is expected to take 2 arguments: in_fname, res_fname
         in_fname is populated with the contents of self
 
         Skip running the command if currstep generated below has been logged in solver_state.
         """
         logger = logging.getLogger(__name__)
-        logger.debug('entering, ext_cmd="%s", res_fname="%s"', ext_cmd, res_fname)
+        logger.debug('entering, cmd="%s", res_fname="%s"', cmd, res_fname)
 
         if _model_static_vars.cfg_fname is None:
             msg = '_model_static_vars.cfg_fname is None' \
                   ', ModelStaticVars.__init__ must be called with cfg_fname argument' \
-                  ' before ModelState.run_ext_cmd'
+                  ' before ModelState.run_cmd'
             raise RuntimeError(msg)
 
-        currstep = 'calling %s for %s' % (ext_cmd, res_fname)
+        currstep = 'calling %s for %s' % (cmd, res_fname)
         solver_state.set_currstep(currstep)
 
+        if not _model_static_vars.cmd_ext[cmd]:
+            # invoke cmd directly and return result
+            res = _model_static_vars.cmd_fcn[cmd](self)
+            if cmd == 'comp_fcn':
+                res.zero_extra_tracers()
+            return res
+
         if solver_state.currstep_logged():
-            logger.debug('"%s" logged, skipping %s and returning result', currstep, ext_cmd)
-            return ModelState(res_fname)
+            logger.debug('"%s" logged, skipping %s and returning result', currstep, cmd)
+            res = ModelState(res_fname)
+            if cmd == 'comp_fcn':
+                res.zero_extra_tracers().dump(res_fname)
+            return res
 
-        logger.debug('"%s" not logged, invoking %s and exiting', currstep, ext_cmd)
+        logger.debug('"%s" not logged, invoking %s and exiting', currstep, cmd)
 
-        ext_cmd_in_fname = os.path.join(solver_state.get_workdir(), 'ext_in.nc')
-        self.dump(ext_cmd_in_fname)
-        args = ['/bin/bash', ext_cmd, _model_static_vars.cfg_fname, ext_cmd_in_fname, res_fname]
+        # dump self into a file to be read by newton_fcn_modname
+        cmd_in_fname = os.path.join(solver_state.get_workdir(), 'cmd_in.nc')
+        self.dump(cmd_in_fname)
+
+        args = [sys.executable, _model_static_vars.fcn_lib_file,
+                '--cfg_fname', _model_static_vars.cfg_fname,
+                '--postrun_cmd', 'postrun.sh',
+                cmd, cmd_in_fname, res_fname]
         subprocess.Popen(args)
 
         logger.debug('flushing solver_state')
         solver_state.flush()
 
-        logger.debug('calling exit')
-        sys.exit(0)
+        logger.debug('raising SystemExit')
+        raise SystemExit
 
-    def comp_jacobian_fcn_state_prod(self, newton_fcn_script, fcn, direction, solver_state):
+    def comp_jacobian_fcn_state_prod(self, fcn, direction, solver_state):
         """
         compute the product of the Jacobian of fcn at self with the model state direction
 
@@ -412,13 +442,15 @@ class ModelState:
         res_fname = os.path.join(solver_state.get_workdir(), 'fcn_res.nc')
 
         solver_state.set_currstep('comp_jacobian_fcn_state_prod_comp_fcn')
-        # skip computation of peturbed state if corresponding run_ext_cmd has already been run
+        # skip computation of peturbed state if corresponding run_cmd has already been run
         if not solver_state.currstep_logged():
-            (self + sigma * direction).run_ext_cmd(newton_fcn_script, res_fname, solver_state)
+            res_perturb = (self + sigma * direction).run_cmd('comp_fcn', res_fname, solver_state)
+        else:
+            res_perturb = ModelState(res_fname)
 
         # retrieve comp_fcn result from res_fname, and proceed with finite difference
         logger.debug('returning')
-        return (ModelState(res_fname) - fcn) / sigma
+        return (res_perturb - fcn) / sigma
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
@@ -449,10 +481,10 @@ class ModelState:
             tracer_module.copy_real_tracers_to_shadow_tracers()
         return self
 
-    def apply_tracer_weight(self):
-        """multiply tracer values by tracer_weight"""
+    def zero_extra_tracers(self):
+        """set extra tracers (i.e., not being solved for) to zero"""
         for tracer_module in self._tracer_modules:
-            tracer_module.apply_tracer_weight()
+            tracer_module.zero_extra_tracers()
         return self
 
 ################################################################################
@@ -473,11 +505,12 @@ class TracerModuleState:
         self._tracer_names = self._tracer_module_def['tracer_names']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
-        if not dims is None:
+        if dims is not None:
             self._dims = dims
-        if not vals_fname is None:
+        if vals_fname is not None:
             self._dims = {}
             with Dataset(vals_fname, mode='r') as fptr:
+                fptr.set_auto_mask(False)
                 # get dims from first variable
                 dimnames0 = fptr.variables[self._tracer_names[0]].dimensions
                 for dimname in dimnames0:
@@ -501,11 +534,11 @@ class TracerModuleState:
                     varid = fptr.variables[tracer_name]
                     self._vals[varind, :] = varid[:]
 
-        # set _tracer_weight, for use in mean and dot_prod
-        # tracers that are shadowed get a weight of 0
-        self._tracer_weight = np.ones(len(self._tracer_names))
+        # create list of indices of tracers that are extra (i.e., they are not being solved for)
+        # tracers that are shadowed are automatically extra
+        self._extra_tracer_inds = []
         for tracer_name in self._tracer_module_def['shadow_tracers'].values():
-            self._tracer_weight[self._tracer_names.index(tracer_name)] = 0.0
+            self._extra_tracer_inds.append(self._tracer_names.index(tracer_name))
 
     def dump(self, fptr, action):
         """
@@ -747,10 +780,10 @@ class TracerModuleState:
         for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
             self.set_tracer_vals(shadow_tracer_name, self.get_tracer_vals(real_tracer_name))
 
-    def apply_tracer_weight(self):
-        """multiply tracer values by tracer_weight"""
-        for tracer_ind in range(len(self._tracer_names)):
-            self._vals[tracer_ind, :] *= self._tracer_weight[tracer_ind]
+    def zero_extra_tracers(self):
+        """set extra tracers (i.e., not being solved for) to zero"""
+        for tracer_ind in self._extra_tracer_inds:
+            self._vals[tracer_ind, :] = 0.0
 
 ################################################################################
 

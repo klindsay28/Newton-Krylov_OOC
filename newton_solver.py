@@ -7,7 +7,7 @@ import numpy as np
 
 import util
 
-from krylov import KrylovSolver
+from krylov_solver import KrylovSolver
 from model import ModelState, log_vals, to_ndarray, to_region_scalar_ndarray, tracer_module_cnt
 from model import shadow_tracers_on
 from solver import SolverState
@@ -35,8 +35,7 @@ class NewtonSolver:
 
         self._iterate = ModelState(self._fname('iterate'))
         if self._solver_state.get_iteration() == 0:
-            self._fcn = self._iterate.run_ext_cmd(self._modelinfo['newton_fcn_script'],
-                                                  self._fname('fcn'), self._solver_state)
+            self._fcn = self._iterate.run_cmd('comp_fcn', self._fname('fcn'), self._solver_state)
         else:
             self._fcn = ModelState(self._fname('fcn'))
 
@@ -48,7 +47,7 @@ class NewtonSolver:
             iteration = self._solver_state.get_iteration()
         return os.path.join(self._solverinfo['workdir'], '%s_%02d.nc' % (quantity, iteration))
 
-    def log(self, iterate, fcn, msg=None):
+    def log(self, iterate=None, fcn=None, msg=None):
         """write the state of the instance to the log"""
         iteration = self._solver_state.get_iteration()
         if msg is None:
@@ -56,8 +55,14 @@ class NewtonSolver:
         else:
             iteration_p_msg = 'iteration=%02d,%s' % (iteration, msg)
         for ind in range(tracer_module_cnt()):
-            iterate.log('%s,iterate' % iteration_p_msg, ind)
-            fcn.log('%s,fcn' % iteration_p_msg, ind)
+            if iterate is None:
+                self._iterate.log('%s,iterate' % iteration_p_msg, ind)
+            else:
+                iterate.log('%s,iterate' % iteration_p_msg, ind)
+            if fcn is None:
+                self._fcn.log('%s,fcn' % iteration_p_msg, ind)
+            else:
+                fcn.log('%s,fcn' % iteration_p_msg, ind)
 
     def converged_flat(self):
         """is residual small"""
@@ -86,7 +91,7 @@ class NewtonSolver:
         rewind = self._solver_state.currstep_was_rewound()
         resume = True if rewind else self._solver_state.currstep_logged()
         if not resume:
-            self.log(self._iterate, self._fcn)
+            self.log()
         krylov_solver = KrylovSolver(self._modelinfo, krylov_dir, resume, rewind)
         try:
             increment = krylov_solver.solve(self._fname('increment'), self._iterate, self._fcn)
@@ -126,9 +131,8 @@ class NewtonSolver:
             armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
             prov.dump(self._fname('prov_Armijo_%02d' % armijo_ind))
-            prov_fcn = prov.run_ext_cmd(self._modelinfo['newton_fcn_script'],
-                                        self._fname('prov_fcn_Armijo_%02d' % armijo_ind),
-                                        self._solver_state)
+            prov_fcn = prov.run_cmd('comp_fcn', self._fname('prov_fcn_Armijo_%02d' % armijo_ind),
+                                    self._solver_state)
 
             logger.info('Armijo_ind=%d', armijo_ind)
 
@@ -179,8 +183,8 @@ class NewtonSolver:
             # shadow tracers are on, then this is the same as the final comp_fcn result from Armijo
             # iterations.
             if shadow_tracers_on():
-                prov.run_ext_cmd(self._modelinfo['newton_fcn_script'],
-                                 self._fname('prov_fcn_fp_%02d' % fp_iter), self._solver_state)
+                prov.run_cmd('comp_fcn', self._fname('prov_fcn_fp_%02d' % fp_iter),
+                             self._solver_state)
             else:
                 armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
                 prov_fcn = ModelState(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
@@ -200,9 +204,8 @@ class NewtonSolver:
                 prov.dump(self._fname('prov_fp_%02d' % (fp_iter+1)))
             else:
                 prov = ModelState(self._fname('prov_fp_%02d' % (fp_iter+1)))
-            prov_fcn = prov.run_ext_cmd(self._modelinfo['newton_fcn_script'],
-                                        self._fname('prov_fcn_fp_%02d'% (fp_iter+1)),
-                                        self._solver_state)
+            prov_fcn = prov.run_cmd('comp_fcn', self._fname('prov_fcn_fp_%02d'% (fp_iter+1)),
+                                    self._solver_state)
             fp_iter += 1
             self._solver_state.set_value_saved_state('fp_iter', fp_iter)
             self.log(prov, prov_fcn, 'fp_iter=%02d' % fp_iter)
