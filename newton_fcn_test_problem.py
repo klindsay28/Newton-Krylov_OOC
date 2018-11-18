@@ -53,7 +53,7 @@ class NewtonFcn():
     """class of methods related to problem being solved with Newton's method"""
     def __init__(self):
         self.time_range = (0.0, 365.0)
-        self.depth = Depth('depth_axis.nc')
+        self.depth = Depth('depth_axis_test.nc')
 
     def comp_fcn(self, ms_in, hist_fname=None):
         """evalute function being solved with Newton's method"""
@@ -87,9 +87,9 @@ class NewtonFcn():
         tracer_vals = tracer_vals_flat.reshape((tracer_cnt, -1))
         dtracer_vals_dt = np.empty((tracer_cnt, self.depth.axis.nlevs))
         for tracer_module_name in tracer_module_names():
-            if tracer_module_name == 'iage':
-                tracer_ind = tracer_names_loc.index('iage')
-                self._comp_tend_iage(time, tracer_vals[tracer_ind, :],
+            if tracer_module_name == 'iage_test':
+                tracer_ind = tracer_names_loc.index('iage_test')
+                self._comp_tend_iage_test(time, tracer_vals[tracer_ind, :],
                                      dtracer_vals_dt[tracer_ind, :])
             if tracer_module_name == 'phosphorus':
                 tracer_ind0 = tracer_names_loc.index('po4')
@@ -97,9 +97,9 @@ class NewtonFcn():
                                            dtracer_vals_dt[tracer_ind0:tracer_ind0+6, :])
         return dtracer_vals_dt.reshape(-1)
 
-    def _comp_tend_iage(self, time, tracer_vals, dtracer_vals_dt):
+    def _comp_tend_iage_test(self, time, tracer_vals, dtracer_vals_dt):
         """
-        compute tendency for iage
+        compute tendency for iage_test
         tendency units are tr_units / day
         """
         # age 1/year
@@ -188,18 +188,18 @@ class NewtonFcn():
         mca = self.depth.mixing_coeff_time_op(self.time_range, 'log_avg', 100)
 
         for tracer_module_name in tracer_module_names():
-            if tracer_module_name == 'iage':
-                self._apply_precond_jacobian_iage(ms_in, mca, ms_res)
+            if tracer_module_name == 'iage_test':
+                self._apply_precond_jacobian_iage_test(ms_in, mca, ms_res)
             if tracer_module_name == 'phosphorus':
                 self._apply_precond_jacobian_phosphorus(ms_in, mca, ms_res)
 
         return ms_res
 
-    def _apply_precond_jacobian_iage(self, ms_in, mca, ms_res):
-        """apply preconditioner of jacobian of iage fcn"""
+    def _apply_precond_jacobian_iage_test(self, ms_in, mca, ms_res):
+        """apply preconditioner of jacobian of iage_test fcn"""
 
-        iage_in = ms_in.get_tracer_vals('iage')
-        rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * iage_in
+        iage_test_in = ms_in.get_tracer_vals('iage_test')
+        rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * iage_test_in
 
         l_and_u = (1, 1)
         matrix_diagonals = np.zeros((3, self.depth.axis.nlevs))
@@ -216,7 +216,7 @@ class NewtonFcn():
 
         res = solve_banded(l_and_u, matrix_diagonals, rhs)
 
-        ms_res.set_tracer_vals('iage', res - iage_in)
+        ms_res.set_tracer_vals('iage_test', res - iage_test_in)
 
     def _apply_precond_jacobian_phosphorus(self, ms_in, mca, ms_res):
         """
