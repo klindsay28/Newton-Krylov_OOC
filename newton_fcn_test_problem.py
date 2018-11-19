@@ -13,7 +13,7 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import ModelState, ModelStaticVars, tracer_module_names, tracer_names
+from model import ModelState, ModelStaticVars, tracer_module_names
 
 def _parse_args():
     """parse command line arguments"""
@@ -54,13 +54,13 @@ class NewtonFcn():
     def __init__(self):
         self.time_range = (0.0, 365.0)
         self.depth = Depth('depth_axis_test.nc')
+        self._tracer_names = None
 
     def comp_fcn(self, ms_in, hist_fname=None):
         """evalute function being solved with Newton's method"""
-        tracer_names_loc = tracer_names()
-        tracer_cnt = len(tracer_names_loc)
-        tracer_vals_init = np.empty((tracer_cnt, self.depth.axis.nlevs))
-        for tracer_ind, tracer_name in enumerate(tracer_names_loc):
+        self._tracer_names = ms_in.tracer_names()
+        tracer_vals_init = np.empty((len(self._tracer_names), self.depth.axis.nlevs))
+        for tracer_ind, tracer_name in enumerate(self._tracer_names):
             tracer_vals_init[tracer_ind, :] = ms_in.get_tracer_vals(tracer_name)
 
         # solve ODEs, using scipy.integrate
@@ -74,25 +74,23 @@ class NewtonFcn():
             self._write_hist(sol, hist_fname)
 
         ms_res = ms_in.copy()
-        res_vals = sol.y[:, -1].reshape((tracer_cnt, self.depth.axis.nlevs)) - tracer_vals_init
-        for tracer_ind, tracer_name in enumerate(tracer_names_loc):
+        res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
+        for tracer_ind, tracer_name in enumerate(self._tracer_names):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
 
         return ms_res
 
     def _comp_tend(self, time, tracer_vals_flat):
         """compute tendency function"""
-        tracer_names_loc = tracer_names()
-        tracer_cnt = len(tracer_names_loc)
-        tracer_vals = tracer_vals_flat.reshape((tracer_cnt, -1))
-        dtracer_vals_dt = np.empty((tracer_cnt, self.depth.axis.nlevs))
+        tracer_vals = tracer_vals_flat.reshape((len(self._tracer_names), -1))
+        dtracer_vals_dt = np.empty_like(tracer_vals)
         for tracer_module_name in tracer_module_names():
             if tracer_module_name == 'iage_test':
-                tracer_ind = tracer_names_loc.index('iage_test')
+                tracer_ind = self._tracer_names.index('iage_test')
                 self._comp_tend_iage_test(time, tracer_vals[tracer_ind, :],
-                                     dtracer_vals_dt[tracer_ind, :])
+                                          dtracer_vals_dt[tracer_ind, :])
             if tracer_module_name == 'phosphorus':
-                tracer_ind0 = tracer_names_loc.index('po4')
+                tracer_ind0 = self._tracer_names.index('po4')
                 self._comp_tend_phosphorus(time, tracer_vals[tracer_ind0:tracer_ind0+6, :],
                                            dtracer_vals_dt[tracer_ind0:tracer_ind0+6, :])
         return dtracer_vals_dt.reshape(-1)
@@ -162,22 +160,20 @@ class NewtonFcn():
 
     def _write_hist(self, sol, hist_fname):
         """write tracer values generated in comp_fcn to hist_fname"""
-        tracer_names_loc = tracer_names()
-        tracer_cnt = len(tracer_names_loc)
         with Dataset(hist_fname, mode='w') as fptr:
             fptr.createDimension('time', None)
             fptr.createDimension('depth', self.depth.axis.nlevs)
 
             fptr.createVariable('time', 'f8', dimensions=('time',))
             fptr.createVariable('depth', 'f8', dimensions=('depth',))
-            for tracer_name in tracer_names_loc:
+            for tracer_name in self._tracer_names:
                 fptr.createVariable(tracer_name, 'f8', dimensions=('time', 'depth'))
 
             fptr.variables['time'][:] = sol.t
             fptr.variables['depth'][:] = self.depth.axis.mid
 
-            tracer_vals = sol.y.reshape((tracer_cnt, self.depth.axis.nlevs, -1))
-            for tracer_ind, tracer_name in enumerate(tracer_names_loc):
+            tracer_vals = sol.y.reshape((len(self._tracer_names), self.depth.axis.nlevs, -1))
+            for tracer_ind, tracer_name in enumerate(self._tracer_names):
                 fptr.variables[tracer_name][:] = tracer_vals[tracer_ind, :, :].transpose()
 
     def apply_precond_jacobian(self, ms_in):

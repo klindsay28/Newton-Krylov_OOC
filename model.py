@@ -14,17 +14,13 @@ from netCDF4 import Dataset
 _model_static_vars = None
 
 # functions to commonly accessed vars in _model_static_vars
-def tracer_module_cnt():
-    """return number of tracer modules"""
-    return len(_model_static_vars.tracer_module_names)
-
 def tracer_module_names():
     """return list of tracer module names"""
-    return _model_static_vars.tracer_module_names
+    return _model_static_vars.modelinfo['tracer_module_names'].split(',')
 
-def tracer_names():
-    """return list of all tracer names"""
-    return _model_static_vars.tracer_names
+def tracer_module_cnt():
+    """return number of tracer modules"""
+    return len(tracer_module_names())
 
 def region_cnt():
     """return number of regions specified by region_mask"""
@@ -32,7 +28,7 @@ def region_cnt():
 
 def shadow_tracers_on():
     """are any shadow tracers being run"""
-    for tracer_module_name in _model_static_vars.tracer_module_names:
+    for tracer_module_name in tracer_module_names():
         if _model_static_vars.tracer_module_defs[tracer_module_name]['shadow_tracers']:
             return True
     return False
@@ -46,6 +42,9 @@ class ModelStaticVars:
         logger = logging.getLogger(__name__)
         logger.debug('entering, cfg_fname="%s"', cfg_fname)
 
+        # store modelinfo for later use
+        self.modelinfo = modelinfo
+
         # import NewtonFcn and related settings
         mod_import = importlib.import_module(modelinfo['newton_fcn_modname'])
         self.fcn_lib_file = mod_import.__file__
@@ -58,9 +57,6 @@ class ModelStaticVars:
         self.cmd_ext['comp_fcn'] = modelinfo.getboolean('comp_fcn_ext')
         self.cmd_ext['apply_precond_jacobian'] = modelinfo.getboolean('apply_precond_jacobian_ext')
 
-        # extract tracer_module_names from modelinfo config object
-        self.tracer_module_names = modelinfo['tracer_module_names'].split(',')
-
         # extract tracer_module_defs from modelinfo config object
         fname = modelinfo['tracer_module_defs_fname']
         logger.log(lvl, 'reading tracer_module_defs from %s', fname)
@@ -68,12 +64,6 @@ class ModelStaticVars:
             self.tracer_module_defs = json.load(fptr)
 
         self._check_shadow_tracers(lvl)
-
-        # extracer tracer_names in use from tracer_module_defs
-        self.tracer_names = []
-        for tracer_module_name in self.tracer_module_names:
-            tracer_module_def = self.tracer_module_defs[tracer_module_name]
-            self.tracer_names.extend(tracer_module_def['tracer_names'])
 
         # extract grid_weight from modelinfo config object
         fname = modelinfo['grid_weight_fname']
@@ -133,10 +123,12 @@ class ModelStaticVars:
                 shadow_tracers = {}
                 tracer_module_def['shadow_tracers'] = {}
                 logger.log(lvl, 'tracer module %s has no shadow tracers', tracer_module_name)
-            tracer_names_loc = tracer_module_def['tracer_names']
+            # attempt to lookup shadow_tracer_name and real_tracer_name in this tracer module's list
+            # of tracer names
+            tracer_names_mod = tracer_module_def['tracer_names']
             for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
-                shadow_tracer_ind = tracer_names_loc.index(shadow_tracer_name)
-                real_tracer_ind = tracer_names_loc.index(real_tracer_name)
+                shadow_tracer_ind = tracer_names_mod.index(shadow_tracer_name)
+                real_tracer_ind = tracer_names_mod.index(real_tracer_name)
                 logger.log(lvl, 'tracer module %s has %s (ind=%d) as a shadow for %s (ind=%d)',
                            tracer_module_name, shadow_tracer_name, shadow_tracer_ind,
                            real_tracer_name, real_tracer_ind)
@@ -156,16 +148,31 @@ class ModelState:
             raise RuntimeError(msg)
         if vals_fname is not None:
             self._tracer_modules = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
-            for ind in range(tracer_module_cnt()):
-                self._tracer_modules[ind] = TracerModuleState(
-                    tracer_module_names()[ind], vals_fname=vals_fname)
+            for tracer_module_ind, tracer_module_name in enumerate(tracer_module_names()):
+                self._tracer_modules[tracer_module_ind] = TracerModuleState(
+                    tracer_module_name, vals_fname=vals_fname)
+
+    def tracer_names(self):
+        """return list of tracer names"""
+        res = []
+        for tracer_module in self._tracer_modules:
+            res.extend(tracer_module.tracer_names())
+        return res
+
+    def tracer_cnt(self):
+        """return number of tracers"""
+        return len(self.tracer_names())
+
+    def tracer_index(self, tracer_name):
+        """return the index of a tracer"""
+        return self.tracer_names().index(tracer_name)
 
     def dump(self, vals_fname):
         """dump ModelState object to a file"""
         with Dataset(vals_fname, mode='w') as fptr:
             for action in ['define', 'write']:
-                for ind in range(tracer_module_cnt()):
-                    self._tracer_modules[ind].dump(fptr, action)
+                for tracer_module in self._tracer_modules:
+                    tracer_module.dump(fptr, action)
         return self
 
     def log(self, msg=None, ind=None):
@@ -349,15 +356,15 @@ class ModelState:
     def mean(self):
         """compute weighted mean of self"""
         res = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
-        for ind in range(tracer_module_cnt()):
-            res[ind] = self._tracer_modules[ind].mean()
+        for ind, tracer_module in enumerate(self._tracer_modules):
+            res[ind] = tracer_module.mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
         res = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
-        for ind in range(tracer_module_cnt()):
-            res[ind] = self._tracer_modules[ind].dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
+        for ind, tracer_module in enumerate(self._tracer_modules):
+            res[ind] = tracer_module.dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
 
     def norm(self):
@@ -502,7 +509,6 @@ class TracerModuleState:
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
         self._tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
-        self._tracer_names = self._tracer_module_def['tracer_names']
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if dims is not None:
@@ -512,14 +518,14 @@ class TracerModuleState:
             with Dataset(vals_fname, mode='r') as fptr:
                 fptr.set_auto_mask(False)
                 # get dims from first variable
-                dimnames0 = fptr.variables[self._tracer_names[0]].dimensions
+                dimnames0 = fptr.variables[self.tracer_names()[0]].dimensions
                 for dimname in dimnames0:
                     self._dims[dimname] = fptr.dimensions[dimname].size
                 # all tracers are stored in a single array
                 # tracer index is the leading index
-                self._vals = np.empty(shape=(len(self._tracer_names),) + tuple(self._dims.values()))
+                self._vals = np.empty(shape=(self.tracer_cnt(),) + tuple(self._dims.values()))
                 # check that all vars have the same dimensions
-                for tracer_name in self._tracer_names:
+                for tracer_name in self.tracer_names():
                     if fptr.variables[tracer_name].dimensions != dimnames0:
                         raise ValueError('not all vars have same dimensions',
                                          'tracer_module_name=', tracer_module_name,
@@ -530,15 +536,21 @@ class TracerModuleState:
                                      'tracer_module_name=', tracer_module_name,
                                      'vals_fname=', vals_fname,
                                      'ndim=', len(self._dims))
-                for varind, tracer_name in enumerate(self._tracer_names):
+                for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                     varid = fptr.variables[tracer_name]
-                    self._vals[varind, :] = varid[:]
+                    self._vals[tracer_ind, :] = varid[:]
 
-        # create list of indices of tracers that are extra (i.e., they are not being solved for)
-        # tracers that are shadowed are automatically extra
-        self._extra_tracer_inds = []
-        for tracer_name in self._tracer_module_def['shadow_tracers'].values():
-            self._extra_tracer_inds.append(self._tracer_names.index(tracer_name))
+    def tracer_names(self):
+        """return list of tracer names"""
+        return self._tracer_module_def['tracer_names']
+
+    def tracer_cnt(self):
+        """return number of tracers"""
+        return len(self.tracer_names())
+
+    def tracer_index(self, tracer_name):
+        """return the index of a tracer"""
+        return self.tracer_names().index(tracer_name)
 
     def dump(self, fptr, action):
         """
@@ -554,11 +566,11 @@ class TracerModuleState:
                 except KeyError:
                     fptr.createDimension(dimname, dimlen)
             dimnames = tuple(self._dims.keys())
-            for tracer_name in self._tracer_names:
+            for tracer_name in self.tracer_names():
                 fptr.createVariable(tracer_name, 'f8', dimensions=dimnames)
         elif action == 'write':
-            for varind, tracer_name in enumerate(self._tracer_names):
-                fptr.variables[tracer_name][:] = self._vals[varind, :]
+            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
+                fptr.variables[tracer_name][:] = self._vals[tracer_ind, :]
         else:
             raise ValueError('unknown action=', action)
         return self
@@ -760,13 +772,11 @@ class TracerModuleState:
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
-        ind = self._tracer_names.index(tracer_name)
-        return self._vals[ind, :]
+        return self._vals[self.tracer_index(tracer_name), :]
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""
-        ind = self._tracer_names.index(tracer_name)
-        self._vals[ind, :] = vals
+        self._vals[self.tracer_index(tracer_name), :] = vals
 
     def copy_shadow_tracers_to_real_tracers(self):
         """copy shadow tracers to their real counterparts"""
@@ -780,9 +790,20 @@ class TracerModuleState:
         for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
             self.set_tracer_vals(shadow_tracer_name, self.get_tracer_vals(real_tracer_name))
 
+    def extra_tracer_inds(self):
+        """
+        return list of indices of tracers that are extra (i.e., they are not being solved for)
+        the indices are with respect to self
+        tracers that are shadowed are automatically extra
+        """
+        res = []
+        for tracer_name in self._tracer_module_def['shadow_tracers'].values():
+            res.append(self.tracer_index(tracer_name))
+        return res
+
     def zero_extra_tracers(self):
         """set extra tracers (i.e., not being solved for) to zero"""
-        for tracer_ind in self._extra_tracer_inds:
+        for tracer_ind in self.extra_tracer_inds():
             self._vals[tracer_ind, :] = 0.0
 
 ################################################################################
