@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 
 import numpy as np
 
@@ -34,7 +35,8 @@ class NewtonSolver:
 
         self._iterate = ModelState(self._fname('iterate'))
         if self._solver_state.get_iteration() == 0:
-            self._fcn = self._iterate.run_cmd('comp_fcn', self._fname('fcn'), self._solver_state)
+            self._fcn = self._iterate.run_cmd('comp_fcn', self._fname('fcn'), self._solver_state,
+                                              self._fname('hist'))
         else:
             self._fcn = ModelState(self._fname('fcn'))
 
@@ -131,7 +133,8 @@ class NewtonSolver:
             prov = self._iterate + armijo_factor * increment
             prov.dump(self._fname('prov_Armijo_%02d' % armijo_ind))
             prov_fcn = prov.run_cmd('comp_fcn', self._fname('prov_fcn_Armijo_%02d' % armijo_ind),
-                                    self._solver_state)
+                                    self._solver_state,
+                                    self._fname('prov_hist_Armijo_%02d' % armijo_ind))
 
             logger.info('Armijo_ind=%d', armijo_ind)
 
@@ -183,11 +186,13 @@ class NewtonSolver:
             # iterations.
             if prov.shadow_tracers_on():
                 prov.run_cmd('comp_fcn', self._fname('prov_fcn_fp_%02d' % fp_iter),
-                             self._solver_state)
+                             self._solver_state, self._fname('prov_hist_fp_%02d' % fp_iter))
             else:
                 armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
                 prov_fcn = ModelState(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
                 prov_fcn.dump(self._fname('prov_fcn_fp_%02d' % fp_iter))
+                shutil.copyfile(self._fname('prov_hist_Armijo_%02d' % armijo_ind),
+                                self._fname('prov_hist_fp_%02d' % fp_iter))
         else:
             fp_iter = self._solver_state.get_value_saved_state('fp_iter')
             prov = ModelState(self._fname('prov_fp_%02d' % fp_iter))
@@ -204,10 +209,14 @@ class NewtonSolver:
             else:
                 prov = ModelState(self._fname('prov_fp_%02d' % (fp_iter+1)))
             prov_fcn = prov.run_cmd('comp_fcn', self._fname('prov_fcn_fp_%02d'% (fp_iter+1)),
-                                    self._solver_state)
+                                    self._solver_state,
+                                    self._fname('prov_hist_fp_%02d'% (fp_iter+1)))
             fp_iter += 1
             self._solver_state.set_value_saved_state('fp_iter', fp_iter)
             self.log(prov, prov_fcn, 'fp_iter=%02d' % fp_iter)
+
+        shutil.copyfile(self._fname('prov_hist_fp_%02d' % fp_iter),
+                        self._fname('hist', self._solver_state.get_iteration()+1))
 
         self._solver_state.inc_iteration()
 

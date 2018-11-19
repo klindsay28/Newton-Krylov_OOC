@@ -376,7 +376,7 @@ class ModelState:
             self -= h_val[:, i_val] * basis_i
         return h_val
 
-    def run_cmd(self, cmd, res_fname, solver_state):
+    def run_cmd(self, cmd, res_fname, solver_state, hist_fname=None):
         """
         Run a command/function from newton_fcn_modname.
         The external command is expected to take 2 arguments: in_fname, res_fname
@@ -398,9 +398,10 @@ class ModelState:
 
         if not _model_static_vars.cmd_ext[cmd]:
             # invoke cmd directly and return result
-            res = _model_static_vars.cmd_fcn[cmd](self)
             if cmd == 'comp_fcn':
-                res.zero_extra_tracers()
+                res = _model_static_vars.cmd_fcn[cmd](self, hist_fname).zero_extra_tracers()
+            else:
+                res = _model_static_vars.cmd_fcn[cmd](self)
             return res
 
         if solver_state.currstep_logged():
@@ -418,6 +419,7 @@ class ModelState:
 
         args = [sys.executable, _model_static_vars.fcn_lib_file,
                 '--cfg_fname', _model_static_vars.cfg_fname,
+                '--hist_fname', 'None' if hist_fname is None else hist_fname,
                 '--postrun_cmd', 'postrun.sh',
                 cmd, cmd_in_fname, res_fname]
         subprocess.Popen(args)
