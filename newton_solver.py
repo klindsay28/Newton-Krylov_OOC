@@ -9,7 +9,6 @@ import util
 
 from krylov_solver import KrylovSolver
 from model import ModelState, log_vals, to_ndarray, to_region_scalar_ndarray, tracer_module_cnt
-from model import shadow_tracers_on
 from solver import SolverState
 
 class NewtonSolver:
@@ -182,7 +181,7 @@ class NewtonSolver:
             # Evaluate comp_fcn after copying shadow tracers to their real counterparts. If no
             # shadow tracers are on, then this is the same as the final comp_fcn result from Armijo
             # iterations.
-            if shadow_tracers_on():
+            if prov.shadow_tracers_on():
                 prov.run_cmd('comp_fcn', self._fname('prov_fcn_fp_%02d' % fp_iter),
                              self._solver_state)
             else:

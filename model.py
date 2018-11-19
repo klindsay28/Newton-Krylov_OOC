@@ -26,13 +26,6 @@ def region_cnt():
     """return number of regions specified by region_mask"""
     return _model_static_vars.region_cnt
 
-def shadow_tracers_on():
-    """are any shadow tracers being run"""
-    for tracer_module_name in tracer_module_names():
-        if _model_static_vars.tracer_module_defs[tracer_module_name]['shadow_tracers']:
-            return True
-    return False
-
 ################################################################################
 
 class ModelStaticVars:
@@ -476,6 +469,13 @@ class ModelState:
             except ValueError:
                 pass
 
+    def shadow_tracers_on(self):
+        """are any shadow tracers being run"""
+        for tracer_module in self._tracer_modules:
+            if tracer_module.shadow_tracers_on():
+                return True
+        return False
+
     def copy_shadow_tracers_to_real_tracers(self):
         """copy shadow tracers to their real counterparts"""
         for tracer_module in self._tracer_modules:
@@ -777,6 +777,10 @@ class TracerModuleState:
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""
         self._vals[self.tracer_index(tracer_name), :] = vals
+
+    def shadow_tracers_on(self):
+        """are any shadow tracers being run"""
+        return bool(self._tracer_module_def['shadow_tracers'])
 
     def copy_shadow_tracers_to_real_tracers(self):
         """copy shadow tracers to their real counterparts"""
