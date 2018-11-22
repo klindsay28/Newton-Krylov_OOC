@@ -30,7 +30,7 @@ class NewtonSolver:
 
         # get solver started on an initial run
         if not resume:
-            iterate = get_modelinfo('init_iterate_fname')
+            iterate = ModelState(get_modelinfo('init_iterate_fname'))
             iterate.copy_real_tracers_to_shadow_tracers().dump(self._fname('iterate'))
 
         self._iterate = ModelState(self._fname('iterate'))
