@@ -142,7 +142,7 @@ class ModelState:
         if vals_fname is not None:
             self._tracer_modules = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
             for tracer_module_ind, tracer_module_name in enumerate(tracer_module_names()):
-                self._tracer_modules[tracer_module_ind] = TracerModuleState(
+                self._tracer_modules[tracer_module_ind] = TracerModuleStateBase(
                     tracer_module_name, vals_fname=vals_fname)
 
     def tracer_names(self):
@@ -498,16 +498,16 @@ class ModelState:
 
 ################################################################################
 
-class TracerModuleState:
+class TracerModuleStateBase:
     """class for representing the a collection of model tracers"""
 
-    # give TracerModuleState operators higher priority than those of numpy
+    # give TracerModuleStateBase operators higher priority than those of numpy
     __array_priority__ = 100
 
     def __init__(self, tracer_module_name, dims=None, vals_fname=None):
         if _model_static_vars is None:
             msg = '_model_static_vars is None' \
-                  ', ModelStaticVars.__init__ must be called before TracerModuleState.__init__'
+                  ', ModelStaticVars.__init__ must be called before TracerModuleStateBase.__init__'
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
         self._tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
@@ -556,7 +556,8 @@ class TracerModuleState:
 
     def dump(self, fptr, action):
         """
-        perform an action (define or write) of dumping a TracerModuleState object to an open file
+        perform an action (define or write) of dumping a TracerModuleStateBase object
+        to an open file
         """
         if action == 'define':
             for dimname, dimlen in self._dims.items():
@@ -579,7 +580,7 @@ class TracerModuleState:
 
     def copy(self):
         """return a copy of self"""
-        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
+        res = type(self)(self._tracer_module_name, dims=self._dims)
         res._vals = np.copy(self._vals) # pylint: disable=W0212
         return res
 
@@ -588,7 +589,7 @@ class TracerModuleState:
         unary negation operator
         called to evaluate res = -self
         """
-        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
+        res = type(self)(self._tracer_module_name, dims=self._dims)
         res._vals = -self._vals # pylint: disable=W0212
         return res
 
@@ -597,12 +598,12 @@ class TracerModuleState:
         addition operator
         called to evaluate res = self + other
         """
-        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
+        res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals + other # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
             res._vals = self._vals + other.broadcast(0.0) # pylint: disable=W0212
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals + other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -617,7 +618,7 @@ class TracerModuleState:
             self._vals += other
         elif isinstance(other, RegionScalars):
             self._vals += other.broadcast(0.0)
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             self._vals += other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -628,12 +629,12 @@ class TracerModuleState:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
+        res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals - other # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
             res._vals = self._vals - other.broadcast(0.0) # pylint: disable=W0212
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals - other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -648,7 +649,7 @@ class TracerModuleState:
             self._vals -= other
         elif isinstance(other, RegionScalars):
             self._vals -= other.broadcast(0.0)
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             self._vals -= other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -659,12 +660,12 @@ class TracerModuleState:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
+        res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals * other # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
             res._vals = self._vals * other.broadcast(1.0) # pylint: disable=W0212
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals * other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -686,7 +687,7 @@ class TracerModuleState:
             self._vals *= other
         elif isinstance(other, RegionScalars):
             self._vals *= other.broadcast(1.0)
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             self._vals *= other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -697,12 +698,12 @@ class TracerModuleState:
         division operator
         called to evaluate res = self / other
         """
-        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
+        res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = self._vals * (1.0 / other) # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
             res._vals = self._vals * other.recip().broadcast(1.0) # pylint: disable=W0212
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals / other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -713,7 +714,7 @@ class TracerModuleState:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = TracerModuleState(self._tracer_module_name, dims=self._dims)
+        res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
             res._vals = other / self._vals # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
@@ -731,7 +732,7 @@ class TracerModuleState:
             self._vals *= (1.0 / other)
         elif isinstance(other, RegionScalars):
             self._vals *= other.recip().broadcast(1.0)
-        elif isinstance(other, TracerModuleState):
+        elif isinstance(other, TracerModuleStateBase):
             self._vals /= other._vals # pylint: disable=W0212
         else:
             return NotImplemented
