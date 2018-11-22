@@ -547,7 +547,7 @@ class TracerModuleStateBase:
         to an open file
         """
         raise NotImplementedError(
-            '_read_vals should be implemented in classes derived from TracerModuleStateBase')
+            'dump should be implemented in classes derived from TracerModuleStateBase')
 
     def copy(self):
         """return a copy of self"""
