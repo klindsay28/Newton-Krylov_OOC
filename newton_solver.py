@@ -9,13 +9,14 @@ import numpy as np
 import util
 
 from krylov_solver import KrylovSolver
-from model import ModelState, log_vals, to_ndarray, to_region_scalar_ndarray, tracer_module_cnt
+from model import get_modelinfo, ModelState, log_vals, to_ndarray, to_region_scalar_ndarray
+from model import tracer_module_cnt
 from solver import SolverState
 
 class NewtonSolver:
     """class for applying Newton's method to approximate the solution of system of equations"""
 
-    def __init__(self, solverinfo, modelinfo, resume, rewind):
+    def __init__(self, solverinfo, resume, rewind):
         """initialize Newton solver"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
@@ -25,12 +26,11 @@ class NewtonSolver:
         util.mkdir_exist_okay(workdir)
 
         self._solverinfo = solverinfo
-        self._modelinfo = modelinfo
         self._solver_state = SolverState('Newton', workdir, resume, rewind)
 
         # get solver started on an initial run
         if not resume:
-            iterate = ModelState(modelinfo['init_iterate_fname'])
+            iterate = get_modelinfo('init_iterate_fname')
             iterate.copy_real_tracers_to_shadow_tracers().dump(self._fname('iterate'))
 
         self._iterate = ModelState(self._fname('iterate'))
@@ -93,7 +93,7 @@ class NewtonSolver:
         resume = True if rewind else self._solver_state.currstep_logged()
         if not resume:
             self.log()
-        krylov_solver = KrylovSolver(self._modelinfo, krylov_dir, resume, rewind)
+        krylov_solver = KrylovSolver(krylov_dir, resume, rewind)
         try:
             increment = krylov_solver.solve(self._fname('increment'), self._iterate, self._fcn)
         except SystemExit:

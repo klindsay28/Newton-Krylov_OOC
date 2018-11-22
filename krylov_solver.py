@@ -24,7 +24,7 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, modelinfo, workdir, resume, rewind):
+    def __init__(self, workdir, resume, rewind):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
@@ -32,7 +32,6 @@ class KrylovSolver:
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
 
-        self._modelinfo = modelinfo
         self._workdir = workdir
         self._solver_state = SolverState('Krylov', workdir, resume, rewind)
 
