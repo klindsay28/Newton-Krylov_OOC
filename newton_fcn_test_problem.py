@@ -13,7 +13,7 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import ModelState, ModelStaticVars, tracer_module_names
+from model import TracerModuleStateBase, ModelState, ModelStaticVars, tracer_module_names
 
 def _parse_args():
     """parse command line arguments"""
@@ -48,6 +48,69 @@ def main(args):
 
     if args.postrun_cmd is not None and args.postrun_cmd != 'None':
         subprocess.Popen(['/bin/bash', args.postrun_cmd, args.cfg_fname])
+
+################################################################################
+
+class TracerModuleState(TracerModuleStateBase):
+    """
+    Derived class for representing a collection of model tracers.
+    It implements _read_vals and dump.
+    """
+
+    def _read_vals(self, tracer_module_name, vals_fname):
+        """return tracer values and dimension names and lengths, read from vals_fname)"""
+        dims = {}
+        with Dataset(vals_fname, mode='r') as fptr:
+            fptr.set_auto_mask(False)
+            # get dims from first variable
+            dimnames0 = fptr.variables[self.tracer_names()[0]].dimensions
+            for dimname in dimnames0:
+                dims[dimname] = fptr.dimensions[dimname].size
+            # all tracers are stored in a single array
+            # tracer index is the leading index
+            vals = np.empty(shape=(self.tracer_cnt(),) + tuple(dims.values()))
+            # check that all vars have the same dimensions
+            for tracer_name in self.tracer_names():
+                if fptr.variables[tracer_name].dimensions != dimnames0:
+                    raise ValueError('not all vars have same dimensions',
+                                     'tracer_module_name=', tracer_module_name,
+                                     'vals_fname=', vals_fname)
+            # read values
+            if len(dims) > 3:
+                raise ValueError('ndim too large (for implementation of dot_prod)',
+                                 'tracer_module_name=', tracer_module_name,
+                                 'vals_fname=', vals_fname,
+                                 'ndim=', len(dims))
+            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
+                varid = fptr.variables[tracer_name]
+                vals[tracer_ind, :] = varid[:]
+        return vals, dims
+
+    def dump(self, fptr, action):
+        """
+        perform an action (define or write) of dumping a TracerModuleState object
+        to an open file
+        """
+        if action == 'define':
+            for dimname, dimlen in self._dims.items():
+                try:
+                    if fptr.dimensions[dimname].size != dimlen:
+                        raise ValueError('dimname already exists and has wrong size',
+                                         'tracer_module_name=', self._tracer_module_name,
+                                         'dimname=', dimname)
+                except KeyError:
+                    fptr.createDimension(dimname, dimlen)
+            dimnames = tuple(self._dims.keys())
+            for tracer_name in self.tracer_names():
+                fptr.createVariable(tracer_name, 'f8', dimensions=dimnames)
+        elif action == 'write':
+            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
+                fptr.variables[tracer_name][:] = self._vals[tracer_ind, :]
+        else:
+            raise ValueError('unknown action=', action)
+        return self
+
+################################################################################
 
 class NewtonFcn():
     """class of methods related to problem being solved with Newton's method"""
@@ -385,6 +448,8 @@ class Depth():
         else:
             raise ValueError('unknown time_op=%s' % time_op)
         return res
+
+################################################################################
 
 if __name__ == '__main__':
     main(_parse_args())

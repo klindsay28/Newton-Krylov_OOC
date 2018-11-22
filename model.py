@@ -38,13 +38,15 @@ class ModelStaticVars:
         # store modelinfo for later use
         self.modelinfo = modelinfo
 
-        # import NewtonFcn and related settings
-        mod_import = importlib.import_module(modelinfo['newton_fcn_modname'])
-        self.fcn_lib_file = mod_import.__file__
-        fcnlib = mod_import.NewtonFcn()
+        # import module with TracerModuleState and NewtonFcn
+        self.newton_fcn_mod = importlib.import_module(modelinfo['newton_fcn_modname'])
+
+        # store NewtonFcn's comp_fcn and apply_precond_jacobian explicitly,
+        # to ease subsequent usage of them
+        newton_fcn = self.newton_fcn_mod.NewtonFcn
         self.cmd_fcn = {}
-        self.cmd_fcn['comp_fcn'] = fcnlib.comp_fcn
-        self.cmd_fcn['apply_precond_jacobian'] = fcnlib.apply_precond_jacobian
+        self.cmd_fcn['comp_fcn'] = newton_fcn.comp_fcn
+        self.cmd_fcn['apply_precond_jacobian'] = newton_fcn.apply_precond_jacobian
 
         self.cmd_ext = {}
         self.cmd_ext['comp_fcn'] = modelinfo.getboolean('comp_fcn_ext')
@@ -142,8 +144,9 @@ class ModelState:
         if vals_fname is not None:
             self._tracer_modules = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
             for tracer_module_ind, tracer_module_name in enumerate(tracer_module_names()):
-                self._tracer_modules[tracer_module_ind] = TracerModuleStateBase(
-                    tracer_module_name, vals_fname=vals_fname)
+                self._tracer_modules[tracer_module_ind] = \
+                    _model_static_vars.newton_fcn_mod.TracerModuleState(
+                        tracer_module_name, vals_fname=vals_fname)
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -417,7 +420,7 @@ class ModelState:
         cmd_in_fname = os.path.join(solver_state.get_workdir(), 'cmd_in.nc')
         self.dump(cmd_in_fname)
 
-        args = [sys.executable, _model_static_vars.fcn_lib_file,
+        args = [sys.executable, _model_static_vars.newton_fcn_mod.__file__,
                 '--cfg_fname', _model_static_vars.cfg_fname,
                 '--hist_fname', 'None' if hist_fname is None else hist_fname,
                 '--postrun_cmd', 'postrun.sh',
@@ -499,7 +502,10 @@ class ModelState:
 ################################################################################
 
 class TracerModuleStateBase:
-    """class for representing the a collection of model tracers"""
+    """
+    Base class for representing a collection of model tracers.
+    Derived classes should implement _read_vals and dump.
+    """
 
     # give TracerModuleStateBase operators higher priority than those of numpy
     __array_priority__ = 100
@@ -520,32 +526,8 @@ class TracerModuleStateBase:
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
-        dims = {}
-        with Dataset(vals_fname, mode='r') as fptr:
-            fptr.set_auto_mask(False)
-            # get dims from first variable
-            dimnames0 = fptr.variables[self.tracer_names()[0]].dimensions
-            for dimname in dimnames0:
-                dims[dimname] = fptr.dimensions[dimname].size
-            # all tracers are stored in a single array
-            # tracer index is the leading index
-            vals = np.empty(shape=(self.tracer_cnt(),) + tuple(dims.values()))
-            # check that all vars have the same dimensions
-            for tracer_name in self.tracer_names():
-                if fptr.variables[tracer_name].dimensions != dimnames0:
-                    raise ValueError('not all vars have same dimensions',
-                                     'tracer_module_name=', tracer_module_name,
-                                     'vals_fname=', vals_fname)
-            # read values
-            if len(dims) > 3:
-                raise ValueError('ndim too large (for implementation of dot_prod)',
-                                 'tracer_module_name=', tracer_module_name,
-                                 'vals_fname=', vals_fname,
-                                 'ndim=', len(dims))
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                varid = fptr.variables[tracer_name]
-                vals[tracer_ind, :] = varid[:]
-        return vals, dims
+        raise NotImplementedError(
+            '_read_vals should be implemented in classes derived from TracerModuleStateBase')
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -564,24 +546,8 @@ class TracerModuleStateBase:
         perform an action (define or write) of dumping a TracerModuleStateBase object
         to an open file
         """
-        if action == 'define':
-            for dimname, dimlen in self._dims.items():
-                try:
-                    if fptr.dimensions[dimname].size != dimlen:
-                        raise ValueError('dimname already exists and has wrong size',
-                                         'tracer_module_name=', self._tracer_module_name,
-                                         'dimname=', dimname)
-                except KeyError:
-                    fptr.createDimension(dimname, dimlen)
-            dimnames = tuple(self._dims.keys())
-            for tracer_name in self.tracer_names():
-                fptr.createVariable(tracer_name, 'f8', dimensions=dimnames)
-        elif action == 'write':
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                fptr.variables[tracer_name][:] = self._vals[tracer_ind, :]
-        else:
-            raise ValueError('unknown action=', action)
-        return self
+        raise NotImplementedError(
+            '_read_vals should be implemented in classes derived from TracerModuleStateBase')
 
     def copy(self):
         """return a copy of self"""
