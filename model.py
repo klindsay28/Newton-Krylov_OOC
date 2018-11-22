@@ -26,6 +26,10 @@ def region_cnt():
     """return number of regions specified by region_mask"""
     return _model_static_vars.region_cnt
 
+def get_modelinfo(key):
+    """return value associated in modelinfo with key"""
+    return _model_static_vars.modelinfo[key]
+
 ################################################################################
 
 class ModelStaticVars:
