@@ -516,31 +516,36 @@ class TracerModuleStateBase:
         if dims is not None:
             self._dims = dims
         if vals_fname is not None:
-            self._dims = {}
-            with Dataset(vals_fname, mode='r') as fptr:
-                fptr.set_auto_mask(False)
-                # get dims from first variable
-                dimnames0 = fptr.variables[self.tracer_names()[0]].dimensions
-                for dimname in dimnames0:
-                    self._dims[dimname] = fptr.dimensions[dimname].size
-                # all tracers are stored in a single array
-                # tracer index is the leading index
-                self._vals = np.empty(shape=(self.tracer_cnt(),) + tuple(self._dims.values()))
-                # check that all vars have the same dimensions
-                for tracer_name in self.tracer_names():
-                    if fptr.variables[tracer_name].dimensions != dimnames0:
-                        raise ValueError('not all vars have same dimensions',
-                                         'tracer_module_name=', tracer_module_name,
-                                         'vals_fname=', vals_fname)
-                # read values
-                if len(self._dims) > 3:
-                    raise ValueError('ndim too large (for implementation of dot_prod)',
+            self._vals, self._dims = self._read_vals(tracer_module_name, vals_fname)
+
+    def _read_vals(self, tracer_module_name, vals_fname):
+        """return tracer values and dimension names and lengths, read from vals_fname)"""
+        dims = {}
+        with Dataset(vals_fname, mode='r') as fptr:
+            fptr.set_auto_mask(False)
+            # get dims from first variable
+            dimnames0 = fptr.variables[self.tracer_names()[0]].dimensions
+            for dimname in dimnames0:
+                dims[dimname] = fptr.dimensions[dimname].size
+            # all tracers are stored in a single array
+            # tracer index is the leading index
+            vals = np.empty(shape=(self.tracer_cnt(),) + tuple(dims.values()))
+            # check that all vars have the same dimensions
+            for tracer_name in self.tracer_names():
+                if fptr.variables[tracer_name].dimensions != dimnames0:
+                    raise ValueError('not all vars have same dimensions',
                                      'tracer_module_name=', tracer_module_name,
-                                     'vals_fname=', vals_fname,
-                                     'ndim=', len(self._dims))
-                for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                    varid = fptr.variables[tracer_name]
-                    self._vals[tracer_ind, :] = varid[:]
+                                     'vals_fname=', vals_fname)
+            # read values
+            if len(dims) > 3:
+                raise ValueError('ndim too large (for implementation of dot_prod)',
+                                 'tracer_module_name=', tracer_module_name,
+                                 'vals_fname=', vals_fname,
+                                 'ndim=', len(dims))
+            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
+                varid = fptr.variables[tracer_name]
+                vals[tracer_ind, :] = varid[:]
+        return vals, dims
 
     def tracer_names(self):
         """return list of tracer names"""
