@@ -27,9 +27,9 @@ def get_modelinfo(key):
 class ModelStaticVars:
     """class to hold static vars"""
 
-    def __init__(self, modelinfo, cfg_fname=None, lvl=logging.DEBUG):
+    def __init__(self, modelinfo, lvl=logging.DEBUG):
         logger = logging.getLogger(__name__)
-        logger.debug('entering, cfg_fname="%s"', cfg_fname)
+        logger.debug('entering')
 
         # store modelinfo for later use
         self.modelinfo = modelinfo
@@ -90,10 +90,6 @@ class ModelStaticVars:
                                                        grid_weight_no_region_dim, 0.0)
             # normalize grid_weight so that its sum is 1.0 over each region
             self.grid_weight[region_ind, :] *= 1.0 / np.sum(self.grid_weight[region_ind, :])
-
-        # cfg_fname is stored so that it can be passed to cmd in run_cmd
-        # it is not needed in stand-alone usage of model.py
-        self.cfg_fname = cfg_fname
 
         # store contents in module level var, to enable use elsewhere
         global _model_static_vars # pylint: disable=W0603
@@ -400,12 +396,6 @@ class ModelState:
         logger = logging.getLogger(__name__)
         logger.debug('entering, cmd="%s", res_fname="%s"', cmd, res_fname)
 
-        if _model_static_vars.cfg_fname is None:
-            msg = '_model_static_vars.cfg_fname is None' \
-                  ', ModelStaticVars.__init__ must be called with cfg_fname argument' \
-                  ' before ModelState.run_cmd'
-            raise RuntimeError(msg)
-
         currstep = 'calling %s for %s' % (cmd, res_fname)
         solver_state.set_currstep(currstep)
 
@@ -431,9 +421,9 @@ class ModelState:
         self.dump(cmd_in_fname)
 
         args = [sys.executable, _model_static_vars.newton_fcn_mod.__file__,
-                '--cfg_fname', _model_static_vars.cfg_fname,
+                '--cfg_fname', get_modelinfo('cfg_fname'),
                 '--hist_fname', 'None' if hist_fname is None else hist_fname,
-                '--postrun_cmd', 'postrun.sh',
+                '--resume_script_fname', get_modelinfo('resume_script_fname'),
                 cmd, cmd_in_fname, res_fname]
         subprocess.Popen(args)
 

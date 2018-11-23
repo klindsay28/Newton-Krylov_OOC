@@ -1,0 +1,3 @@
+# shell commands that creates an environment that the Newton-Krylov scripts can run in
+# source this from a bash/sh shell
+source activate newton_krylov

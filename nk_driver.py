@@ -5,9 +5,30 @@ import argparse
 import configparser
 import logging
 import os
+import stat
 
-from model import ModelStaticVars
+from model import ModelStaticVars, get_modelinfo
 from newton_solver import NewtonSolver
+
+def gen_resume_script(solverinfo):
+    """generate script that will be called to resume nk_driver.py"""
+
+    # The contents are in a script, instead of a multi-command subprocess.run args argument, so that
+    # the script can be passed to a batch job submit command. This is particularly useful when
+    # resume is being called from a batch job that is running on many dedicated cores, and you don't
+    # want to waste all of those cores running nk_driver, which is a single-core job.
+
+    script_fname = get_modelinfo('resume_script_fname')
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    with open(script_fname, mode='w') as fptr:
+        fptr.write('#!/bin/bash\n')
+        fptr.write('cd %s\n' % cwd)
+        fptr.write('source %s\n' % solverinfo['newton_krylov_env_cmds_fname'])
+        fptr.write('./nk_driver.py --cfg_fname %s --resume\n' % get_modelinfo('cfg_fname'))
+
+    # ensure script_fname is executable by the user, while preserving other permissions
+    fstat = os.stat(script_fname)
+    os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
 def parse_args():
     """parse command line arguments"""
@@ -41,8 +62,15 @@ def main(args):
         logger.warning('KILL file detected, exiting')
         raise SystemExit
 
-    ModelStaticVars(config['modelinfo'], args.cfg_fname,
-                    logging.DEBUG if args.resume else logging.INFO)
+    # store cfg_fname and resume_script_fname in modelinfo, to ease access to their values elsewhere
+    config['modelinfo']['cfg_fname'] = args.cfg_fname
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    resume_script_fname = os.path.join(cwd, 'generated_scripts', 'nk_driver_resume.sh')
+    config['modelinfo']['resume_script_fname'] = resume_script_fname
+
+    ModelStaticVars(config['modelinfo'], logging.DEBUG if args.resume else logging.INFO)
+
+    gen_resume_script(solverinfo)
 
     newton_solver = NewtonSolver(solverinfo=solverinfo,
                                  resume=args.resume,

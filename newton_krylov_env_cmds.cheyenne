@@ -1,0 +1,6 @@
+# shell commands that creates an environment that the Newton-Krylov scripts can run in
+# source this from a bash/sh shell
+source /etc/profile.d/modules.sh
+module purge
+module load python/3.6.4
+ncar_pylib

@@ -24,8 +24,9 @@ def _parse_args():
     parser.add_argument('res_fname', help='name of file for result')
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov.cfg')
-    parser.add_argument('--hist_fname', help='name of history file')
-    parser.add_argument('--postrun_cmd', help='command to run upon completion')
+    parser.add_argument('--hist_fname', help='name of history file', default='None')
+    parser.add_argument('--resume_script_fname', help='name of script to resume nk_driver.py',
+                        default='None')
     return parser.parse_args()
 
 def main(args):
@@ -33,7 +34,11 @@ def main(args):
 
     config = configparser.ConfigParser()
     config.read(args.cfg_fname)
-    ModelStaticVars(config['modelinfo'], args.cfg_fname)
+
+    # store cfg_fname in modelinfo, to ease access to its values elsewhere
+    config['modelinfo']['cfg_fname'] = args.cfg_fname
+
+    ModelStaticVars(config['modelinfo'])
 
     newton_fcn = NewtonFcn()
 
@@ -46,8 +51,8 @@ def main(args):
 
     ms_res.dump(args.res_fname)
 
-    if args.postrun_cmd is not None and args.postrun_cmd != 'None':
-        subprocess.Popen(['/bin/bash', args.postrun_cmd, args.cfg_fname])
+    if args.resume_script_fname != 'None':
+        subprocess.Popen(args.resume_script_fname)
 
 ################################################################################
 
@@ -123,7 +128,7 @@ class NewtonFcn():
         self._tracer_module_names = None
         self._tracer_names = None
 
-    def comp_fcn(self, ms_in, hist_fname=None):
+    def comp_fcn(self, ms_in, hist_fname='None'):
         """evalute function being solved with Newton's method"""
         self._tracer_module_names = ms_in.tracer_module_names
         self._tracer_names = ms_in.tracer_names()
@@ -138,7 +143,7 @@ class NewtonFcn():
                                     101 if hist_fname != 'None' else 2),
                         atol=1.0e-10, rtol=1.0e-10)
 
-        if hist_fname is not None and hist_fname != 'None':
+        if hist_fname != 'None':
             self._write_hist(sol, hist_fname)
 
         ms_res = ms_in.copy()
