@@ -9,8 +9,7 @@ import numpy as np
 import util
 
 from krylov_solver import KrylovSolver
-from model import get_modelinfo, ModelState, log_vals, to_ndarray, to_region_scalar_ndarray
-from model import tracer_module_cnt
+from model import get_modelinfo, ModelState, to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
 
 class NewtonSolver:
@@ -55,15 +54,8 @@ class NewtonSolver:
             iteration_p_msg = 'iteration=%02d' % iteration
         else:
             iteration_p_msg = 'iteration=%02d,%s' % (iteration, msg)
-        for ind in range(tracer_module_cnt()):
-            if iterate is None:
-                self._iterate.log('%s,iterate' % iteration_p_msg, ind)
-            else:
-                iterate.log('%s,iterate' % iteration_p_msg, ind)
-            if fcn is None:
-                self._fcn.log('%s,fcn' % iteration_p_msg, ind)
-            else:
-                fcn.log('%s,fcn' % iteration_p_msg, ind)
+        (self._iterate if iterate is None else iterate).log('%s,iterate' % iteration_p_msg)
+        (self._fcn if fcn is None else fcn).log('%s,fcn' % iteration_p_msg)
 
     def converged_flat(self):
         """is residual small"""
@@ -142,10 +134,8 @@ class NewtonSolver:
             # Kelley, C. T., Solving nonlinear equations with Newton's method, 2003.
             fcn_norm = self._fcn.norm()
             prov_fcn_norm = prov_fcn.norm()
-            for ind in range(tracer_module_cnt()):
-                log_vals('ArmijoFactor', armijo_factor, ind)
-                log_vals('fcn_norm', fcn_norm, ind)
-                log_vals('prov_fcn_norm', prov_fcn_norm, ind)
+            increment.log_vals(['ArmijoFactor', 'fcn_norm', 'prov_fcn_norm'],
+                               np.stack((armijo_factor, fcn_norm, prov_fcn_norm)))
             alpha = 1.0e-4
             armijo_cond_flat = (armijo_factor_flat == 0.0) | (to_ndarray(prov_fcn_norm) \
                 <= (1.0 - alpha * armijo_factor_flat) * to_ndarray(fcn_norm))

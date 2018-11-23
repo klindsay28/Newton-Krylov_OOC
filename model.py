@@ -14,14 +14,6 @@ from netCDF4 import Dataset
 _model_static_vars = None
 
 # functions to commonly accessed vars in _model_static_vars
-def tracer_module_names():
-    """return list of tracer module names"""
-    return _model_static_vars.modelinfo['tracer_module_names'].split(',')
-
-def tracer_module_cnt():
-    """return number of tracer modules"""
-    return len(tracer_module_names())
-
 def region_cnt():
     """return number of regions specified by region_mask"""
     return _model_static_vars.region_cnt
@@ -145,9 +137,11 @@ class ModelState:
             msg = '_model_static_vars is None' \
                   ', ModelStaticVars.__init__ must be called before ModelState.__init__'
             raise RuntimeError(msg)
+        self.tracer_module_names = get_modelinfo('tracer_module_names').split(',')
+        self.tracer_module_cnt = len(self.tracer_module_names)
         if vals_fname is not None:
-            self._tracer_modules = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
-            for tracer_module_ind, tracer_module_name in enumerate(tracer_module_names()):
+            self._tracer_modules = np.empty(shape=(self.tracer_module_cnt,), dtype=np.object)
+            for tracer_module_ind, tracer_module_name in enumerate(self.tracer_module_names):
                 self._tracer_modules[tracer_module_ind] = \
                     _model_static_vars.newton_fcn_mod.TracerModuleState(
                         tracer_module_name, vals_fname=vals_fname)
@@ -175,16 +169,28 @@ class ModelState:
                     tracer_module.dump(fptr, action)
         return self
 
-    def log(self, msg=None, ind=None):
-        """write info of the instance to the log"""
-        if ind is None:
-            for ind_tmp in range(tracer_module_cnt()):
-                self.log(msg, ind_tmp)
-            return
+    def log_vals(self, msg, vals):
+        """write per-tracer module values to the log"""
+        for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
+            if isinstance(msg, list):
+                for msg_ind, submsg in enumerate(msg):
+                    if vals.ndim == 2:
+                        tracer_module.log_vals(submsg, vals[msg_ind, tracer_module_ind])
+                    else:
+                        tracer_module.log_vals(submsg, vals[msg_ind, tracer_module_ind, :])
+            else:
+                if vals.ndim == 1:
+                    tracer_module.log_vals(msg, vals[tracer_module_ind])
+                else:
+                    tracer_module.log_vals(msg, vals[tracer_module_ind, :])
 
-        for prefix, vals in {'mean':self.mean(), 'norm':self.norm()}.items():
-            msg_full = prefix if msg is None else msg+','+prefix
-            log_vals(msg_full, vals, ind)
+    def log(self, msg=None):
+        """write info of the instance to the log"""
+        if msg is None:
+            msg_full = ['mean', 'norm']
+        else:
+            msg_full = [msg+',mean', msg+',norm']
+        self.log_vals(msg_full, np.stack((self.mean(), self.norm())))
 
     def copy(self):
         """return a copy of self"""
@@ -209,7 +215,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
@@ -231,7 +237,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules += other
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             self._tracer_modules += other
         elif isinstance(other, ModelState):
             self._tracer_modules += other._tracer_modules # pylint: disable=W0212
@@ -247,7 +253,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
@@ -262,7 +268,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules -= other
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             self._tracer_modules -= other
         elif isinstance(other, ModelState):
             self._tracer_modules -= other._tracer_modules # pylint: disable=W0212
@@ -278,7 +284,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules * other._tracer_modules # pylint: disable=W0212
@@ -300,7 +306,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules *= other
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             self._tracer_modules *= other
         elif isinstance(other, ModelState):
             self._tracer_modules *= other._tracer_modules # pylint: disable=W0212
@@ -316,7 +322,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
         elif isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules / other._tracer_modules # pylint: disable=W0212
@@ -332,7 +338,7 @@ class ModelState:
         res = ModelState()
         if isinstance(other, float):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -345,7 +351,7 @@ class ModelState:
         """
         if isinstance(other, float):
             self._tracer_modules *= (1.0 / other)
-        elif isinstance(other, np.ndarray) and other.shape == (tracer_module_cnt(),):
+        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             self._tracer_modules *= (1.0 / other)
         elif isinstance(other, ModelState):
             self._tracer_modules /= other._tracer_modules # pylint: disable=W0212
@@ -355,14 +361,14 @@ class ModelState:
 
     def mean(self):
         """compute weighted mean of self"""
-        res = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
+        res = np.empty(shape=self._tracer_modules.shape, dtype=np.object)
         for ind, tracer_module in enumerate(self._tracer_modules):
             res[ind] = tracer_module.mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        res = np.empty(shape=(tracer_module_cnt(),), dtype=np.object)
+        res = np.empty(shape=self._tracer_modules.shape, dtype=np.object)
         for ind, tracer_module in enumerate(self._tracer_modules):
             res[ind] = tracer_module.dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
@@ -376,7 +382,7 @@ class ModelState:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty(shape=(tracer_module_cnt(), basis_cnt), dtype=np.object)
+        h_val = np.empty(shape=(self.tracer_module_cnt, basis_cnt), dtype=np.object)
         for i_val in range(0, basis_cnt):
             basis_i = ModelState(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)
@@ -552,6 +558,34 @@ class TracerModuleStateBase:
         """
         raise NotImplementedError(
             'dump should be implemented in classes derived from TracerModuleStateBase')
+
+    def log_vals(self, msg, vals):
+        """write per-tracer module values to the log"""
+        logger = logging.getLogger(__name__)
+
+        # simplify subsequent logic by converting implicit RegionScalars dimension
+        # to an additional ndarray dimension
+        if isinstance(vals, RegionScalars) \
+                or isinstance(vals, np.ndarray) and isinstance(vals.ravel()[0], RegionScalars):
+            self.log_vals(msg, to_ndarray(vals))
+            return
+
+        # suppress printing of last index if its span is 1
+        if vals.ndim >= 1 and vals.shape[-1] == 1:
+            self.log_vals(msg, vals[..., 0])
+            return
+
+        if vals.ndim == 0:
+            logger.info('%s[%s]=%e', msg, self._tracer_module_name, vals)
+        elif vals.ndim == 1:
+            for j in range(vals.shape[0]):
+                logger.info('%s[%s,%d]=%e', msg, self._tracer_module_name, j, vals[j])
+        elif vals.ndim == 2:
+            for i in range(vals.shape[0]):
+                for j in range(vals.shape[1]):
+                    logger.info('%s[%s,%d,%d]=%e', msg, self._tracer_module_name, i, j, vals[i, j])
+        else:
+            raise ValueError('vals.ndim=%d not handled' % vals.ndim)
 
     def copy(self):
         """return a copy of self"""
@@ -868,6 +902,9 @@ def to_ndarray(array_in):
     The implicit RegionScalars dimension is placed last in res.
     """
 
+    if isinstance(array_in, RegionScalars):
+        return np.array(array_in.vals())
+
     res = np.empty(shape=array_in.shape+(region_cnt(),))
 
     if array_in.ndim == 0:
@@ -926,40 +963,3 @@ def lin_comb(coeff, fname_fcn, quantity):
     for j_val in range(1, coeff.shape[-1]):
         res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
     return res
-
-def log_vals(msg, vals, ind=None):
-    """write per-tracer module values to the log"""
-    logger = logging.getLogger(__name__)
-
-    # loop over tracer modules
-    if ind is None:
-        for ind_tmp in range(tracer_module_cnt()):
-            log_vals(msg, vals, ind_tmp)
-        return
-
-    # can now assume ind is present
-
-    # simplify subsequent logic by converting implicit RegionScalars dimension
-    # to an additional ndarray dimension
-    if isinstance(vals.ravel()[0], RegionScalars):
-        log_vals(msg, to_ndarray(vals), ind)
-        return
-
-    # suppress printing of last index if its span is 1
-    if vals.shape[-1] == 1 and vals.ndim >= 2:
-        log_vals(msg, vals[..., 0], ind)
-        return
-
-    tracer_module_name = tracer_module_names()[ind]
-
-    if vals.ndim == 1:
-        logger.info('%s[%s]=%e', msg, tracer_module_name, vals[ind])
-    elif vals.ndim == 2:
-        for j in range(vals.shape[1]):
-            logger.info('%s[%s,%d]=%e', msg, tracer_module_name, j, vals[ind, j])
-    elif vals.ndim == 3:
-        for i in range(vals.shape[1]):
-            for j in range(vals.shape[2]):
-                logger.info('%s[%s,%d,%d]=%e', msg, tracer_module_name, i, j, vals[ind, i, j])
-    else:
-        raise ValueError('vals.ndim=%d not handled' % vals.ndim)

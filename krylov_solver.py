@@ -6,8 +6,7 @@ import numpy as np
 
 import util
 
-from model import ModelState, lin_comb, log_vals, region_cnt, to_ndarray
-from model import to_region_scalar_ndarray, tracer_module_cnt
+from model import ModelState, lin_comb, region_cnt, to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
 
 class KrylovSolver:
@@ -72,7 +71,7 @@ class KrylovSolver:
         while True:
             j_val = self._solver_state.get_iteration()
             h_mat = to_region_scalar_ndarray(
-                np.zeros((tracer_module_cnt(), j_val+2, j_val+1, region_cnt())))
+                np.zeros((iterate.tracer_module_cnt, j_val+2, j_val+1, region_cnt())))
             if j_val > 0:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state('h_mat_ndarray'))
@@ -87,7 +86,7 @@ class KrylovSolver:
 
             # solve least-squares minimization problem for each tracer module
             coeff_ndarray = self.comp_krylov_basis_coeffs(h_mat_ndarray)
-            log_vals('KrylovCoeff', coeff_ndarray)
+            iterate.log_vals('KrylovCoeff', coeff_ndarray)
 
             # construct approximate solution
             res = lin_comb(to_region_scalar_ndarray(coeff_ndarray), self._fname, 'basis')
@@ -104,11 +103,12 @@ class KrylovSolver:
 
     def comp_krylov_basis_coeffs(self, h_mat_ndarray):
         """solve least-squares minimization problem for each tracer module"""
-        coeff_ndarray = np.zeros((tracer_module_cnt(), h_mat_ndarray.shape[2], region_cnt()))
-        lstsq_rhs = np.zeros(h_mat_ndarray.shape[1])
+        h_shape = h_mat_ndarray.shape
+        coeff_ndarray = np.zeros((h_shape[0], h_shape[2], h_shape[3]))
+        lstsq_rhs = np.zeros(h_shape[1])
         beta_ndarray = self._solver_state.get_value_saved_state('beta_ndarray')
-        for tracer_module_ind in range(tracer_module_cnt()):
-            for region_ind in range(region_cnt()):
+        for tracer_module_ind in range(h_shape[0]):
+            for region_ind in range(h_shape[3]):
                 lstsq_rhs[0] = beta_ndarray[tracer_module_ind, region_ind]
                 coeff_ndarray[tracer_module_ind, :, region_ind] = np.linalg.lstsq(
                     h_mat_ndarray[tracer_module_ind, :, :, region_ind], lstsq_rhs, rcond=None)[0]

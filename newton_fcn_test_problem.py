@@ -13,7 +13,7 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars, tracer_module_names
+from model import TracerModuleStateBase, ModelState, ModelStaticVars
 
 def _parse_args():
     """parse command line arguments"""
@@ -117,10 +117,15 @@ class NewtonFcn():
     def __init__(self):
         self.time_range = (0.0, 365.0)
         self.depth = Depth('depth_axis_test.nc')
+
+        # tracer_module_names and tracer_names will be stored in the following attributes,
+        # enabling access to them from inside _comp_tend
+        self._tracer_module_names = None
         self._tracer_names = None
 
     def comp_fcn(self, ms_in, hist_fname=None):
         """evalute function being solved with Newton's method"""
+        self._tracer_module_names = ms_in.tracer_module_names
         self._tracer_names = ms_in.tracer_names()
         tracer_vals_init = np.empty((len(self._tracer_names), self.depth.axis.nlevs))
         for tracer_ind, tracer_name in enumerate(self._tracer_names):
@@ -147,7 +152,7 @@ class NewtonFcn():
         """compute tendency function"""
         tracer_vals = tracer_vals_flat.reshape((len(self._tracer_names), -1))
         dtracer_vals_dt = np.empty_like(tracer_vals)
-        for tracer_module_name in tracer_module_names():
+        for tracer_module_name in self._tracer_module_names:
             if tracer_module_name == 'iage_test':
                 tracer_ind = self._tracer_names.index('iage_test')
                 self._comp_tend_iage_test(time, tracer_vals[tracer_ind, :],
@@ -246,7 +251,7 @@ class NewtonFcn():
 
         mca = self.depth.mixing_coeff_time_op(self.time_range, 'log_avg', 100)
 
-        for tracer_module_name in tracer_module_names():
+        for tracer_module_name in ms_in.tracer_module_names:
             if tracer_module_name == 'iage_test':
                 self._apply_precond_jacobian_iage_test(ms_in, mca, ms_res)
             if tracer_module_name == 'phosphorus':
