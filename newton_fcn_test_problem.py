@@ -3,7 +3,9 @@
 
 import argparse
 import configparser
+import logging
 import subprocess
+import sys
 
 import numpy as np
 from scipy.linalg import solve_banded, svd
@@ -34,6 +36,19 @@ def main(args):
 
     config = configparser.ConfigParser()
     config.read(args.cfg_fname)
+    solverinfo = config['solverinfo']
+
+    if args.resume_script_fname == 'None':
+        logging.basicConfig(stream=sys.stdout,
+                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
+                            level=solverinfo['logging_level'])
+    else:
+        logging.basicConfig(filename=solverinfo['logging_fname'], filemode='a',
+                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
+                            level=solverinfo['logging_level'])
+    logger = logging.getLogger(__name__)
+
+    logger.info('entering, cmd=%s', args.cmd)
 
     # store cfg_fname in modelinfo, to ease access to its values elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
@@ -52,7 +67,10 @@ def main(args):
     ms_res.dump(args.res_fname)
 
     if args.resume_script_fname != 'None':
+        logger.info('resuming with %s', args.resume_script_fname)
         subprocess.Popen(args.resume_script_fname)
+    else:
+        logger.info('done')
 
 ################################################################################
 

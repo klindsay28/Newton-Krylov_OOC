@@ -4,10 +4,12 @@
 import argparse
 import configparser
 import glob
+import logging
 import os
 import shutil
 import stat
 import subprocess
+import sys
 
 import numpy as np
 
@@ -37,6 +39,19 @@ def main(args):
 
     config = configparser.ConfigParser()
     config.read(args.cfg_fname)
+    solverinfo = config['solverinfo']
+
+    if args.resume_script_fname == 'None':
+        logging.basicConfig(stream=sys.stdout,
+                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
+                            level=solverinfo['logging_level'])
+    else:
+        logging.basicConfig(filename=solverinfo['logging_fname'], filemode='a',
+                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
+                            level=solverinfo['logging_level'])
+    logger = logging.getLogger(__name__)
+
+    logger.info('entering, cmd=%s', args.cmd)
 
     # store cfg_fname in modelinfo, to ease access to its values elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
@@ -52,10 +67,14 @@ def main(args):
             ms_res = _comp_fcn_post_modelrun(ModelState(args.in_fname), args.hist_fname)
             ms_res.dump(args.res_fname)
             if args.resume_script_fname != 'None':
+                logger.info('resuming with %s', args.resume_script_fname)
                 subprocess.Popen(args.resume_script_fname)
     elif args.cmd == 'apply_precond_jacobian':
         ms_res = _apply_precond_jacobian(ModelState(args.in_fname))
         ms_res.dump(args.res_fname)
+        if args.resume_script_fname != 'None':
+            logger.info('resuming with %s', args.resume_script_fname)
+            subprocess.Popen(args.resume_script_fname)
     else:
         raise ValueError('unknown cmd=%s' % args.cmd)
 
@@ -247,6 +266,7 @@ def _xmlchange(varname, value):
 
 def _case_submit():
     """submit a CIME case, return after submit completes"""
+    logger = logging.getLogger(__name__)
 
     cwd = os.path.dirname(os.path.realpath(__file__))
     script_fname = os.path.join(cwd, 'generated_scripts', 'case_submit.sh')
@@ -260,6 +280,7 @@ def _case_submit():
     fstat = os.stat(script_fname)
     os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
+    logging.info('submitting case=%s', _xmlquery('CASE'))
     subprocess.run(script_fname, shell=True, check=True)
 
 if __name__ == '__main__':
