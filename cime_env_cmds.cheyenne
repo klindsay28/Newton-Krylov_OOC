@@ -1,0 +1,6 @@
+# shell commands that creates an environment that cime can run in
+# source this from a bash/sh shell
+source /etc/profile.d/modules.sh
+module purge
+module load python/2.7.14
+ncar_pylib > /dev/null

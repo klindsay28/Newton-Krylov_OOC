@@ -1,0 +1,8 @@
+{
+    "iage": {
+        "tracer_names": ["IAGE"]
+    },
+    "abio_dic_dic14": {
+        "tracer_names": ["ABIO_DIC", "ABIO_DIC14"]
+    }
+}

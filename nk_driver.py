@@ -10,7 +10,7 @@ import stat
 from model import ModelStaticVars, get_modelinfo
 from newton_solver import NewtonSolver
 
-def gen_resume_script(solverinfo):
+def gen_resume_script():
     """generate script that will be called to resume nk_driver.py"""
 
     # The contents are in a script, instead of a multi-command subprocess.run args argument, so that
@@ -23,7 +23,7 @@ def gen_resume_script(solverinfo):
     with open(script_fname, mode='w') as fptr:
         fptr.write('#!/bin/bash\n')
         fptr.write('cd %s\n' % cwd)
-        fptr.write('source %s\n' % solverinfo['newton_krylov_env_cmds_fname'])
+        fptr.write('source %s\n' % get_modelinfo('newton_krylov_env_cmds_fname'))
         fptr.write('./nk_driver.py --cfg_fname %s --resume\n' % get_modelinfo('cfg_fname'))
 
     # ensure script_fname is executable by the user, while preserving other permissions
@@ -70,7 +70,7 @@ def main(args):
 
     ModelStaticVars(config['modelinfo'], logging.DEBUG if args.resume else logging.INFO)
 
-    gen_resume_script(solverinfo)
+    gen_resume_script()
 
     newton_solver = NewtonSolver(solverinfo=solverinfo,
                                  resume=args.resume,
