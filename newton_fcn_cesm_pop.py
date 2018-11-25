@@ -280,7 +280,7 @@ def _case_submit():
     fstat = os.stat(script_fname)
     os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
-    logging.info('submitting case=%s', _xmlquery('CASE'))
+    logger.info('submitting case=%s', _xmlquery('CASE'))
     subprocess.run(script_fname, shell=True, check=True)
 
 if __name__ == '__main__':
