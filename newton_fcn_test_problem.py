@@ -121,7 +121,7 @@ class NewtonFcn():
     """class of methods related to problem being solved with Newton's method"""
     def __init__(self):
         self.time_range = (0.0, 365.0)
-        self.depth = Depth('depth_axis_test.nc')
+        self.depth = Depth('grid_files/depth_axis_test.nc')
 
         # tracer_module_names and tracer_names will be stored in the following attributes,
         # enabling access to them from inside _comp_tend
