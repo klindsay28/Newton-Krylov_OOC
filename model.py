@@ -4,8 +4,6 @@ import importlib
 import json
 import logging
 import os
-import subprocess
-import sys
 
 import numpy as np
 from netCDF4 import Dataset
@@ -29,24 +27,17 @@ class ModelStaticVars:
 
     def __init__(self, modelinfo, lvl=logging.DEBUG):
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug('ModelStaticVars:entering')
 
         # store modelinfo for later use
         self.modelinfo = modelinfo
 
         # import module with TracerModuleState and NewtonFcn
-        self.newton_fcn_mod = importlib.import_module(modelinfo['newton_fcn_modname'])
+        newton_fcn_mod = importlib.import_module(modelinfo['newton_fcn_modname'])
 
-        # store NewtonFcn's comp_fcn and apply_precond_jacobian explicitly,
-        # to ease subsequent usage of them
-        newton_fcn = self.newton_fcn_mod.NewtonFcn
-        self.cmd_fcn = {}
-        self.cmd_fcn['comp_fcn'] = newton_fcn.comp_fcn
-        self.cmd_fcn['apply_precond_jacobian'] = newton_fcn.apply_precond_jacobian
-
-        self.cmd_ext = {}
-        self.cmd_ext['comp_fcn'] = modelinfo.getboolean('comp_fcn_ext')
-        self.cmd_ext['apply_precond_jacobian'] = modelinfo.getboolean('apply_precond_jacobian_ext')
+        # store newton_fcn_mod's TracerModuleState class and an instance of class NewtonFcn
+        self.tracer_module_state = newton_fcn_mod.TracerModuleState
+        self.newton_fcn = newton_fcn_mod.NewtonFcn()
 
         # extract tracer_module_defs from modelinfo config object
         fname = modelinfo['tracer_module_defs_fname']
@@ -129,6 +120,8 @@ class ModelState:
     __array_priority__ = 100
 
     def __init__(self, vals_fname=None):
+        logger = logging.getLogger(__name__)
+        logger.debug('ModelState:entering, vals_fname=%s', vals_fname)
         if _model_static_vars is None:
             msg = '_model_static_vars is None' \
                   ', ModelStaticVars.__init__ must be called before ModelState.__init__'
@@ -139,8 +132,9 @@ class ModelState:
             self._tracer_modules = np.empty(shape=(self.tracer_module_cnt,), dtype=np.object)
             for tracer_module_ind, tracer_module_name in enumerate(self.tracer_module_names):
                 self._tracer_modules[tracer_module_ind] = \
-                    _model_static_vars.newton_fcn_mod.TracerModuleState(
-                        tracer_module_name, vals_fname=vals_fname)
+                    _model_static_vars.tracer_module_state(tracer_module_name,
+                                                           vals_fname=vals_fname)
+        logger.debug('returning')
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -191,7 +185,9 @@ class ModelState:
     def copy(self):
         """return a copy of self"""
         res = ModelState()
-        res._tracer_modules = np.copy(self._tracer_modules) # pylint: disable=W0212
+        res._tracer_modules = np.empty(shape=(self.tracer_module_cnt,), dtype=np.object) # pylint: disable=W0212
+        for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
+            res._tracer_modules[tracer_module_ind] = tracer_module.copy() # pylint: disable=W0212
         return res
 
     def __neg__(self):
@@ -385,55 +381,29 @@ class ModelState:
             self -= h_val[:, i_val] * basis_i
         return h_val
 
-    def run_cmd(self, cmd, res_fname, solver_state, hist_fname=None):
-        """
-        Run a command/function from newton_fcn_modname.
-        The external command is expected to take 2 arguments: in_fname, res_fname
-        in_fname is populated with the contents of self
-
-        Skip running the command if currstep generated below has been logged in solver_state.
-        """
+    def comp_fcn(self, res_fname, solver_state, hist_fname=None):
+        """Compute the function whose root is being found."""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, cmd="%s", res_fname="%s"', cmd, res_fname)
+        logger.debug('entering, res_fname="%s"', res_fname)
 
-        currstep = 'calling %s for %s' % (cmd, res_fname)
-        solver_state.set_currstep(currstep)
+        cmd = 'comp_fcn'
+        fcn_complete_step = '%s done for %s' % (cmd, res_fname)
 
-        if not _model_static_vars.cmd_ext[cmd]:
-            # invoke cmd directly and return result
-            if cmd == 'comp_fcn':
-                res = _model_static_vars.cmd_fcn[cmd](self, hist_fname).zero_extra_tracers()
-            else:
-                res = _model_static_vars.cmd_fcn[cmd](self)
-            return res
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return ModelState(res_fname)
 
-        if solver_state.currstep_logged():
-            logger.debug('"%s" logged, skipping %s and returning result', currstep, cmd)
-            res = ModelState(res_fname)
-            if cmd == 'comp_fcn':
-                res.zero_extra_tracers().dump(res_fname)
-            return res
+        logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
-        logger.debug('"%s" not logged, invoking %s and exiting', currstep, cmd)
+        res = _model_static_vars.newton_fcn.comp_fcn(self, res_fname, solver_state, hist_fname)
+        res.zero_extra_tracers().dump(res_fname)
 
-        # dump self into a file to be read by newton_fcn_modname
-        cmd_in_fname = os.path.join(solver_state.get_workdir(), 'cmd_in.nc')
-        self.dump(cmd_in_fname)
+        solver_state.log_step(fcn_complete_step)
 
-        args = [sys.executable, _model_static_vars.newton_fcn_mod.__file__,
-                '--cfg_fname', get_modelinfo('cfg_fname'),
-                '--hist_fname', 'None' if hist_fname is None else hist_fname,
-                '--resume_script_fname', get_modelinfo('resume_script_fname'),
-                cmd, cmd_in_fname, res_fname]
-        subprocess.Popen(args)
+        logger.debug('returning')
+        return res
 
-        logger.debug('flushing solver_state')
-        solver_state.flush()
-
-        logger.debug('raising SystemExit')
-        raise SystemExit
-
-    def comp_jacobian_fcn_state_prod(self, fcn, direction, solver_state):
+    def comp_jacobian_fcn_state_prod(self, fcn, direction, res_fname, solver_state):
         """
         compute the product of the Jacobian of fcn at self with the model state direction
 
@@ -442,20 +412,50 @@ class ModelState:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
+        fcn_complete_step = 'comp_jacobian_fcn_state_prod done for %s' % (res_fname)
+
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return ModelState(res_fname)
+
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
         sigma = 1.0e-4 * self.norm()
 
-        res_fname = os.path.join(solver_state.get_workdir(), 'fcn_res.nc')
+        # perturbed ModelState
+        perturb_ms = self + sigma * direction
+        perturb_fcn_fname = os.path.join(solver_state.get_workdir(),
+                                         'perturb_fcn_'+os.path.basename(res_fname))
+        perturb_fcn = perturb_ms.comp_fcn(perturb_fcn_fname, solver_state)
 
-        solver_state.set_currstep('comp_jacobian_fcn_state_prod_comp_fcn')
-        # skip computation of peturbed state if corresponding run_cmd has already been run
-        if not solver_state.currstep_logged():
-            res_perturb = (self + sigma * direction).run_cmd('comp_fcn', res_fname, solver_state)
-        else:
-            res_perturb = ModelState(res_fname)
+        # compute finite difference
+        res = ((perturb_fcn - fcn) / sigma).dump(res_fname)
 
-        # retrieve comp_fcn result from res_fname, and proceed with finite difference
+        solver_state.log_step(fcn_complete_step)
+
         logger.debug('returning')
-        return (res_perturb - fcn) / sigma
+        return res
+
+    def apply_precond_jacobian(self, res_fname, solver_state):
+        """Apply preconditioner of jacobian of comp_fcn to self."""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering, res_fname="%s"', res_fname)
+
+        cmd = 'apply_precond_jacobian'
+        fcn_complete_step = '%s done for %s' % (cmd, res_fname)
+
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return ModelState(res_fname)
+
+        logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
+
+        res = _model_static_vars.newton_fcn.apply_precond_jacobian(self, res_fname, solver_state)
+
+        solver_state.log_step(fcn_complete_step)
+
+        logger.debug('returning')
+        return res
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
@@ -511,6 +511,8 @@ class TracerModuleStateBase:
     __array_priority__ = 100
 
     def __init__(self, tracer_module_name, dims=None, vals_fname=None):
+        logger = logging.getLogger(__name__)
+        logger.debug('TracerModuleStateBase:entering, vals_fname=%s', vals_fname)
         if _model_static_vars is None:
             msg = '_model_static_vars is None' \
                   ', ModelStaticVars.__init__ must be called before TracerModuleStateBase.__init__'
@@ -523,6 +525,7 @@ class TracerModuleStateBase:
             self._dims = dims
         if vals_fname is not None:
             self._vals, self._dims = self._read_vals(tracer_module_name, vals_fname)
+        logger.debug('returning')
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""

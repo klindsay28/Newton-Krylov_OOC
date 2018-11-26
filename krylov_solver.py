@@ -26,7 +26,7 @@ class KrylovSolver:
     def __init__(self, workdir, resume, rewind):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
+        logger.debug('KrylovSolver:entering, resume=%r, rewind=%r', resume, rewind)
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
@@ -51,14 +51,14 @@ class KrylovSolver:
         steps of solve that are only performed for iteration 0
         This is step 1 of Saad's alogrithm 9.4.
         """
-        # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-        precond_fcn = fcn.run_cmd('apply_precond_jacobian', self._fname('precond_fcn'),
-                                  self._solver_state)
-        self._solver_state.set_currstep('computing beta and basis_00')
-        if not self._solver_state.currstep_logged():
+        fcn_complete_step = '_solve0 complete'
+        if not self._solver_state.step_logged(fcn_complete_step):
+            # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
+            precond_fcn = fcn.apply_precond_jacobian(self._fname('precond_fcn'), self._solver_state)
             beta = precond_fcn.norm()
             (-precond_fcn / beta).dump(self._fname('basis'))
             self._solver_state.set_value_saved_state('beta_ndarray', to_ndarray(beta))
+            self._solver_state.log_step(fcn_complete_step)
 
     def solve(self, krylov_solve_res_fname, iterate, fcn):
         """apply Krylov method"""
@@ -76,8 +76,9 @@ class KrylovSolver:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state('h_mat_ndarray'))
             basis_j = ModelState(self._fname('basis'))
-            w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._solver_state)
-            w_j = w_raw.run_cmd('apply_precond_jacobian', self._fname('w'), self._solver_state)
+            w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._fname('w_raw'),
+                                                         self._solver_state)
+            w_j = w_raw.apply_precond_jacobian(self._fname('w'), self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()
             w_j /= h_mat[:, -1, -1]

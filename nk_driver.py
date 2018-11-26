@@ -6,17 +6,18 @@ import configparser
 import logging
 import os
 import stat
+import sys
 
 from model import ModelStaticVars, get_modelinfo
 from newton_solver import NewtonSolver
 
 def gen_resume_script():
-    """generate script that will be called to resume nk_driver.py"""
+    """generate script that will be called to resume"""
 
     # The contents are in a script, instead of a multi-command subprocess.run args argument, so that
     # the script can be passed to a batch job submit command. This is particularly useful when
     # resume is being called from a batch job that is running on many dedicated cores, and you don't
-    # want to waste all of those cores running nk_driver, which is a single-core job.
+    # want to use all of those cores running a single-core script.
 
     script_fname = get_modelinfo('resume_script_fname')
     cwd = os.path.dirname(os.path.realpath(__file__))
@@ -24,7 +25,7 @@ def gen_resume_script():
         fptr.write('#!/bin/bash\n')
         fptr.write('cd %s\n' % cwd)
         fptr.write('source %s\n' % get_modelinfo('newton_krylov_env_cmds_fname'))
-        fptr.write('./nk_driver.py --cfg_fname %s --resume\n' % get_modelinfo('cfg_fname'))
+        fptr.write('%s --cfg_fname %s --resume\n' % (__file__, get_modelinfo('cfg_fname')))
 
     # ensure script_fname is executable by the user, while preserving other permissions
     fstat = os.stat(script_fname)
@@ -56,6 +57,8 @@ def main(args):
                         filemode='a' if args.resume else 'w',
                         format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
                         level=solverinfo['logging_level'])
+    sys.stdout = open(solverinfo['logging_fname'], 'a')
+    sys.stderr = open(solverinfo['logging_fname'], 'a')
     logger = logging.getLogger(__name__)
 
     if os.path.exists('KILL'):

@@ -41,14 +41,9 @@ def main(args):
     config.read(args.cfg_fname)
     solverinfo = config['solverinfo']
 
-    if args.resume_script_fname == 'None':
-        logging.basicConfig(stream=sys.stdout,
-                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
-                            level=solverinfo['logging_level'])
-    else:
-        logging.basicConfig(filename=solverinfo['logging_fname'], filemode='a',
-                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
-                            level=solverinfo['logging_level'])
+    logging.basicConfig(stream=sys.stdout,
+                        format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
+                        level=solverinfo['logging_level'])
     logger = logging.getLogger(__name__)
 
     logger.info('entering, cmd=%s', args.cmd)
@@ -58,19 +53,21 @@ def main(args):
 
     ModelStaticVars(config['modelinfo'])
 
+    ms_in = ModelState(args.in_fname)
+
     if args.cmd == 'comp_fcn':
         if not args.post_modelrun:
             # note that the following will not return, as it raises SystemExit
-            _comp_fcn_pre_modelrun(ModelState(args.in_fname), args.hist_fname,
-                                   args.resume_script_fname, args.in_fname, args.res_fname)
+            _comp_fcn_pre_modelrun(ms_in, args.hist_fname, args.resume_script_fname, args.in_fname,
+                                   args.res_fname)
         else:
-            ms_res = _comp_fcn_post_modelrun(ModelState(args.in_fname), args.hist_fname)
+            ms_res = _comp_fcn_post_modelrun(ms_in, args.hist_fname)
             ms_res.dump(args.res_fname)
             if args.resume_script_fname != 'None':
                 logger.info('resuming with %s', args.resume_script_fname)
                 subprocess.Popen(args.resume_script_fname)
     elif args.cmd == 'apply_precond_jacobian':
-        ms_res = _apply_precond_jacobian(ModelState(args.in_fname))
+        ms_res = _apply_precond_jacobian(ms_in)
         ms_res.dump(args.res_fname)
         if args.resume_script_fname != 'None':
             logger.info('resuming with %s', args.resume_script_fname)
@@ -88,6 +85,8 @@ class TracerModuleState(TracerModuleStateBase):
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
         dims = {}
         suffix = '_CUR'
         with Dataset(vals_fname, mode='r') as fptr:
@@ -114,6 +113,7 @@ class TracerModuleState(TracerModuleStateBase):
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 varid = fptr.variables[tracer_name+suffix]
                 vals[tracer_ind, :] = varid[:]
+        logger.debug('returning')
         return vals, dims
 
     def dump(self, fptr, action):

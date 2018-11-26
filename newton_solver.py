@@ -18,7 +18,7 @@ class NewtonSolver:
     def __init__(self, solverinfo, resume, rewind):
         """initialize Newton solver"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, resume=%r, rewind=%r', resume, rewind)
+        logger.debug('NewtonSolver:entering, resume=%r, rewind=%r', resume, rewind)
 
         # ensure workdir exists
         workdir = solverinfo['workdir']
@@ -27,15 +27,18 @@ class NewtonSolver:
         self._solverinfo = solverinfo
         self._solver_state = SolverState('Newton', workdir, resume, rewind)
 
-        # get solver started on an initial run
+        # get solver started the first time NewtonSolver is instantiated
         if not resume:
             iterate = ModelState(get_modelinfo('init_iterate_fname'))
             iterate.copy_real_tracers_to_shadow_tracers().dump(self._fname('iterate'))
 
         self._iterate = ModelState(self._fname('iterate'))
+
+        # for iteration == 0, _fcn needs to be computed
+        # for iteration >= 1, _fcn is available and stored when iteration is incremented
         if self._solver_state.get_iteration() == 0:
-            self._fcn = self._iterate.run_cmd('comp_fcn', self._fname('fcn'), self._solver_state,
-                                              self._fname('hist'))
+            self._fcn = self._iterate.comp_fcn(self._fname('fcn'), self._solver_state,
+                                               self._fname('hist'))
         else:
             self._fcn = ModelState(self._fname('fcn'))
 
@@ -70,29 +73,25 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        complete_step = '_comp_increment complete'
+        fcn_complete_step = '_comp_increment complete'
 
-        if self._solver_state.step_logged(complete_step):
-            logger.debug('"%s" logged, returning result', complete_step)
+        if self._solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(self._fname('increment'))
 
-        logger.debug('"%s" not logged, computing increment', complete_step)
+        logger.debug('"%s" not logged, computing increment', fcn_complete_step)
 
         krylov_dir = os.path.join(self._solverinfo['workdir'],
                                   'krylov_%02d' % self._solver_state.get_iteration())
-        self._solver_state.set_currstep('instantiating KrylovSolver')
-        rewind = self._solver_state.currstep_was_rewound()
-        resume = True if rewind else self._solver_state.currstep_logged()
+        step = 'KrylovSolver instantiated'
+        rewind = self._solver_state.step_was_rewound(step)
+        resume = rewind or self._solver_state.step_logged(step)
         if not resume:
             self.log()
         krylov_solver = KrylovSolver(krylov_dir, resume, rewind)
-        try:
-            increment = krylov_solver.solve(self._fname('increment'), self._iterate, self._fcn)
-        except SystemExit:
-            logger.debug('flushing self._solver_state')
-            self._solver_state.flush()
-            raise
-        self._solver_state.set_currstep(complete_step)
+        self._solver_state.log_step(step)
+        increment = krylov_solver.solve(self._fname('increment'), self._iterate, self._fcn)
+        self._solver_state.log_step(fcn_complete_step)
         logger.debug('returning')
         return increment
 
@@ -101,32 +100,34 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        self._solver_state.set_currstep('computing Armijo factor')
-        if not self._solver_state.currstep_logged():
+        step = 'Armijo factor computation started'
+        if not self._solver_state.step_logged(step):
             armijo_ind = 0
             self._solver_state.set_value_saved_state('armijo_ind', armijo_ind)
             armijo_factor_flat = np.where(self.converged_flat(), 0.0, 1.0)
             self._solver_state.set_value_saved_state('armijo_factor_flat', armijo_factor_flat)
+            self._solver_state.log_step(step)
         else:
             armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
             armijo_factor_flat = self._solver_state.get_value_saved_state('armijo_factor_flat')
 
-        complete_step = '_comp_next_iterate complete'
+        fcn_complete_step = '_comp_next_iterate complete'
 
-        if self._solver_state.step_logged(complete_step):
-            logger.debug('"%s" logged, returning result', complete_step)
-            return ModelState(self._fname('prov_Armijo_%02d' % armijo_ind))
+        if self._solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return ModelState(self._fname('prov_Armijo_%02d' % armijo_ind)), \
+                ModelState(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
 
-        logger.debug('"%s" not logged, computing next iterate', complete_step)
+        logger.debug('"%s" not logged, computing next iterate', fcn_complete_step)
 
         while True:
             # compute provisional candidate for next iterate
             armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
             prov.dump(self._fname('prov_Armijo_%02d' % armijo_ind))
-            prov_fcn = prov.run_cmd('comp_fcn', self._fname('prov_fcn_Armijo_%02d' % armijo_ind),
-                                    self._solver_state,
-                                    self._fname('prov_hist_Armijo_%02d' % armijo_ind))
+            prov_fcn = prov.comp_fcn(self._fname('prov_fcn_Armijo_%02d' % armijo_ind),
+                                     self._solver_state,
+                                     self._fname('prov_hist_Armijo_%02d' % armijo_ind))
 
             logger.info('Armijo_ind=%d', armijo_ind)
 
@@ -142,9 +143,9 @@ class NewtonSolver:
 
             if armijo_cond_flat.all():
                 logger.info("Armijo condition satisfied")
-                self._solver_state.set_currstep(complete_step)
+                self._solver_state.log_step(fcn_complete_step)
                 logger.debug('returning')
-                return prov
+                return prov, prov_fcn
 
             logger.info("Armijo condition not satisfied")
             armijo_factor_flat = np.where(armijo_cond_flat,
@@ -161,12 +162,13 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
-        increment = self._comp_increment()
+        step = 'fp iterations started'
+        if not self._solver_state.step_logged(step):
 
-        prov = self._comp_next_iterate(increment)
+            increment = self._comp_increment()
 
-        self._solver_state.set_currstep('running fp iterations')
-        if not self._solver_state.currstep_logged():
+            prov, prov_fcn = self._comp_next_iterate(increment)
+
             fp_iter = 0
             self._solver_state.set_value_saved_state('fp_iter', fp_iter)
             prov.copy_shadow_tracers_to_real_tracers()
@@ -175,32 +177,34 @@ class NewtonSolver:
             # shadow tracers are on, then this is the same as the final comp_fcn result from Armijo
             # iterations.
             if prov.shadow_tracers_on():
-                prov.run_cmd('comp_fcn', self._fname('prov_fcn_fp_%02d' % fp_iter),
-                             self._solver_state, self._fname('prov_hist_fp_%02d' % fp_iter))
+                prov_fcn = prov.comp_fcn(self._fname('prov_fcn_fp_%02d' % fp_iter),
+                                         self._solver_state,
+                                         self._fname('prov_hist_fp_%02d' % fp_iter))
             else:
-                armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
-                prov_fcn = ModelState(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
                 prov_fcn.dump(self._fname('prov_fcn_fp_%02d' % fp_iter))
+                armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
                 shutil.copyfile(self._fname('prov_hist_Armijo_%02d' % armijo_ind),
                                 self._fname('prov_hist_fp_%02d' % fp_iter))
+            self._solver_state.log_step(step)
         else:
             fp_iter = self._solver_state.get_value_saved_state('fp_iter')
             prov = ModelState(self._fname('prov_fp_%02d' % fp_iter))
             prov_fcn = ModelState(self._fname('prov_fcn_fp_%02d' % fp_iter))
 
         while fp_iter < self._solverinfo.getint('post_newton_fp_iter'):
-            self._solver_state.set_currstep('performing fp iteration %02d' % fp_iter)
-            if not self._solver_state.currstep_logged():
+            step = 'prov updated for fp iteration %02d' % fp_iter
+            if not self._solver_state.step_logged(step):
                 if fp_iter == 0:
                     self.log(prov, prov_fcn, 'pre-fp_iter')
                 prov += prov_fcn
                 prov.copy_shadow_tracers_to_real_tracers()
                 prov.dump(self._fname('prov_fp_%02d' % (fp_iter+1)))
+                self._solver_state.log_step(step)
             else:
                 prov = ModelState(self._fname('prov_fp_%02d' % (fp_iter+1)))
-            prov_fcn = prov.run_cmd('comp_fcn', self._fname('prov_fcn_fp_%02d'% (fp_iter+1)),
-                                    self._solver_state,
-                                    self._fname('prov_hist_fp_%02d'% (fp_iter+1)))
+            prov_fcn = prov.comp_fcn(self._fname('prov_fcn_fp_%02d'% (fp_iter+1)),
+                                     self._solver_state,
+                                     self._fname('prov_hist_fp_%02d'% (fp_iter+1)))
             fp_iter += 1
             self._solver_state.set_value_saved_state('fp_iter', fp_iter)
             self.log(prov, prov_fcn, 'fp_iter=%02d' % fp_iter)

@@ -15,7 +15,7 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars
+from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
 
 def _parse_args():
     """parse command line arguments"""
@@ -27,8 +27,6 @@ def _parse_args():
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov.cfg')
     parser.add_argument('--hist_fname', help='name of history file', default='None')
-    parser.add_argument('--resume_script_fname', help='name of script to resume nk_driver.py',
-                        default='None')
     return parser.parse_args()
 
 def main(args):
@@ -38,39 +36,30 @@ def main(args):
     config.read(args.cfg_fname)
     solverinfo = config['solverinfo']
 
-    if args.resume_script_fname == 'None':
-        logging.basicConfig(stream=sys.stdout,
-                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
-                            level=solverinfo['logging_level'])
-    else:
-        logging.basicConfig(filename=solverinfo['logging_fname'], filemode='a',
-                            format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
-                            level=solverinfo['logging_level'])
+    logging.basicConfig(stream=sys.stdout,
+                        format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
+                        level=solverinfo['logging_level'])
     logger = logging.getLogger(__name__)
 
     logger.info('entering, cmd=%s', args.cmd)
 
-    # store cfg_fname in modelinfo, to ease access to its values elsewhere
+    # store cfg_fname in modelinfo, to ease access to its value elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
 
     ModelStaticVars(config['modelinfo'])
 
     newton_fcn = NewtonFcn()
 
+    ms_in = ModelState(args.in_fname)
+
     if args.cmd == 'comp_fcn':
-        ms_res = newton_fcn.comp_fcn(ModelState(args.in_fname), args.hist_fname)
+        newton_fcn.comp_fcn(ms_in, args.res_fname, None, args.hist_fname)
     elif args.cmd == 'apply_precond_jacobian':
-        ms_res = newton_fcn.apply_precond_jacobian(ModelState(args.in_fname))
+        newton_fcn.apply_precond_jacobian(ms_in, args.res_fname, None)
     else:
         raise ValueError('unknown cmd=%s' % args.cmd)
 
-    ms_res.dump(args.res_fname)
-
-    if args.resume_script_fname != 'None':
-        logger.info('resuming with %s', args.resume_script_fname)
-        subprocess.Popen(args.resume_script_fname)
-    else:
-        logger.info('done')
+    logger.info('done')
 
 ################################################################################
 
@@ -82,6 +71,8 @@ class TracerModuleState(TracerModuleStateBase):
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
         dims = {}
         with Dataset(vals_fname, mode='r') as fptr:
             fptr.set_auto_mask(False)
@@ -107,6 +98,7 @@ class TracerModuleState(TracerModuleStateBase):
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 varid = fptr.variables[tracer_name]
                 vals[tracer_ind, :] = varid[:]
+        logger.debug('returning')
         return vals, dims
 
     def dump(self, fptr, action):
@@ -146,8 +138,18 @@ class NewtonFcn():
         self._tracer_module_names = None
         self._tracer_names = None
 
-    def comp_fcn(self, ms_in, hist_fname='None'):
+    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname='None'):
         """evalute function being solved with Newton's method"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
+
+        if solver_state is not None:
+            fcn_complete_step = 'comp_fcn internal done for %s' % res_fname
+            if solver_state.step_logged(fcn_complete_step):
+                logger.debug('"%s" logged, returning result', fcn_complete_step)
+                return ModelState(res_fname)
+            logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
         self._tracer_module_names = ms_in.tracer_module_names
         self._tracer_names = ms_in.tracer_names()
         tracer_vals_init = np.empty((len(self._tracer_names), self.depth.axis.nlevs))
@@ -168,6 +170,14 @@ class NewtonFcn():
         res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
         for tracer_ind, tracer_name in enumerate(self._tracer_names):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
+
+        ms_res.dump(res_fname)
+
+        if solver_state is not None:
+            solver_state.log_step(fcn_complete_step)
+            logger.debug('invoking resume script and exiting')
+            subprocess.Popen(get_modelinfo('resume_script_fname'))
+            raise SystemExit
 
         return ms_res
 
@@ -267,7 +277,7 @@ class NewtonFcn():
             for tracer_ind, tracer_name in enumerate(self._tracer_names):
                 fptr.variables[tracer_name][:] = tracer_vals[tracer_ind, :, :].transpose()
 
-    def apply_precond_jacobian(self, ms_in):
+    def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
 
         ms_res = ms_in.copy()
@@ -280,7 +290,7 @@ class NewtonFcn():
             if tracer_module_name == 'phosphorus':
                 self._apply_precond_jacobian_phosphorus(ms_in, mca, ms_res)
 
-        return ms_res
+        return ms_res.dump(res_fname)
 
     def _apply_precond_jacobian_iage_test(self, ms_in, mca, ms_res):
         """apply preconditioner of jacobian of iage_test fcn"""
