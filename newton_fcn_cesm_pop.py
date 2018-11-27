@@ -201,14 +201,16 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
 def _gen_post_modelrun_script(script_fname):
     """
     generate script that will be called by cime after the model run
-    script_fname is called by CIME, and submits resume_script_fname as a batch job
+    script_fname is called by CIME, and submits nk_driver_invoker_fname with the command
+        batch_cmd_script (which can be an empty string)
     """
     cwd = os.path.dirname(os.path.realpath(__file__))
     batch_cmd_script = get_modelinfo('batch_cmd_script').replace('\n', ' ').replace('\r', ' ')
     with open(script_fname, mode='w') as fptr:
         fptr.write('#!/bin/bash\n')
         fptr.write('cd %s\n' % cwd)
-        fptr.write('%s %s\n' % (batch_cmd_script, get_modelinfo('resume_script_fname')))
+        fptr.write('%s %s --resume\n' % (batch_cmd_script,
+                                         get_modelinfo('nk_driver_invoker_fname')))
 
     # ensure script_fname is executable by the user, while preserving other permissions
     fstat = os.stat(script_fname)

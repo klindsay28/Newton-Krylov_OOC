@@ -5,31 +5,11 @@ import argparse
 import configparser
 import logging
 import os
-import stat
 import sys
 
-from model import ModelStaticVars, get_modelinfo
+from gen_nk_driver_invoker_script import gen_nk_driver_invoker_script
+from model import ModelStaticVars
 from newton_solver import NewtonSolver
-
-def gen_resume_script():
-    """generate script that will be called to resume"""
-
-    # The contents are in a script, instead of a multi-command subprocess.run args argument, so that
-    # the script can be passed to a batch job submit command. This is particularly useful when
-    # resume is being called from a batch job that is running on many dedicated cores, and you don't
-    # want to use all of those cores running a single-core script.
-
-    script_fname = get_modelinfo('resume_script_fname')
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    with open(script_fname, mode='w') as fptr:
-        fptr.write('#!/bin/bash\n')
-        fptr.write('cd %s\n' % cwd)
-        fptr.write('source %s\n' % get_modelinfo('newton_krylov_env_cmds_fname'))
-        fptr.write('%s --cfg_fname %s --resume\n' % (__file__, get_modelinfo('cfg_fname')))
-
-    # ensure script_fname is executable by the user, while preserving other permissions
-    fstat = os.stat(script_fname)
-    os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
 def parse_args():
     """parse command line arguments"""
@@ -65,15 +45,13 @@ def main(args):
         logger.warning('KILL file detected, exiting')
         raise SystemExit
 
-    # store cfg_fname and resume_script_fname in modelinfo, to ease access to their values elsewhere
+    # store cfg_fname and nk_driver_invoker_fname in modelinfo,
+    # to ease access to their values elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    resume_script_fname = os.path.join(cwd, 'generated_scripts', 'nk_driver_resume.sh')
-    config['modelinfo']['resume_script_fname'] = resume_script_fname
+    config['modelinfo']['nk_driver_invoker_fname'] = \
+        gen_nk_driver_invoker_script(config['modelinfo'])
 
     ModelStaticVars(config['modelinfo'], logging.DEBUG if args.resume else logging.INFO)
-
-    gen_resume_script()
 
     newton_solver = NewtonSolver(solverinfo=solverinfo,
                                  resume=args.resume,

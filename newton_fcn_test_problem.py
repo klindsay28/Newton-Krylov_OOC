@@ -178,7 +178,7 @@ class NewtonFcn():
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
             logger.debug('invoking resume script and exiting')
-            subprocess.Popen(get_modelinfo('resume_script_fname'))
+            subprocess.Popen([get_modelinfo('nk_driver_invoker_fname'), '--resume'])
             raise SystemExit
 
         return ms_res
