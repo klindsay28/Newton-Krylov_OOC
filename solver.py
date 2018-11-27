@@ -54,7 +54,7 @@ class SolverState:
         logger = logging.getLogger(__name__)
         logger.debug('entering, name="%s"', self._name)
         self._saved_state['iteration'] += 1
-        self.log_step('inc_iteration')
+        self._write_saved_state()
         logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
         logger.debug('returning')
         return self._saved_state['iteration']
