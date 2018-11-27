@@ -116,9 +116,11 @@ class TracerModuleState(TracerModuleStateBase):
                 except KeyError:
                     fptr.createDimension(dimname, dimlen)
             dimnames = tuple(self._dims.keys())
+            # define all tracers
             for tracer_name in self.tracer_names():
                 fptr.createVariable(tracer_name, 'f8', dimensions=dimnames)
         elif action == 'write':
+            # write all tracers
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 fptr.variables[tracer_name][:] = self._vals[tracer_ind, :]
         else:

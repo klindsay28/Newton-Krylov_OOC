@@ -27,11 +27,6 @@ def _parse_args():
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov_cesm_pop.cfg')
     parser.add_argument('--hist_fname', help='name of history file', default='None')
-    parser.add_argument('--resume_script_fname', help='name of script to resume nk_driver.py',
-                        default='None')
-    parser.add_argument('--post_modelrun', help='is the script being invoked after a model run',
-                        action='store_true', default=False)
-
     return parser.parse_args()
 
 def main(args):
@@ -56,22 +51,11 @@ def main(args):
     ms_in = ModelState(args.in_fname)
 
     if args.cmd == 'comp_fcn':
-        if not args.post_modelrun:
-            # note that the following will not return, as it raises SystemExit
-            _comp_fcn_pre_modelrun(ms_in, args.hist_fname, args.resume_script_fname, args.in_fname,
-                                   args.res_fname)
-        else:
-            ms_res = _comp_fcn_post_modelrun(ms_in, args.hist_fname)
-            ms_res.dump(args.res_fname)
-            if args.resume_script_fname != 'None':
-                logger.info('resuming with %s', args.resume_script_fname)
-                subprocess.Popen(args.resume_script_fname)
+        raise NotImplementedError(
+            '%s not implemented for command line execution in %s ' % (args.cmd, __file__))
     elif args.cmd == 'apply_precond_jacobian':
-        ms_res = _apply_precond_jacobian(ms_in)
-        ms_res.dump(args.res_fname)
-        if args.resume_script_fname != 'None':
-            logger.info('resuming with %s', args.resume_script_fname)
-            subprocess.Popen(args.resume_script_fname)
+        raise NotImplementedError(
+            '%s not implemented for command line execution in %s ' % (args.cmd, __file__))
     else:
         raise ValueError('unknown cmd=%s' % args.cmd)
 
@@ -136,6 +120,7 @@ class TracerModuleState(TracerModuleStateBase):
                 for suffix in ['_CUR', '_OLD']:
                     fptr.createVariable(tracer_name+suffix, 'f8', dimensions=dimnames)
         elif action == 'write':
+            # write all tracers, with _CUR and _OLD suffixes
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 for suffix in ['_CUR', '_OLD']:
                     fptr.variables[tracer_name+suffix][:] = self._vals[tracer_ind, :]
@@ -150,20 +135,40 @@ class NewtonFcn():
     def __init__(self):
         pass
 
-    def comp_fcn(self, ms_in, hist_fname='None'):
+    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname='None'):
         """evalute function being solved with Newton's method"""
-        raise NotImplementedError(
-            'comp_fcn not implemented for inline execution in ' + __file__)
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
 
-    def apply_precond_jacobian(self, ms_in):
+        _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state)
+
+        ms_res = _comp_fcn_post_modelrun(ms_in, hist_fname)
+
+        logger.debug('returning')
+        return ms_res.dump(res_fname)
+
+    def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
-        raise NotImplementedError(
-            'apply_precond_jacobian not implemented for inline execution in ' + __file__)
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
+
+        ms_res = ms_in.copy()
+
+        logger.debug('returning')
+        return ms_res.dump(res_fname)
 
 ################################################################################
 
-def _comp_fcn_pre_modelrun(ms_in, hist_fname, resume_script_fname, in_fname, res_fname):
+def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
     """pre-modelrun step of evaluting the function being solved with Newton's method"""
+    logger = logging.getLogger(__name__)
+    logger.debug('entering')
+
+    fcn_complete_step = '_comp_fcn_pre_modelrun done for %s' % res_fname
+    if solver_state.step_logged(fcn_complete_step):
+        logger.debug('"%s" logged, returning', fcn_complete_step)
+        return
+    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
     # relative pathname of tracer_ic
     tracer_ic_fname_rel = 'tracer_ic.nc'
@@ -182,51 +187,32 @@ def _comp_fcn_pre_modelrun(ms_in, hist_fname, resume_script_fname, in_fname, res
     # generate post-modelrun script and point POSTRUN_SCRIPT to it
     # this will propagate cfg_fname and hist_fname across model run
     cwd = os.path.dirname(os.path.realpath(__file__))
-    post_modelrun_script_fnames = \
-        [os.path.join(cwd, 'generated_scripts', 'post_modelrun_direct.sh'),
-         os.path.join(cwd, 'generated_scripts', 'post_modelrun_indirect.sh')]
-    _gen_post_modelrun_scripts(hist_fname, resume_script_fname, in_fname, res_fname,
-                               post_modelrun_script_fnames)
-    _xmlchange('POSTRUN_SCRIPT', post_modelrun_script_fnames[0])
+    post_modelrun_script_fname = os.path.join(cwd, 'generated_scripts', 'post_modelrun.sh')
+    _gen_post_modelrun_script(post_modelrun_script_fname)
+    _xmlchange('POSTRUN_SCRIPT', post_modelrun_script_fname)
 
     # submit the model run and exit
     _case_submit()
 
+    solver_state.log_step(fcn_complete_step)
+
     raise SystemExit
 
-def _gen_post_modelrun_scripts(hist_fname, resume_script_fname, in_fname, res_fname, script_fnames):
+def _gen_post_modelrun_script(script_fname):
     """
-    generate scripts that will be called by cime after the model run
-    script_fname[0] is called by CIME, and submits script_fnames[1] as a batch job
-    script_fnames[1] sets up the environment necessary for the Newton-Krylov scripts to run
-    and the re-invokes __file__
+    generate script that will be called by cime after the model run
+    script_fname is called by CIME, and submits resume_script_fname as a batch job
     """
     cwd = os.path.dirname(os.path.realpath(__file__))
     batch_cmd_script = get_modelinfo('batch_cmd_script').replace('\n', ' ').replace('\r', ' ')
-    with open(script_fnames[0], mode='w') as fptr:
+    with open(script_fname, mode='w') as fptr:
         fptr.write('#!/bin/bash\n')
         fptr.write('cd %s\n' % cwd)
-        fptr.write('%s %s\n' % (batch_cmd_script, script_fnames[1]))
+        fptr.write('%s %s\n' % (batch_cmd_script, get_modelinfo('resume_script_fname')))
 
-    # argument list for the call to __file__ is long, build it up argument by argument
-    file_args = " --cfg_fname %s" % get_modelinfo('cfg_fname')
-    file_args += " --hist_fname %s" % hist_fname
-    file_args += " --resume_script_fname %s" % resume_script_fname
-    file_args += " --post_modelrun"
-    file_args += " comp_fcn"
-    file_args += " %s" % in_fname
-    file_args += " %s" % res_fname
-
-    with open(script_fnames[1], mode='w') as fptr:
-        fptr.write('#!/bin/bash\n')
-        fptr.write('cd %s\n' % cwd)
-        fptr.write('source %s\n' % get_modelinfo('newton_krylov_env_cmds_fname'))
-        fptr.write('%s%s\n' % (__file__, file_args))
-
-    # ensure script_fnames are executable by the user, while preserving other permissions
-    for script_fname in script_fnames:
-        fstat = os.stat(script_fname)
-        os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
+    # ensure script_fname is executable by the user, while preserving other permissions
+    fstat = os.stat(script_fname)
+    os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
 def _comp_fcn_post_modelrun(ms_in, hist_fname):
     """post-modelrun step of evaluting the function being solved with Newton's method"""
@@ -241,13 +227,6 @@ def _comp_fcn_post_modelrun(ms_in, hist_fname):
     fname = os.path.join(_xmlquery('RUNDIR'), rest_file_fname_rel)
 
     return ModelState(fname) - ms_in
-
-def _apply_precond_jacobian(ms_in):
-    """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
-
-    ms_res = ms_in.copy()
-
-    return ms_res
 
 def _xmlquery(varname):
     """run CIME's _xmlquery for varname in the directory caseroot, return the value"""

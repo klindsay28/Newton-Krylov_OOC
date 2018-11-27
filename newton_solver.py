@@ -183,8 +183,12 @@ class NewtonSolver:
             else:
                 prov_fcn.dump(self._fname('prov_fcn_fp_%02d' % fp_iter))
                 armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
-                shutil.copyfile(self._fname('prov_hist_Armijo_%02d' % armijo_ind),
-                                self._fname('prov_hist_fp_%02d' % fp_iter))
+                src = self._fname('prov_hist_Armijo_%02d' % armijo_ind)
+                dst = self._fname('prov_hist_fp_%02d' % fp_iter)
+                try:
+                    shutil.copyfile(src, dst)
+                except FileNotFoundError:
+                    logging.info('ignoring FileNotFoundError error for %s to %s', src, dst)
             self._solver_state.log_step(step)
         else:
             fp_iter = self._solver_state.get_value_saved_state('fp_iter')
@@ -209,8 +213,12 @@ class NewtonSolver:
             self._solver_state.set_value_saved_state('fp_iter', fp_iter)
             self.log(prov, prov_fcn, 'fp_iter=%02d' % fp_iter)
 
-        shutil.copyfile(self._fname('prov_hist_fp_%02d' % fp_iter),
-                        self._fname('hist', self._solver_state.get_iteration()+1))
+        src = self._fname('prov_hist_fp_%02d' % fp_iter)
+        dst = self._fname('hist', self._solver_state.get_iteration()+1)
+        try:
+            shutil.copyfile(src, dst)
+        except FileNotFoundError:
+            logging.info('ignoring FileNotFoundError error for %s to %s', src, dst)
 
         self._solver_state.inc_iteration()
 
