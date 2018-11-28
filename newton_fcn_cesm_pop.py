@@ -142,7 +142,9 @@ class NewtonFcn():
 
         _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state)
 
-        ms_res = _comp_fcn_post_modelrun(ms_in, hist_fname)
+        _gen_hist(hist_fname)
+
+        ms_res = _comp_fcn_post_modelrun(ms_in)
 
         logger.debug('returning')
         return ms_res.dump(res_fname)
@@ -216,11 +218,53 @@ def _gen_post_modelrun_script(script_fname):
     fstat = os.stat(script_fname)
     os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
-def _comp_fcn_post_modelrun(ms_in, hist_fname):
-    """post-modelrun step of evaluting the function being solved with Newton's method"""
+def _gen_hist(hist_fname):
+    """generate history file corresponding to just completed model run"""
 
-    if hist_fname != 'None':
-        pass
+    if hist_fname == 'None':
+        return
+
+    # initial implementation only works for annual mean output
+    # confirm that this is the case
+    tavg_freq_opt_0 = _get_pop_nl_var('tavg_freq_opt').split()[0].split("'")[1]
+    if tavg_freq_opt_0 != 'nyear':
+        raise NotImplementedError('tavg_freq_opt_0 = %s not implemented' % tavg_freq_opt_0)
+
+    tavg_freq_0 = _get_pop_nl_var('tavg_freq').split()[0]
+    if tavg_freq_0 != '1':
+        raise NotImplementedError('tavg_freq_0 = %s not implemented' % tavg_freq_0)
+
+    # determine how many years are in run
+    stop_option = _xmlquery('STOP_OPTION')
+    stop_n = int(_xmlquery('STOP_N'))
+    if stop_option == 'nyear':
+        yr_cnt = stop_n
+    elif stop_option == 'nmonth':
+        if stop_n % 12 != 0:
+            raise RuntimeError('number of months=%d not divisible by 12' % stop_n)
+        yr_cnt = int(stop_n) // 12
+    else:
+        raise NotImplementedError('stop_option = %s not implemented' % stop_option)
+
+    # get starting year
+    if _xmlquery('RUN_TYPE') == 'branch':
+        date0 = _xmlquery('RUN_REFDATE')
+    else:
+        date0 = _xmlquery('RUN_STARTDATE')
+    yyyy = date0.split('-')[0]
+
+    # construct name of first annual file
+    if _xmlquery('DOUT_S') == 'TRUE':
+        hist_dir = os.path.join(_xmlquery('DOUT_S_ROOT'), 'ocn', 'hist')
+    else:
+        hist_dir = _xmlquery('RUNDIR')
+    model_hist_fname = os.path.join(hist_dir, _xmlquery('CASE')+'.pop.h.'+yyyy+'.nc')
+
+    cmd = ['ncra', '-O', '-n', '%d,4' % yr_cnt, '-o', hist_fname, model_hist_fname]
+    subprocess.run(cmd, check=True)
+
+def _comp_fcn_post_modelrun(ms_in):
+    """post-modelrun step of evaluting the function being solved with Newton's method"""
 
     # determine name of end of run restart file from POP's rpointer file
     rpointer_fname = os.path.join(_xmlquery('RUNDIR'), 'rpointer.ocn.restart')
@@ -233,9 +277,7 @@ def _comp_fcn_post_modelrun(ms_in, hist_fname):
 def _xmlquery(varname):
     """run CIME's _xmlquery for varname in the directory caseroot, return the value"""
     caseroot = get_modelinfo('caseroot')
-    obj = subprocess.run(['./xmlquery', '--value', varname], stdout=subprocess.PIPE,
-                         cwd=caseroot, check=True)
-    return obj.stdout.decode()
+    return subprocess.check_output(['./xmlquery', '--value', varname], cwd=caseroot).decode()
 
 def _xmlchange(varname, value):
     """run CIME's _xmlchange in the directory caseroot, setting varname to value"""
@@ -263,6 +305,19 @@ def _case_submit():
 
     logger.info('submitting case=%s', _xmlquery('CASE'))
     subprocess.run(script_fname, shell=True, check=True)
+
+def _get_pop_nl_var(var_name):
+    """
+    extract the value(s) of a pop namelist variable
+    return contents to the right of the '=' character,
+        after stripping leading and trailing whitespace, and replacing ',' with ' '
+    can lead to unexpected results if the rhs has strings with commas
+    does not handle multiple matches of var_name in pop_in
+    """
+    nl_fname = os.path.join(get_modelinfo('caseroot'), 'CaseDocs', 'pop_in')
+    cmd = ['grep', '^ *'+var_name+' *=', nl_fname]
+    line = subprocess.check_output(cmd).decode()
+    return line.split('=')[1].strip().replace(',', ' ')
 
 if __name__ == '__main__':
     main(_parse_args())
