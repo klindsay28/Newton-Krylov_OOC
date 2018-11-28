@@ -26,7 +26,7 @@ def _parse_args():
     parser.add_argument('res_fname', help='name of file for result')
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov.cfg')
-    parser.add_argument('--hist_fname', help='name of history file', default='None')
+    parser.add_argument('--hist_fname', help='name of history file', default=None)
     return parser.parse_args()
 
 def main(args):
@@ -140,7 +140,7 @@ class NewtonFcn():
         self._tracer_module_names = None
         self._tracer_names = None
 
-    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname='None'):
+    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
@@ -162,10 +162,10 @@ class NewtonFcn():
         # get dense output, if requested
         sol = solve_ivp(self._comp_tend, self.time_range, tracer_vals_init.reshape(-1), 'Radau',
                         np.linspace(self.time_range[0], self.time_range[1],
-                                    101 if hist_fname != 'None' else 2),
+                                    101 if hist_fname is not None else 2),
                         atol=1.0e-10, rtol=1.0e-10)
 
-        if hist_fname != 'None':
+        if hist_fname is not None:
             self._write_hist(sol, hist_fname)
 
         ms_res = ms_in.copy()

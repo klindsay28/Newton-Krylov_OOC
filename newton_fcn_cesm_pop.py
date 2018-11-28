@@ -26,7 +26,7 @@ def _parse_args():
     parser.add_argument('res_fname', help='name of file for result')
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov_cesm_pop.cfg')
-    parser.add_argument('--hist_fname', help='name of history file', default='None')
+    parser.add_argument('--hist_fname', help='name of history file', default=None)
     return parser.parse_args()
 
 def main(args):
@@ -135,7 +135,7 @@ class NewtonFcn():
     def __init__(self):
         pass
 
-    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname='None'):
+    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
@@ -198,6 +198,7 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
 
     solver_state.log_step(fcn_complete_step)
 
+    logger.debug('raising SystemExit')
     raise SystemExit
 
 def _gen_post_modelrun_script(script_fname):
@@ -220,8 +221,9 @@ def _gen_post_modelrun_script(script_fname):
 
 def _gen_hist(hist_fname):
     """generate history file corresponding to just completed model run"""
+    logger = logging.getLogger(__name__)
 
-    if hist_fname == 'None':
+    if hist_fname is None:
         return
 
     # initial implementation only works for annual mean output
@@ -261,6 +263,7 @@ def _gen_hist(hist_fname):
     model_hist_fname = os.path.join(hist_dir, _xmlquery('CASE')+'.pop.h.'+yyyy+'.nc')
 
     cmd = ['ncra', '-O', '-n', '%d,4' % yr_cnt, '-o', hist_fname, model_hist_fname]
+    logger.debug('cmd = "%s"', ' '.join(cmd))
     subprocess.run(cmd, check=True)
 
 def _comp_fcn_post_modelrun(ms_in):
