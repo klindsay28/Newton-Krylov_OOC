@@ -129,6 +129,10 @@ class NewtonSolver:
                                      self._solver_state,
                                      self._fname('prov_hist_Armijo_%02d' % armijo_ind))
 
+            # at this point in the execution flow, only keep latest Armijo hist file
+            if armijo_ind > 0:
+                os.remove(self._fname('prov_hist_Armijo_%02d' % armijo_ind-1))
+
             logger.info('Armijo_ind=%d', armijo_ind)
 
             # Determine if Armijo condition is satisfied. Based on Eq. (A.1) of
@@ -176,19 +180,18 @@ class NewtonSolver:
             # Evaluate comp_fcn after copying shadow tracers to their real counterparts. If no
             # shadow tracers are on, then this is the same as the final comp_fcn result from Armijo
             # iterations.
+            # Do not preserve hist files from Armijo iterations. Either remove the last one, or
+            # rename it to the initial fp hist file (if there are not shadow tracers on).
+            armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
             if prov.shadow_tracers_on():
                 prov_fcn = prov.comp_fcn(self._fname('prov_fcn_fp_%02d' % fp_iter),
                                          self._solver_state,
                                          self._fname('prov_hist_fp_%02d' % fp_iter))
+                os.remove(self._fname('prov_hist_Armijo_%02d' % armijo_ind))
             else:
                 prov_fcn.dump(self._fname('prov_fcn_fp_%02d' % fp_iter))
-                armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
-                src = self._fname('prov_hist_Armijo_%02d' % armijo_ind)
-                dst = self._fname('prov_hist_fp_%02d' % fp_iter)
-                try:
-                    shutil.copyfile(src, dst)
-                except FileNotFoundError:
-                    logging.info('ignoring FileNotFoundError error for %s to %s', src, dst)
+                os.rename(self._fname('prov_hist_Armijo_%02d' % armijo_ind),
+                          self._fname('prov_hist_fp_%02d' % fp_iter))
             self._solver_state.log_step(step)
         else:
             fp_iter = self._solver_state.get_value_saved_state('fp_iter')
@@ -213,12 +216,8 @@ class NewtonSolver:
             self._solver_state.set_value_saved_state('fp_iter', fp_iter)
             self.log(prov, prov_fcn, 'fp_iter=%02d' % fp_iter)
 
-        src = self._fname('prov_hist_fp_%02d' % fp_iter)
-        dst = self._fname('hist', self._solver_state.get_iteration()+1)
-        try:
-            shutil.copyfile(src, dst)
-        except FileNotFoundError:
-            logging.info('ignoring FileNotFoundError error for %s to %s', src, dst)
+        shutil.copyfile(self._fname('prov_hist_fp_%02d' % fp_iter),
+                        self._fname('hist', self._solver_state.get_iteration()+1))
 
         self._solver_state.inc_iteration()
 
