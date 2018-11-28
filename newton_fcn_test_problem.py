@@ -4,6 +4,7 @@
 import argparse
 import configparser
 import logging
+import os
 import subprocess
 import sys
 
@@ -16,17 +17,20 @@ from scipy.integrate import solve_ivp
 from netCDF4 import Dataset
 
 from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
+from solver import SolverState
 
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(description="test problem for Newton-Krylov solver")
-    parser.add_argument('cmd', choices=['comp_fcn', 'apply_precond_jacobian'],
+    parser.add_argument('cmd', choices=['comp_fcn', 'gen_precond_jacobian',
+                                        'apply_precond_jacobian'],
                         help='command to run')
-    parser.add_argument('in_fname', help='name of file with input')
-    parser.add_argument('res_fname', help='name of file for result')
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov.cfg')
+    parser.add_argument('--workdir', help='directory that filename are relative to', default='.')
     parser.add_argument('--hist_fname', help='name of history file', default=None)
+    parser.add_argument('--in_fname', help='name of file with input')
+    parser.add_argument('--res_fname', help='name of file for result')
     return parser.parse_args()
 
 def main(args):
@@ -50,12 +54,18 @@ def main(args):
 
     newton_fcn = NewtonFcn()
 
-    ms_in = ModelState(args.in_fname)
+    solver_state = SolverState('newton_fcn_test_problem', args.workdir)
 
     if args.cmd == 'comp_fcn':
-        newton_fcn.comp_fcn(ms_in, args.res_fname, None, args.hist_fname)
+        ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
+        newton_fcn.comp_fcn(ms_in, os.path.join(args.workdir, args.res_fname), None,
+                            os.path.join(args.workdir, args.hist_fname))
+    elif args.cmd == 'gen_precond_jacobian':
+        newton_fcn.gen_precond_jacobian(os.path.join(args.workdir, args.hist_fname), solver_state)
     elif args.cmd == 'apply_precond_jacobian':
-        newton_fcn.apply_precond_jacobian(ms_in, args.res_fname, None)
+        ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
+        newton_fcn.apply_precond_jacobian(ms_in, os.path.join(args.workdir, args.res_fname),
+                                          solver_state)
     else:
         raise ValueError('unknown cmd=%s' % args.cmd)
 
@@ -266,31 +276,79 @@ class NewtonFcn():
         with Dataset(hist_fname, mode='w') as fptr:
             fptr.createDimension('time', None)
             fptr.createDimension('depth', self.depth.axis.nlevs)
+            fptr.createDimension('depth_edges', 1+self.depth.axis.nlevs)
 
             fptr.createVariable('time', 'f8', dimensions=('time',))
+            fptr.variables['time'].units = 'days since 0001-01-01'
+
             fptr.createVariable('depth', 'f8', dimensions=('depth',))
+            fptr.variables['depth'].units = 'm'
+
+            fptr.createVariable('depth_edges', 'f8', dimensions=('depth_edges',))
+            fptr.variables['depth_edges'].units = 'm'
+
             for tracer_name in self._tracer_names:
                 fptr.createVariable(tracer_name, 'f8', dimensions=('time', 'depth'))
 
+            fptr.createVariable('mixing_coeff', 'f8', dimensions=('time', 'depth_edges'))
+            fptr.variables['mixing_coeff'].units = 'm2 s-1'
+
             fptr.variables['time'][:] = sol.t
             fptr.variables['depth'][:] = self.depth.axis.mid
+            fptr.variables['depth_edges'][:] = self.depth.axis.edges
 
             tracer_vals = sol.y.reshape((len(self._tracer_names), self.depth.axis.nlevs, -1))
             for tracer_ind, tracer_name in enumerate(self._tracer_names):
                 fptr.variables[tracer_name][:] = tracer_vals[tracer_ind, :, :].transpose()
 
+            for time_ind, time in enumerate(sol.t):
+                fptr.variables['mixing_coeff'][time_ind, :] = \
+                    (1.0 / 86400.0) * self.depth.mixing_coeff(time)
+
+    def _precond_fname(self, solver_state):
+        """filename of preconditioner of jacobian of comp_fcn."""
+        return os.path.join(solver_state.get_workdir(), 'precond.nc')
+
+    def gen_precond_jacobian(self, hist_fname, solver_state):
+        """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
+        with Dataset(hist_fname, 'r') as fptr:
+            mixing_coeff = fptr.variables['mixing_coeff'][:]
+
+        with Dataset(self._precond_fname(solver_state), 'w') as fptr:
+            fptr.createDimension('depth_edges', 1+self.depth.axis.nlevs)
+
+            fptr.createVariable('depth_edges', 'f8', dimensions=('depth_edges',))
+            fptr.variables['depth_edges'].units = 'm'
+
+            fptr.createVariable('mixing_coeff', 'f8', dimensions=('depth_edges',))
+            fptr.variables['mixing_coeff'].units = 'm2 s-1'
+
+            fptr.variables['depth_edges'][:] = self.depth.axis.edges
+
+            # fptr.variables['mixing_coeff'][:] = mixing_coeff.mean(axis=0)
+            fptr.variables['mixing_coeff'][:] = np.exp(np.log(mixing_coeff).mean(axis=0))
+
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
+
+        fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
 
         ms_res = ms_in.copy()
 
-        mca = self.depth.mixing_coeff_time_op(self.time_range, 'log_avg', 100)
+        with Dataset(self._precond_fname(solver_state), 'r') as fptr:
+            # hist and precond files have mixing_coeff in m2 s-1
+            # convert back to model units of m2 d-1
+            mca = 86400.0 * fptr.variables['mixing_coeff'][:]
 
         for tracer_module_name in ms_in.tracer_module_names:
             if tracer_module_name == 'iage_test':
                 self._apply_precond_jacobian_iage_test(ms_in, mca, ms_res)
             if tracer_module_name == 'phosphorus':
                 self._apply_precond_jacobian_phosphorus(ms_in, mca, ms_res)
+
+        solver_state.log_step(fcn_complete_step)
 
         return ms_res.dump(res_fname)
 
@@ -434,15 +492,14 @@ class Depth():
         tracer_flux_neg = self.mixing_coeff(time) * tracer_grad
         return np.ediff1d(tracer_flux_neg) * self.axis.delta_r
 
-    def mixing_coeff(self, time, log=False):
+    def mixing_coeff(self, time):
         """
         vertical mixing coefficient, m2 d-1
-        if log==True, then return the natural log of the vertical mixing coefficient
         store computed vals, so their computation can be skipped on subsequent calls
         """
 
         # if vals have already been computed for this time, skip computation
-        if not log and time == self._time_val:
+        if time == self._time_val:
             return self._mixing_coeff_vals
 
         bldepth_min = 50.0
@@ -456,38 +513,9 @@ class Depth():
         res_log10_deep = -5.0
         res_log10_del = res_log10_deep - res_log10_shallow
         res_log10 = res_log10_shallow + res_log10_del * z_lin
-        if log:
-            # avoid 10.0 ** ... operation if log(mixing_coeff) is the desired quantity
-            log_spd = 11.366742954792146 # natural log of 86400
-            log_10 = 2.302585092994046 # natural log of 10.0
-            return log_spd + log_10 * res_log10
         self._time_val = time
         self._mixing_coeff_vals = 86400.0 * 10.0 ** res_log10
         return self._mixing_coeff_vals
-
-    def mixing_coeff_time_op(self, time_range, time_op, samps):
-        """
-        mixing_coeff over the interval specified by time_range, reduced with time_op
-        valid time_op values: 'log_avg', 'avg', 'max'
-        compute using midpoint rule with samps intervals
-        """
-        res = np.zeros(1+self.axis.nlevs)
-        t_del_samp = (time_range[1] - time_range[0]) / samps
-        if time_op == 'log_avg':
-            for t_ind in range(samps):
-                res += self.mixing_coeff(time_range[0] + (t_ind + 0.5) * t_del_samp, log=True)
-            res *= (1.0 / samps)
-            res[:] = np.exp(res[:])
-        elif time_op == 'avg':
-            for t_ind in range(samps):
-                res += self.mixing_coeff(time_range[0] + (t_ind + 0.5) * t_del_samp)
-            res *= (1.0 / samps)
-        elif time_op == 'max':
-            for t_ind in range(samps):
-                res = np.maximum(res, self.mixing_coeff(time_range[0] + (t_ind + 0.5) * t_del_samp))
-        else:
-            raise ValueError('unknown time_op=%s' % time_op)
-        return res
 
 ################################################################################
 

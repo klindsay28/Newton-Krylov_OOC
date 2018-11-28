@@ -13,7 +13,7 @@ class SolverState:
     class for representing the state of an iterative solver
     """
 
-    def __init__(self, name, workdir, resume, rewind=False):
+    def __init__(self, name, workdir, resume=False, rewind=False):
         """initialize solver state"""
         logger = logging.getLogger(__name__)
         logger.debug('SolverState:entering, name="%s"', name)

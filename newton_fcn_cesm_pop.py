@@ -22,11 +22,11 @@ def _parse_args():
     parser = argparse.ArgumentParser(description="cesm pop hooks for Newton-Krylov solver")
     parser.add_argument('cmd', choices=['comp_fcn', 'apply_precond_jacobian'],
                         help='command to run')
-    parser.add_argument('in_fname', help='name of file with input')
-    parser.add_argument('res_fname', help='name of file for result')
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov_cesm_pop.cfg')
     parser.add_argument('--hist_fname', help='name of history file', default=None)
+    parser.add_argument('--in_fname', help='name of file with input')
+    parser.add_argument('--res_fname', help='name of file for result')
     return parser.parse_args()
 
 def main(args):
@@ -47,8 +47,6 @@ def main(args):
     config['modelinfo']['cfg_fname'] = args.cfg_fname
 
     ModelStaticVars(config['modelinfo'])
-
-    ms_in = ModelState(args.in_fname)
 
     if args.cmd == 'comp_fcn':
         raise NotImplementedError(
@@ -149,12 +147,28 @@ class NewtonFcn():
         logger.debug('returning')
         return ms_res.dump(res_fname)
 
+    def _precond_fname(self, solver_state):
+        """filename of preconditioner of jacobian of comp_fcn."""
+        return os.path.join(solver_state.get_workdir(), 'precond.nc')
+
+    def gen_precond_jacobian(self, hist_fname, solver_state):
+        """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
+        with Dataset(hist_fname, 'r') as fptr:
+            pass
+
+        with Dataset(self._precond_fname(solver_state), 'w') as fptr:
+            pass
+
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
+        fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
+
         ms_res = ms_in.copy()
+
+        solver_state.log_step(fcn_complete_step)
 
         logger.debug('returning')
         return ms_res.dump(res_fname)

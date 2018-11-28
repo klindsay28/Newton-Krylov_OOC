@@ -6,7 +6,7 @@ import configparser
 import logging
 import sys
 
-from model import ModelState, ModelStaticVars, get_modelinfo
+from model import ModelStaticVars, get_modelinfo
 from nk_driver import parse_args
 
 args = parse_args()

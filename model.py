@@ -956,3 +956,23 @@ def lin_comb(coeff, fname_fcn, quantity):
     for j_val in range(1, coeff.shape[-1]):
         res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
     return res
+
+def gen_precond_jacobian(hist_fname, solver_state):
+    """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
+    logger = logging.getLogger(__name__)
+    logger.debug('entering, hist_fname="%s"', hist_fname)
+
+    cmd = 'gen_precond_jacobian'
+    fcn_complete_step = '%s done for %s' % (cmd, hist_fname)
+
+    if solver_state.step_logged(fcn_complete_step):
+        logger.debug('"%s" logged, returning', fcn_complete_step)
+        return
+
+    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+    _model_static_vars.newton_fcn.gen_precond_jacobian(hist_fname, solver_state)
+
+    solver_state.log_step(fcn_complete_step)
+
+    logger.debug('returning')
