@@ -12,9 +12,13 @@ from netCDF4 import Dataset
 _model_static_vars = None
 
 # functions to commonly accessed vars in _model_static_vars
-def region_cnt():
+def get_region_cnt():
     """return number of regions specified by region_mask"""
     return _model_static_vars.region_cnt
+
+def get_tracer_module_def(tracer_module_name):
+    """return the tracer_module_defs dictionary from _model_static_vars"""
+    return _model_static_vars.tracer_module_defs[tracer_module_name]
 
 def get_modelinfo(key):
     """return value associated in modelinfo with key"""
@@ -95,21 +99,29 @@ class ModelStaticVars:
         # dictionary to tracer_module_defs, to ease subsequent coding.
         logger = logging.getLogger(__name__)
         for tracer_module_name, tracer_module_def in self.tracer_module_defs.items():
-            try:
+            # If no tracers are specified, add an empty tracer_names dictionary to
+            # tracer_module_defs, to ease subsequent coding.
+            if 'tracer_names' not in tracer_module_def:
+                logger.log(lvl, 'tracer module %s has no tracers', tracer_module_name)
+                tracer_module_def['tracer_names'] = {}
+
+            if 'shadow_tracers' in tracer_module_def:
                 shadow_tracers = tracer_module_def['shadow_tracers']
-            except KeyError:
+            else:
                 shadow_tracers = {}
                 tracer_module_def['shadow_tracers'] = {}
                 logger.log(lvl, 'tracer module %s has no shadow tracers', tracer_module_name)
-            # attempt to lookup shadow_tracer_name and real_tracer_name in this tracer module's list
-            # of tracer names
-            tracer_names_mod = tracer_module_def['tracer_names']
+
+            # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
             for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
-                shadow_tracer_ind = tracer_names_mod.index(shadow_tracer_name)
-                real_tracer_ind = tracer_names_mod.index(real_tracer_name)
-                logger.log(lvl, 'tracer module %s has %s (ind=%d) as a shadow for %s (ind=%d)',
-                           tracer_module_name, shadow_tracer_name, shadow_tracer_ind,
-                           real_tracer_name, real_tracer_ind)
+                if shadow_tracer_name not in tracer_module_def['tracer_names']:
+                    raise ValueError('specified shadow tracer %s in tracer module %s not known'
+                                     % (shadow_tracer_name, tracer_module_name))
+                if real_tracer_name not in tracer_module_def['tracer_names']:
+                    raise ValueError('specified tracer %s in tracer module %s not known'
+                                     % (real_tracer_name, tracer_module_name))
+                logger.log(lvl, 'tracer module %s has %s as a shadow for %s',
+                           tracer_module_name, shadow_tracer_name, real_tracer_name)
 
 ################################################################################
 
@@ -881,7 +893,7 @@ class RegionScalars:
             _vals[ind]    where region_mask == ind+1
         """
         res = np.full(shape=_model_static_vars.region_mask.shape, fill_value=fill_value)
-        for region_ind in range(region_cnt()):
+        for region_ind in range(get_region_cnt()):
             res = np.where(_model_static_vars.region_mask == region_ind+1,
                            self._vals[region_ind], res)
         return res
@@ -898,7 +910,7 @@ def to_ndarray(array_in):
     if isinstance(array_in, RegionScalars):
         return np.array(array_in.vals())
 
-    res = np.empty(shape=array_in.shape+(region_cnt(),))
+    res = np.empty(shape=array_in.shape+(get_region_cnt(),))
 
     if array_in.ndim == 0:
         res[:] = array_in[()].vals()
@@ -926,8 +938,8 @@ def to_region_scalar_ndarray(array_in):
     The last dimension of array_in corresponds to to implicit RegionScalars dimension in res.
     """
 
-    if array_in.shape[-1] != region_cnt():
-        raise ValueError('last dimension must have length region_cnt()')
+    if array_in.shape[-1] != get_region_cnt():
+        raise ValueError('last dimension must have length get_region_cnt()')
 
     res = np.empty(shape=array_in.shape[:-1], dtype=np.object)
 

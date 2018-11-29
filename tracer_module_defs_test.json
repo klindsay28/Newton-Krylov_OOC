@@ -5,5 +5,9 @@
     "phosphorus": {
         "tracer_names": ["po4", "dop", "pop", "po4_s", "dop_s", "pop_s"],
         "shadow_tracers": {"po4_s": "po4", "dop_s": "dop", "pop_s": "pop"}
+    },
+    "base": {
+        "precond_var_names_avg": ["mixing_coeff"],
+        "precond_var_names_log_avg": ["mixing_coeff"]
     }
 }

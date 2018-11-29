@@ -15,7 +15,8 @@ import numpy as np
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
+from model import TracerModuleStateBase, ModelState, ModelStaticVars
+from model import get_tracer_module_def, get_modelinfo
 
 def _parse_args():
     """parse command line arguments"""
@@ -153,10 +154,18 @@ class NewtonFcn():
 
     def gen_precond_jacobian(self, hist_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        with Dataset(hist_fname, 'r') as fptr:
-            pass
+        var_names_avg = []
+        var_names_copy = []
 
-        with Dataset(self._precond_fname(solver_state), 'w') as fptr:
+        for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
+            tracer_module_def = get_tracer_module_def(tracer_module_name)
+            if 'precond_var_names_avg' in tracer_module_def:
+                var_names_avg.extend(tracer_module_def['precond_var_names_avg'])
+            if 'precond_var_names_copy' in tracer_module_def:
+                var_names_copy.extend(tracer_module_def['precond_var_names_copy'])
+
+        with Dataset(hist_fname, 'r') as fptr_in, \
+                Dataset(self._precond_fname(solver_state), 'w') as fptr_out:
             pass
 
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):

@@ -6,7 +6,7 @@ import numpy as np
 
 import util
 
-from model import ModelState, lin_comb, region_cnt, to_ndarray, to_region_scalar_ndarray
+from model import ModelState, lin_comb, get_region_cnt, to_ndarray, to_region_scalar_ndarray
 from model import gen_precond_jacobian
 from solver import SolverState
 
@@ -74,7 +74,7 @@ class KrylovSolver:
         while True:
             j_val = self._solver_state.get_iteration()
             h_mat = to_region_scalar_ndarray(
-                np.zeros((iterate.tracer_module_cnt, j_val+2, j_val+1, region_cnt())))
+                np.zeros((iterate.tracer_module_cnt, j_val+2, j_val+1, get_region_cnt())))
             if j_val > 0:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state('h_mat_ndarray'))

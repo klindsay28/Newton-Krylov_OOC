@@ -16,7 +16,8 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
+from model import TracerModuleStateBase, ModelState, ModelStaticVars
+from model import get_tracer_module_def, get_modelinfo
 from solver import SolverState
 
 def _parse_args():
@@ -329,8 +330,15 @@ class NewtonFcn():
 
     def gen_precond_jacobian(self, hist_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        avg_var_names = ['mixing_coeff']
-        log_avg_var_names = ['mixing_coeff']
+        var_names_avg = []
+        var_names_log_avg = []
+
+        for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
+            tracer_module_def = get_tracer_module_def(tracer_module_name)
+            if 'precond_var_names_avg' in tracer_module_def:
+                var_names_avg.extend(tracer_module_def['precond_var_names_avg'])
+            if 'precond_var_names_log_avg' in tracer_module_def:
+                var_names_log_avg.extend(tracer_module_def['precond_var_names_log_avg'])
 
         with Dataset(hist_fname, 'r') as fptr_in, \
                 Dataset(self._precond_fname(solver_state), 'w') as fptr_out:
@@ -338,7 +346,7 @@ class NewtonFcn():
             self._def_dims(fptr_out)
             self._def_coord_vars(fptr_out)
 
-            for var_name_in in avg_var_names:
+            for var_name_in in var_names_avg:
                 var_ptr_in = fptr_in.variables[var_name_in]
                 var_name_out = var_name_in+'_avg'
                 var_ptr_out = fptr_out.createVariable(var_name_out, 'f8',
@@ -346,7 +354,7 @@ class NewtonFcn():
                 var_ptr_out.long_name = var_ptr_in.long_name+', avg over time dim'
                 var_ptr_out.units = var_ptr_in.units
 
-            for var_name_in in log_avg_var_names:
+            for var_name_in in var_names_log_avg:
                 var_ptr_in = fptr_in.variables[var_name_in]
                 var_name_out = var_name_in+'_log_avg'
                 var_ptr_out = fptr_out.createVariable(var_name_out, 'f8',
@@ -357,12 +365,12 @@ class NewtonFcn():
             # write output vars
             self._write_coord_vars(fptr_out)
 
-            for var_name_in in avg_var_names:
+            for var_name_in in var_names_avg:
                 var_name_out = var_name_in+'_avg'
                 fptr_out.variables[var_name_out][:] = \
                     fptr_in.variables[var_name_in][:].mean(axis=0)
 
-            for var_name_in in log_avg_var_names:
+            for var_name_in in var_names_log_avg:
                 var_name_out = var_name_in+'_log_avg'
                 fptr_out.variables[var_name_out][:] = \
                     np.exp(np.log(fptr_in.variables[var_name_in][:]).mean(axis=0))
