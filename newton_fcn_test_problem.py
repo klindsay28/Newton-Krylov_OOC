@@ -271,31 +271,49 @@ class NewtonFcn():
         tracer_flux_neg[1:-1] = -tracer_vals[:-1] # assume velocity is 1 m / day
         return np.ediff1d(tracer_flux_neg) * self.depth.axis.delta_r
 
+    def _def_dims(self, fptr, sol=None):
+        """define netCDF4 dimensions relevant to test_problem"""
+        if sol is not None:
+            fptr.createDimension('time', None)
+        fptr.createDimension('depth', self.depth.axis.nlevs)
+        fptr.createDimension('depth_edges', 1+self.depth.axis.nlevs)
+
+    def _def_coord_vars(self, fptr, sol=None):
+        """define netCDF4 coordinate vars relevant to test_problem"""
+        if sol is not None:
+            fptr.createVariable('time', 'f8', dimensions=('time',))
+            fptr.variables['time'].long_name = 'time'
+            fptr.variables['time'].units = 'days since 0001-01-01'
+
+        fptr.createVariable('depth', 'f8', dimensions=('depth',))
+        fptr.variables['depth'].long_name = 'depth'
+        fptr.variables['depth'].units = 'm'
+
+        fptr.createVariable('depth_edges', 'f8', dimensions=('depth_edges',))
+        fptr.variables['depth_edges'].long_name = 'depth_edges'
+        fptr.variables['depth_edges'].units = 'm'
+
+    def _write_coord_vars(self, fptr, sol=None):
+        """write netCDF4 coordinate vars relevant to test_problem"""
+        if sol is not None:
+            fptr.variables['time'][:] = sol.t
+        fptr.variables['depth'][:] = self.depth.axis.mid
+        fptr.variables['depth_edges'][:] = self.depth.axis.edges
+
     def _write_hist(self, sol, hist_fname):
         """write tracer values generated in comp_fcn to hist_fname"""
         with Dataset(hist_fname, mode='w') as fptr:
-            fptr.createDimension('time', None)
-            fptr.createDimension('depth', self.depth.axis.nlevs)
-            fptr.createDimension('depth_edges', 1+self.depth.axis.nlevs)
-
-            fptr.createVariable('time', 'f8', dimensions=('time',))
-            fptr.variables['time'].units = 'days since 0001-01-01'
-
-            fptr.createVariable('depth', 'f8', dimensions=('depth',))
-            fptr.variables['depth'].units = 'm'
-
-            fptr.createVariable('depth_edges', 'f8', dimensions=('depth_edges',))
-            fptr.variables['depth_edges'].units = 'm'
+            self._def_dims(fptr, sol)
+            self._def_coord_vars(fptr, sol)
 
             for tracer_name in self._tracer_names:
                 fptr.createVariable(tracer_name, 'f8', dimensions=('time', 'depth'))
 
             fptr.createVariable('mixing_coeff', 'f8', dimensions=('time', 'depth_edges'))
+            fptr.variables['mixing_coeff'].long_name = 'vertical mixing coefficient'
             fptr.variables['mixing_coeff'].units = 'm2 s-1'
 
-            fptr.variables['time'][:] = sol.t
-            fptr.variables['depth'][:] = self.depth.axis.mid
-            fptr.variables['depth_edges'][:] = self.depth.axis.edges
+            self._write_coord_vars(fptr, sol)
 
             tracer_vals = sol.y.reshape((len(self._tracer_names), self.depth.axis.nlevs, -1))
             for tracer_ind, tracer_name in enumerate(self._tracer_names):
@@ -311,22 +329,43 @@ class NewtonFcn():
 
     def gen_precond_jacobian(self, hist_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        with Dataset(hist_fname, 'r') as fptr:
-            mixing_coeff = fptr.variables['mixing_coeff'][:]
+        avg_var_names = ['mixing_coeff']
+        log_avg_var_names = ['mixing_coeff']
 
-        with Dataset(self._precond_fname(solver_state), 'w') as fptr:
-            fptr.createDimension('depth_edges', 1+self.depth.axis.nlevs)
+        with Dataset(hist_fname, 'r') as fptr_in, \
+                Dataset(self._precond_fname(solver_state), 'w') as fptr_out:
+            # define output vars
+            self._def_dims(fptr_out)
+            self._def_coord_vars(fptr_out)
 
-            fptr.createVariable('depth_edges', 'f8', dimensions=('depth_edges',))
-            fptr.variables['depth_edges'].units = 'm'
+            for var_name_in in avg_var_names:
+                var_ptr_in = fptr_in.variables[var_name_in]
+                var_name_out = var_name_in+'_avg'
+                var_ptr_out = fptr_out.createVariable(var_name_out, 'f8',
+                                                      dimensions=var_ptr_in.dimensions[1:])
+                var_ptr_out.long_name = var_ptr_in.long_name+', avg over time dim'
+                var_ptr_out.units = var_ptr_in.units
 
-            fptr.createVariable('mixing_coeff', 'f8', dimensions=('depth_edges',))
-            fptr.variables['mixing_coeff'].units = 'm2 s-1'
+            for var_name_in in log_avg_var_names:
+                var_ptr_in = fptr_in.variables[var_name_in]
+                var_name_out = var_name_in+'_log_avg'
+                var_ptr_out = fptr_out.createVariable(var_name_out, 'f8',
+                                                      dimensions=var_ptr_in.dimensions[1:])
+                var_ptr_out.long_name = var_ptr_in.long_name+', log avg over time dim'
+                var_ptr_out.units = var_ptr_in.units
 
-            fptr.variables['depth_edges'][:] = self.depth.axis.edges
+            # write output vars
+            self._write_coord_vars(fptr_out)
 
-            # fptr.variables['mixing_coeff'][:] = mixing_coeff.mean(axis=0)
-            fptr.variables['mixing_coeff'][:] = np.exp(np.log(mixing_coeff).mean(axis=0))
+            for var_name_in in avg_var_names:
+                var_name_out = var_name_in+'_avg'
+                fptr_out.variables[var_name_out][:] = \
+                    fptr_in.variables[var_name_in][:].mean(axis=0)
+
+            for var_name_in in log_avg_var_names:
+                var_name_out = var_name_in+'_log_avg'
+                fptr_out.variables[var_name_out][:] = \
+                    np.exp(np.log(fptr_in.variables[var_name_in][:]).mean(axis=0))
 
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
@@ -340,7 +379,7 @@ class NewtonFcn():
         with Dataset(self._precond_fname(solver_state), 'r') as fptr:
             # hist and precond files have mixing_coeff in m2 s-1
             # convert back to model units of m2 d-1
-            mca = 86400.0 * fptr.variables['mixing_coeff'][:]
+            mca = 86400.0 * fptr.variables['mixing_coeff_log_avg'][:]
 
         for tracer_module_name in ms_in.tracer_module_names:
             if tracer_module_name == 'iage_test':
