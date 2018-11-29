@@ -1,12 +1,12 @@
 """class for representing the state space of a model, and operations on it"""
 
 import importlib
-import json
 import logging
 import os
 
 import numpy as np
 from netCDF4 import Dataset
+import yaml
 
 # model static variables
 _model_static_vars = None
@@ -47,7 +47,7 @@ class ModelStaticVars:
         fname = modelinfo['tracer_module_defs_fname']
         logger.log(lvl, 'reading tracer_module_defs from %s', fname)
         with open(fname, mode='r') as fptr:
-            self.tracer_module_defs = json.load(fptr)
+            self.tracer_module_defs = yaml.load(fptr)
 
         self._check_shadow_tracers(lvl)
 

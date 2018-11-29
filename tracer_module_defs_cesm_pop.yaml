@@ -1,0 +1,8 @@
+iage:
+    tracer_names: [IAGE]
+abio_dic_dic14:
+    tracer_names: [ABIO_DIC, ABIO_DIC14]
+    precond_var_names_avg: [d_FG_ABIO_DIC_d_ABIO_DIC, d_FG_ABIO_DIC14_d_ABIO_DIC,
+                            d_FG_ABIO_DIC14_d_ABIO_DIC14]
+base:
+    precond_var_names_copy: [KMT, REGION_MASK, TLONG, TLAT, z_t, dz]
