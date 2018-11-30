@@ -49,6 +49,8 @@ class ModelStaticVars:
         with open(fname, mode='r') as fptr:
             self.tracer_module_defs = yaml.load(fptr)
 
+        self._pad_tracer_module_defs(lvl)
+
         self._check_shadow_tracers(lvl)
 
         # extract grid_weight from modelinfo config object
@@ -92,28 +94,27 @@ class ModelStaticVars:
 
         logger.debug('returning')
 
+    def _pad_tracer_module_defs(self, lvl):
+        """
+        Place emtpy objects in tracer module definitions where they do not exist.
+        This is to ease subsequent coding.
+        """
+        logger = logging.getLogger(__name__)
+        def_keys = {'tracer_names':'list', 'shadow_tracers':'dict', 'precond_var_names':'list'}
+        for tracer_module_name, tracer_module_def in self.tracer_module_defs.items():
+            for key, value in def_keys.items():
+                if key not in tracer_module_def:
+                    logger.log(lvl, 'tracer module %s has no key %s', tracer_module_name, key)
+                    tracer_module_def[key] = [] if value == 'list' else {}
+
     def _check_shadow_tracers(self, lvl):
         """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
-        # This check is done for all entries in tracer_module_defs, whether they are being used or
-        # not. If a tracer module does not have any shadow tracers, add an empty shadow_tracer
-        # dictionary to tracer_module_defs, to ease subsequent coding.
+        # This check is done for all entries in tracer_module_defs,
+        # whether they are being used or not.
         logger = logging.getLogger(__name__)
         for tracer_module_name, tracer_module_def in self.tracer_module_defs.items():
-            # If no tracers are specified, add an empty tracer_names dictionary to
-            # tracer_module_defs, to ease subsequent coding.
-            if 'tracer_names' not in tracer_module_def:
-                logger.log(lvl, 'tracer module %s has no tracers', tracer_module_name)
-                tracer_module_def['tracer_names'] = {}
-
-            if 'shadow_tracers' in tracer_module_def:
-                shadow_tracers = tracer_module_def['shadow_tracers']
-            else:
-                shadow_tracers = {}
-                tracer_module_def['shadow_tracers'] = {}
-                logger.log(lvl, 'tracer module %s has no shadow tracers', tracer_module_name)
-
             # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
-            for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
+            for shadow_tracer_name, real_tracer_name in tracer_module_def['shadow_tracers'].items():
                 if shadow_tracer_name not in tracer_module_def['tracer_names']:
                     raise ValueError('specified shadow tracer %s in tracer module %s not known'
                                      % (shadow_tracer_name, tracer_module_name))

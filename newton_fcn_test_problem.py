@@ -272,19 +272,17 @@ class NewtonFcn():
         tracer_flux_neg[1:-1] = -tracer_vals[:-1] # assume velocity is 1 m / day
         return np.ediff1d(tracer_flux_neg) * self.depth.axis.delta_r
 
-    def _def_dims(self, fptr, sol=None):
+    def _def_dims(self, fptr):
         """define netCDF4 dimensions relevant to test_problem"""
-        if sol is not None:
-            fptr.createDimension('time', None)
+        fptr.createDimension('time', None)
         fptr.createDimension('depth', self.depth.axis.nlevs)
         fptr.createDimension('depth_edges', 1+self.depth.axis.nlevs)
 
-    def _def_coord_vars(self, fptr, sol=None):
+    def _def_coord_vars(self, fptr):
         """define netCDF4 coordinate vars relevant to test_problem"""
-        if sol is not None:
-            fptr.createVariable('time', 'f8', dimensions=('time',))
-            fptr.variables['time'].long_name = 'time'
-            fptr.variables['time'].units = 'days since 0001-01-01'
+        fptr.createVariable('time', 'f8', dimensions=('time',))
+        fptr.variables['time'].long_name = 'time'
+        fptr.variables['time'].units = 'days since 0001-01-01'
 
         fptr.createVariable('depth', 'f8', dimensions=('depth',))
         fptr.variables['depth'].long_name = 'depth'
@@ -304,8 +302,8 @@ class NewtonFcn():
     def _write_hist(self, sol, hist_fname):
         """write tracer values generated in comp_fcn to hist_fname"""
         with Dataset(hist_fname, mode='w') as fptr:
-            self._def_dims(fptr, sol)
-            self._def_coord_vars(fptr, sol)
+            self._def_dims(fptr)
+            self._def_coord_vars(fptr)
 
             for tracer_name in self._tracer_names:
                 fptr.createVariable(tracer_name, 'f8', dimensions=('time', 'depth'))
@@ -330,50 +328,43 @@ class NewtonFcn():
 
     def gen_precond_jacobian(self, hist_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        var_names_avg = []
-        var_names_log_avg = []
-
-        for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-            tracer_module_def = get_tracer_module_def(tracer_module_name)
-            if 'precond_var_names_avg' in tracer_module_def:
-                var_names_avg.extend(tracer_module_def['precond_var_names_avg'])
-            if 'precond_var_names_log_avg' in tracer_module_def:
-                var_names_log_avg.extend(tracer_module_def['precond_var_names_log_avg'])
-
         with Dataset(hist_fname, 'r') as fptr_in, \
                 Dataset(self._precond_fname(solver_state), 'w') as fptr_out:
             # define output vars
             self._def_dims(fptr_out)
             self._def_coord_vars(fptr_out)
-
-            for var_name_in in var_names_avg:
-                var_ptr_in = fptr_in.variables[var_name_in]
-                var_name_out = var_name_in+'_avg'
-                var_ptr_out = fptr_out.createVariable(var_name_out, 'f8',
-                                                      dimensions=var_ptr_in.dimensions[1:])
-                var_ptr_out.long_name = var_ptr_in.long_name+', avg over time dim'
-                var_ptr_out.units = var_ptr_in.units
-
-            for var_name_in in var_names_log_avg:
-                var_ptr_in = fptr_in.variables[var_name_in]
-                var_name_out = var_name_in+'_log_avg'
-                var_ptr_out = fptr_out.createVariable(var_name_out, 'f8',
-                                                      dimensions=var_ptr_in.dimensions[1:])
-                var_ptr_out.long_name = var_ptr_in.long_name+', log avg over time dim'
-                var_ptr_out.units = var_ptr_in.units
-
-            # write output vars
             self._write_coord_vars(fptr_out)
 
-            for var_name_in in var_names_avg:
-                var_name_out = var_name_in+'_avg'
-                fptr_out.variables[var_name_out][:] = \
-                    fptr_in.variables[var_name_in][:].mean(axis=0)
+            for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
+                tracer_module_def = get_tracer_module_def(tracer_module_name)
+                for precond_var_name in tracer_module_def['precond_var_names']:
+                    var_name_in, _, time_op = precond_var_name.partition(':')
+                    var_ptr_in = fptr_in.variables[var_name_in]
 
-            for var_name_in in var_names_log_avg:
-                var_name_out = var_name_in+'_log_avg'
-                fptr_out.variables[var_name_out][:] = \
-                    np.exp(np.log(fptr_in.variables[var_name_in][:]).mean(axis=0))
+                    if time_op not in ['avg', 'log_avg', 'copy', '']:
+                        raise ValueError('unknown time_op=%s in %s' % (time_op, precond_var_name))
+
+                    if time_op == 'avg':
+                        var_ptr_out = fptr_out.createVariable(var_name_in+'_avg',
+                                                              var_ptr_in.datatype,
+                                                              dimensions=var_ptr_in.dimensions[1:])
+                        var_ptr_out.long_name = var_ptr_in.long_name+', avg over time dim'
+                        var_ptr_out.units = var_ptr_in.units
+                        var_ptr_out[:] = var_ptr_in[:].mean(axis=0)
+                    elif time_op == 'log_avg':
+                        var_ptr_out = fptr_out.createVariable(var_name_in+'_log_avg',
+                                                              var_ptr_in.datatype,
+                                                              dimensions=var_ptr_in.dimensions[1:])
+                        var_ptr_out.long_name = var_ptr_in.long_name+', log avg over time dim'
+                        var_ptr_out.units = var_ptr_in.units
+                        var_ptr_out[:] = np.exp(np.log(var_ptr_in[:]).mean(axis=0))
+                    else:
+                        var_ptr_out = fptr_out.createVariable(var_name_in,
+                                                              var_ptr_in.datatype,
+                                                              dimensions=var_ptr_in.dimensions)
+                        var_ptr_out.long_name = var_ptr_in.long_name
+                        var_ptr_out.units = var_ptr_in.units
+                        var_ptr_out[:] = var_ptr_in[:]
 
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""

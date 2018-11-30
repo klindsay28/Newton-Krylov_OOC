@@ -148,25 +148,51 @@ class NewtonFcn():
         logger.debug('returning')
         return ms_res.dump(res_fname)
 
+    def _def_dims(self, fptr_in, fptr_out):
+        """define netCDF4 dimensions relevant to test_problem"""
+        for dimname in ['nlon', 'nlat', 'z_t']:
+            fptr_out.createDimension(dimname, fptr_in.dimensions[dimname].size)
+
     def _precond_fname(self, solver_state):
         """filename of preconditioner of jacobian of comp_fcn."""
         return os.path.join(solver_state.get_workdir(), 'precond.nc')
 
     def gen_precond_jacobian(self, hist_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        var_names_avg = []
-        var_names_copy = []
-
-        for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-            tracer_module_def = get_tracer_module_def(tracer_module_name)
-            if 'precond_var_names_avg' in tracer_module_def:
-                var_names_avg.extend(tracer_module_def['precond_var_names_avg'])
-            if 'precond_var_names_copy' in tracer_module_def:
-                var_names_copy.extend(tracer_module_def['precond_var_names_copy'])
-
         with Dataset(hist_fname, 'r') as fptr_in, \
                 Dataset(self._precond_fname(solver_state), 'w') as fptr_out:
-            pass
+            # define output vars
+            self._def_dims(fptr_in, fptr_out)
+
+            for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
+                tracer_module_def = get_tracer_module_def(tracer_module_name)
+                for precond_var_name in tracer_module_def['precond_var_names']:
+                    var_name_in, _, time_op = precond_var_name.partition(':')
+                    var_ptr_in = fptr_in.variables[var_name_in]
+
+                    if time_op not in ['avg', 'copy', '']:
+                        raise ValueError('unknown time_op=%s in %s' % (time_op, precond_var_name))
+
+                    if time_op == 'avg':
+                        var_ptr_out = fptr_out.createVariable(var_name_in+'_avg',
+                                                              var_ptr_in.datatype,
+                                                              dimensions=var_ptr_in.dimensions[1:])
+                        var_ptr_out.long_name = var_ptr_in.long_name+', avg over time dim'
+                        try:
+                            var_ptr_out.units = var_ptr_in.units
+                        except AttributeError:
+                            pass
+                        var_ptr_out[:] = var_ptr_in[:].mean(axis=0)
+                    else:
+                        var_ptr_out = fptr_out.createVariable(var_name_in,
+                                                              var_ptr_in.datatype,
+                                                              dimensions=var_ptr_in.dimensions)
+                        var_ptr_out.long_name = var_ptr_in.long_name
+                        try:
+                            var_ptr_out.units = var_ptr_in.units
+                        except AttributeError:
+                            pass
+                        var_ptr_out[:] = var_ptr_in[:]
 
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
