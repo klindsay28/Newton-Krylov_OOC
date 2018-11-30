@@ -165,34 +165,39 @@ class NewtonFcn():
             self._def_dims(fptr_in, fptr_out)
 
             for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-                tracer_module_def = get_tracer_module_def(tracer_module_name)
-                for precond_var_name in tracer_module_def['precond_var_names']:
-                    var_name_in, _, time_op = precond_var_name.partition(':')
-                    var_ptr_in = fptr_in.variables[var_name_in]
+                for hist_to_precond_var_name in \
+                        get_tracer_module_def(tracer_module_name)['hist_to_precond_var_names']:
+                    hist_var_name, _, time_op = hist_to_precond_var_name.partition(':')
+                    hist_var = fptr_in.variables[hist_var_name]
 
-                    if time_op not in ['avg', 'copy', '']:
-                        raise ValueError('unknown time_op=%s in %s' % (time_op, precond_var_name))
+                    if time_op not in ['avg', 'log_avg', 'copy', '']:
+                        raise ValueError('unknown time_op=%s in %s for %s'
+                                         % (time_op, hist_to_precond_var_name, tracer_module_name))
 
                     if time_op == 'avg':
-                        var_ptr_out = fptr_out.createVariable(var_name_in+'_avg',
-                                                              var_ptr_in.datatype,
-                                                              dimensions=var_ptr_in.dimensions[1:])
-                        var_ptr_out.long_name = var_ptr_in.long_name+', avg over time dim'
-                        try:
-                            var_ptr_out.units = var_ptr_in.units
-                        except AttributeError:
-                            pass
-                        var_ptr_out[:] = var_ptr_in[:].mean(axis=0)
+                        precond_var = fptr_out.createVariable(hist_var_name+'_avg',
+                                                              hist_var.datatype,
+                                                              dimensions=hist_var.dimensions[1:])
+                        precond_var.long_name = hist_var.long_name+', avg over time dim'
+                        precond_var[:] = hist_var[:].mean(axis=0)
+                    elif time_op == 'log_avg':
+                        precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
+                                                              hist_var.datatype,
+                                                              dimensions=hist_var.dimensions[1:])
+                        precond_var.long_name = hist_var.long_name+', log avg over time dim'
+                        precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
                     else:
-                        var_ptr_out = fptr_out.createVariable(var_name_in,
-                                                              var_ptr_in.datatype,
-                                                              dimensions=var_ptr_in.dimensions)
-                        var_ptr_out.long_name = var_ptr_in.long_name
+                        precond_var = fptr_out.createVariable(hist_var_name,
+                                                              hist_var.datatype,
+                                                              dimensions=hist_var.dimensions)
+                        precond_var.long_name = hist_var.long_name
+                        precond_var[:] = hist_var[:]
+
+                    for att_name in ['units', 'coordinates', 'positive']:
                         try:
-                            var_ptr_out.units = var_ptr_in.units
+                            setattr(precond_var, att_name, getattr(hist_var, att_name))
                         except AttributeError:
                             pass
-                        var_ptr_out[:] = var_ptr_in[:]
 
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""

@@ -100,7 +100,9 @@ class ModelStaticVars:
         This is to ease subsequent coding.
         """
         logger = logging.getLogger(__name__)
-        def_keys = {'tracer_names':'list', 'shadow_tracers':'dict', 'precond_var_names':'list'}
+        def_keys = {'tracer_names':'list',
+                    'shadow_tracers':'dict',
+                    'hist_to_precond_var_names':'list'}
         for tracer_module_name, tracer_module_def in self.tracer_module_defs.items():
             for key, value in def_keys.items():
                 if key not in tracer_module_def:

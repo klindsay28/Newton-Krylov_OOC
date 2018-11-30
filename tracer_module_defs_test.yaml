@@ -4,4 +4,4 @@ phosphorus:
     tracer_names: [po4, dop, pop, po4_s, dop_s, pop_s]
     shadow_tracers: {dop_s: dop, po4_s: po4, pop_s: pop}
 base:
-    precond_var_names: ['mixing_coeff:avg', 'mixing_coeff:log_avg']
+    hist_to_precond_var_names: ['mixing_coeff:avg', 'mixing_coeff:log_avg']

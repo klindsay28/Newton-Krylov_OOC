@@ -2,7 +2,9 @@ iage:
     tracer_names: [IAGE]
 abio_dic_dic14:
     tracer_names: [ABIO_DIC, ABIO_DIC14]
-    precond_var_names: ['d_FG_ABIO_DIC_d_ABIO_DIC:avg', 'd_FG_ABIO_DIC14_d_ABIO_DIC:avg',
-                        'd_FG_ABIO_DIC14_d_ABIO_DIC14:avg']
+    hist_to_precond_var_names:
+        - 'd_FG_ABIO_DIC_d_ABIO_DIC:avg'
+        - 'd_FG_ABIO_DIC14_d_ABIO_DIC:avg'
+        - 'd_FG_ABIO_DIC14_d_ABIO_DIC14:avg'
 base:
-    precond_var_names: [KMT, REGION_MASK, TLONG, TLAT, z_t, dz]
+    hist_to_precond_var_names: [KMT, REGION_MASK, TLONG, TLAT, z_t, dz]
