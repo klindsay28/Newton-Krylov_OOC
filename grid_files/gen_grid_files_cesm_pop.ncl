@@ -48,6 +48,8 @@ begin
     region_mask@long_name = "Region Mask (1=open ocean, 2=Black Sea, 0=other)"
     region_mask@units = "1"
 
+    DYN_REGMASK = region_mask(0,:,:)
+
     grid_weight!0 = "z_t"
     grid_weight&z_t = z_t
     grid_weight!1 = "nlat"
@@ -64,5 +66,6 @@ begin
     fptr->TLAT = TLAT
     fptr->TLONG = TLONG
     fptr->region_mask = region_mask
+    fptr->DYN_REGMASK = DYN_REGMASK
     fptr->grid_weight = grid_weight
 end

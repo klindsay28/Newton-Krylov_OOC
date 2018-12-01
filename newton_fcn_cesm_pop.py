@@ -149,7 +149,7 @@ class NewtonFcn():
         return ms_res.dump(res_fname)
 
     def _def_dims(self, fptr_in, fptr_out):
-        """define netCDF4 dimensions relevant to test_problem"""
+        """define netCDF4 dimensions relevant to cesm_pop"""
         for dimname in ['nlon', 'nlat', 'z_t']:
             fptr_out.createDimension(dimname, fptr_in.dimensions[dimname].size)
 
@@ -165,8 +165,8 @@ class NewtonFcn():
             self._def_dims(fptr_in, fptr_out)
 
             for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-                for hist_to_precond_var_name in \
-                        get_tracer_module_def(tracer_module_name)['hist_to_precond_var_names']:
+                tracer_module_def = get_tracer_module_def(tracer_module_name)
+                for hist_to_precond_var_name in tracer_module_def['hist_to_precond_var_names']:
                     hist_var_name, _, time_op = hist_to_precond_var_name.partition(':')
                     hist_var = fptr_in.variables[hist_var_name]
 
@@ -198,6 +198,34 @@ class NewtonFcn():
                             setattr(precond_var, att_name, getattr(hist_var, att_name))
                         except AttributeError:
                             pass
+
+        self._gen_precond_matrix_files(solver_state)
+
+    def _gen_precond_matrix_files(self, solver_state):
+        """Generate matrix files for preconditioner of jacobian of comp_fcn."""
+        jacobian_precond_tools_dir = get_modelinfo('jacobian_precond_tools_dir')
+
+        tracer_module_base_def = get_tracer_module_def('base')
+        matrix_base_opts = tracer_module_base_def['precond_matrices_opts']
+
+        opt_str_subs = {'day_cnt':365*_yr_cnt(),
+                        'precond_fname':self._precond_fname(solver_state),
+                        'reg_fname':get_modelinfo('region_mask_fname'),
+                        'irf_fname':get_modelinfo('irf_fname')}
+
+        for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
+            tracer_module_def = get_tracer_module_def(tracer_module_name)
+            for matrix_name, matrix_opts in tracer_module_def['precond_matrices_opts'].items():
+                matrix_opts_fname = os.path.join(solver_state.get_workdir(),
+                                                 'matrix_'+matrix_name+'.opts')
+                with open(matrix_opts_fname, 'w') as fptr:
+                    for opt in matrix_base_opts+matrix_opts:
+                        fptr.write("%s\n" % opt.format(**opt_str_subs))
+                matrix_fname = os.path.join(solver_state.get_workdir(),
+                                            'matrix_'+matrix_name+'.nc')
+                cmd = [os.path.join(jacobian_precond_tools_dir, 'bin', 'gen_A'),
+                       '-D1', '-o', matrix_opts_fname, matrix_fname]
+                subprocess.run(cmd, check=True)
 
     def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
@@ -273,6 +301,20 @@ def _gen_post_modelrun_script(script_fname):
     fstat = os.stat(script_fname)
     os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
+def _yr_cnt():
+    """return how many years are in forward model run"""
+    stop_option = _xmlquery('STOP_OPTION')
+    stop_n = int(_xmlquery('STOP_N'))
+    if stop_option == 'nyear':
+        yr_cnt = stop_n
+    elif stop_option == 'nmonth':
+        if stop_n % 12 != 0:
+            raise RuntimeError('number of months=%d not divisible by 12' % stop_n)
+        yr_cnt = int(stop_n) // 12
+    else:
+        raise NotImplementedError('stop_option = %s not implemented' % stop_option)
+    return yr_cnt
+
 def _gen_hist(hist_fname):
     """generate history file corresponding to just completed model run"""
     logger = logging.getLogger(__name__)
@@ -290,18 +332,6 @@ def _gen_hist(hist_fname):
     if tavg_freq_0 != '1':
         raise NotImplementedError('tavg_freq_0 = %s not implemented' % tavg_freq_0)
 
-    # determine how many years are in run
-    stop_option = _xmlquery('STOP_OPTION')
-    stop_n = int(_xmlquery('STOP_N'))
-    if stop_option == 'nyear':
-        yr_cnt = stop_n
-    elif stop_option == 'nmonth':
-        if stop_n % 12 != 0:
-            raise RuntimeError('number of months=%d not divisible by 12' % stop_n)
-        yr_cnt = int(stop_n) // 12
-    else:
-        raise NotImplementedError('stop_option = %s not implemented' % stop_option)
-
     # get starting year
     if _xmlquery('RUN_TYPE') == 'branch':
         date0 = _xmlquery('RUN_REFDATE')
@@ -316,7 +346,7 @@ def _gen_hist(hist_fname):
         hist_dir = _xmlquery('RUNDIR')
     model_hist_fname = os.path.join(hist_dir, _xmlquery('CASE')+'.pop.h.'+yyyy+'.nc')
 
-    cmd = ['ncra', '-O', '-n', '%d,4' % yr_cnt, '-o', hist_fname, model_hist_fname]
+    cmd = ['ncra', '-O', '-n', '%d,4' % _yr_cnt(), '-o', hist_fname, model_hist_fname]
     logger.debug('cmd = "%s"', ' '.join(cmd))
     subprocess.run(cmd, check=True)
 

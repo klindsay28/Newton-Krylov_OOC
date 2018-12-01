@@ -336,8 +336,8 @@ class NewtonFcn():
             self._write_coord_vars(fptr_out)
 
             for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-                for hist_to_precond_var_name in \
-                        get_tracer_module_def(tracer_module_name)['hist_to_precond_var_names']:
+                tracer_module_def = get_tracer_module_def(tracer_module_name)
+                for hist_to_precond_var_name in tracer_module_def['hist_to_precond_var_names']:
                     hist_var_name, _, time_op = hist_to_precond_var_name.partition(':')
                     hist_var = fptr_in.variables[hist_var_name]
 
