@@ -376,6 +376,10 @@ class NewtonFcn():
         logger.debug('entering')
 
         fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return ModelState(res_fname)
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         ms_res = ms_in.copy()
 

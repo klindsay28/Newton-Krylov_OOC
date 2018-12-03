@@ -1,23 +1,23 @@
 iage:
     tracer_names: [IAGE]
     precond_matrices_opts:
-        iage_matrix:
+        IAGE:
             - sink_type const_shallow 8760.0 10.0e2
 
 abio_dic_dic14:
     tracer_names: [ABIO_DIC, ABIO_DIC14]
     hist_to_precond_var_names:
-        - 'd_FG_ABIO_DIC_d_ABIO_DIC:avg'
-        - 'd_FG_ABIO_DIC14_d_ABIO_DIC:avg'
-        - 'd_FG_ABIO_DIC14_d_ABIO_DIC14:avg'
+        - 'd_SF_ABIO_DIC_d_ABIO_DIC:avg'
+        - 'd_SF_ABIO_DIC14_d_ABIO_DIC:avg'
+        - 'd_SF_ABIO_DIC14_d_ABIO_DIC14:avg'
     precond_matrices_opts:
-        abio_dic_matrix:
+        ABIO_DIC:
             - tracer_fname {precond_fname}
-            - sf d_FG_ABIO_DIC_d_ABIO_DIC_avg
-        abio_dic14_matrix:
+            - sf d_SF_ABIO_DIC_d_ABIO_DIC_avg
+        ABIO_DIC14:
             - tracer_fname {precond_fname}
             - sink_type const 1.21e-4
-            - sf d_FG_ABIO_DIC14_d_ABIO_DIC14_avg
+            - sf d_SF_ABIO_DIC14_d_ABIO_DIC14_avg
 
 base:
     hist_to_precond_var_names: [KMT, REGION_MASK, TLONG, TLAT, z_t, dz]

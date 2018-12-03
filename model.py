@@ -407,7 +407,6 @@ class ModelState:
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
-
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
         res = _model_static_vars.newton_fcn.comp_fcn(self, res_fname, solver_state, hist_fname)
@@ -432,7 +431,6 @@ class ModelState:
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
-
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         sigma = 1.0e-4 * self.norm()
@@ -462,7 +460,6 @@ class ModelState:
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
-
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
         res = _model_static_vars.newton_fcn.apply_precond_jacobian(self, res_fname, solver_state)
@@ -983,7 +980,6 @@ def gen_precond_jacobian(hist_fname, solver_state):
     if solver_state.step_logged(fcn_complete_step):
         logger.debug('"%s" logged, returning', fcn_complete_step)
         return
-
     logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
     _model_static_vars.newton_fcn.gen_precond_jacobian(hist_fname, solver_state)

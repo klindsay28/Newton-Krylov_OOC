@@ -78,7 +78,6 @@ class NewtonSolver:
         if self._solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(self._fname('increment'))
-
         logger.debug('"%s" not logged, computing increment', fcn_complete_step)
 
         krylov_dir = os.path.join(self._solverinfo['workdir'],
@@ -117,7 +116,6 @@ class NewtonSolver:
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(self._fname('prov_Armijo_%02d' % armijo_ind)), \
                 ModelState(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
-
         logger.debug('"%s" not logged, computing next iterate', fcn_complete_step)
 
         while True:
@@ -131,7 +129,7 @@ class NewtonSolver:
 
             # at this point in the execution flow, only keep latest Armijo hist file
             if armijo_ind > 0:
-                os.remove(self._fname('prov_hist_Armijo_%02d' % armijo_ind-1))
+                os.remove(self._fname('prov_hist_Armijo_%02d' % (armijo_ind-1)))
 
             logger.info('Armijo_ind=%d', armijo_ind)
 

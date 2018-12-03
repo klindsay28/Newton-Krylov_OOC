@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """cesm pop hooks for Newton-Krylov solver"""
 
+from __future__ import division
+
 import argparse
 import configparser
 import glob
@@ -233,8 +235,19 @@ class NewtonFcn():
         logger.debug('entering')
 
         fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return ModelState(res_fname)
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        ms_res = ms_in.copy()
+        _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state)
+
+        lin_eqns_soln_fname = os.path.join(os.path.dirname(res_fname),
+                                           'lin_eqns_soln_'+os.path.basename(res_fname))
+        ms_res = _apply_precond_jacobian_solve_lin_eqns(ms_in, self._precond_fname(solver_state),
+                                                        lin_eqns_soln_fname, solver_state)
+
+        ms_res -= ms_in
 
         solver_state.log_step(fcn_complete_step)
 
@@ -360,6 +373,133 @@ def _comp_fcn_post_modelrun(ms_in):
     fname = os.path.join(_xmlquery('RUNDIR'), rest_file_fname_rel)
 
     return ModelState(fname) - ms_in
+
+def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
+    """
+    pre-solve_lin_eqns step of apply_precond_jacobian
+    produce computing environment for solve_lin_eqns
+    If batch_cmd_precond is non-empty, submit a batch job using that command and exit.
+    Otherwise, just return.
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug('entering')
+
+    fcn_complete_step = '_apply_precond_jacobian_pre_solve_lin_eqns done for %s' % res_fname
+    if solver_state.step_logged(fcn_complete_step):
+        logger.debug('"%s" logged, returning', fcn_complete_step)
+        return
+    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+    if get_modelinfo('batch_cmd_precond'):
+        precond_task_cnt = int(get_modelinfo('precond_task_cnt'))
+        precond_cpus_per_node = int(get_modelinfo('precond_cpus_per_node'))
+        precond_node_cnt = int(np.ceil(precond_task_cnt / precond_cpus_per_node))
+        opt_str_subs = {'precond_node_cnt':precond_node_cnt}
+        batch_cmd = get_modelinfo('batch_cmd_precond').replace('\n', ' ').replace('\r', ' ')
+        cmd = '%s %s --resume' % (batch_cmd.format(**opt_str_subs),
+                                  get_modelinfo('nk_driver_invoker_fname'))
+        subprocess.run(cmd, check=True, shell=True)
+        solver_state.log_step(fcn_complete_step)
+        logger.debug('raising SystemExit')
+        raise SystemExit
+
+    solver_state.log_step(fcn_complete_step)
+    logger.debug('returning')
+
+def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solver_state):
+    """
+    solve_lin_eqns step of apply_precond_jacobian
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug('entering')
+
+    fcn_complete_step = '_apply_precond_jacobian_solve_lin_eqns done for %s' % res_fname
+    if solver_state.step_logged(fcn_complete_step):
+        logger.debug('"%s" logged, returning', fcn_complete_step)
+        return ModelState(res_fname)
+    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+    ms_in.dump(res_fname)
+
+    jacobian_precond_tools_dir = get_modelinfo('jacobian_precond_tools_dir')
+
+    # determine size of decomposition to be used in matrix factorization
+    nprow, npcol = _matrix_block_decomp()
+
+    for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
+        tracer_module_def = get_tracer_module_def(tracer_module_name)
+        for matrix_name, matrix_opts in tracer_module_def['precond_matrices_opts'].items():
+            matrix_fname = os.path.join(solver_state.get_workdir(),
+                                        'matrix_'+matrix_name+'.nc')
+            cmd = [get_modelinfo('mpi_cmd'),
+                   os.path.join(jacobian_precond_tools_dir, 'bin', 'solve_ABdist'),
+                   '-D1', '-n', '%d,%d' % (nprow, npcol),
+                   '-v', _tracer_names_str(matrix_name, matrix_opts),
+                   matrix_fname, res_fname]
+            subprocess.run(cmd, check=True)
+
+            _apply_tracers_sflux_term(tracer_module_def, matrix_name, matrix_opts, precond_fname,
+                                      res_fname)
+
+    ms_res = ModelState(res_fname)
+
+    solver_state.log_step(fcn_complete_step)
+    logger.debug('returning')
+    return ms_res
+
+def _matrix_block_decomp():
+    """determine size of decomposition to be used in matrix factorization"""
+    precond_task_cnt = int(get_modelinfo('precond_task_cnt'))
+    log2_precond_task_cnt = int(np.log(precond_task_cnt)/np.log(2.0))
+    if 2 ** log2_precond_task_cnt != precond_task_cnt:
+        raise ValueError('precond_task_cnt must be a power of 2')
+    if (log2_precond_task_cnt % 2) == 0:
+        nprow = 2 ** (log2_precond_task_cnt // 2)
+        npcol = nprow
+    else:
+        nprow = 2 ** ((log2_precond_task_cnt-1) // 2)
+        npcol = 2 * nprow
+    return nprow, npcol
+
+def _tracer_names_list(matrix_name, matrix_opts):
+    """list of tracers being solved for"""
+    # If there is a tracer_names option in matrix_opts, use that,
+    # otherwise use the name of the matrix.
+    tracer_names = None
+    for matrix_opt in matrix_opts:
+        if 'tracer_names' in matrix_opt:
+            tracer_names = matrix_opt.split()[1:]
+    if tracer_names is None:
+        tracer_names = [matrix_name]
+    return tracer_names
+
+def _tracer_names_str(matrix_name, matrix_opts):
+    """comma seperated string of tracers being solved for"""
+    return ','.join([tracer_name+'_CUR' for tracer_name \
+                     in _tracer_names_list(matrix_name, matrix_opts)])
+
+def _apply_tracers_sflux_term(tracer_module_def, matrix_name, matrix_opts, precond_fname,
+                              res_fname):
+    """apply surface flux term of tracers in tracer_names_list to subsequent vars"""
+    model_state = ModelState(res_fname)
+    term_applied = False
+    delta_time = 365.0 * 86400.0 * _yr_cnt()
+    with Dataset(precond_fname, 'r') as fptr:
+        for tracer_name_src in _tracer_names_list(matrix_name, matrix_opts):
+            src = model_state.get_tracer_vals(tracer_name_src)
+            for tracer_name_dst_ind in \
+                    range(tracer_module_def['tracer_names'].index(tracer_name_src)+1,
+                          len(tracer_module_def['tracer_names'])):
+                tracer_name_dst = tracer_module_def['tracer_names'][tracer_name_dst_ind]
+                var_name = 'd_SF_'+tracer_name_dst+'_d_'+tracer_name_src+':avg'
+                if var_name in fptr.variables:
+                    dst = model_state.get_tracer_vals(tracer_name_dst)
+                    dst[0, :] -= delta_time / fptr.variables['dz'][0] \
+                        * fptr.variables[var_name][:] * src[0, :]
+                    model_state.set_tracer_vals(tracer_name_dst, dst)
+                    term_applied = True
+    if term_applied:
+        model_state.dump(res_fname)
 
 def _xmlquery(varname):
     """run CIME's _xmlquery for varname in the directory caseroot, return the value"""
