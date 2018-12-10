@@ -91,6 +91,7 @@ class NewtonSolver:
         self._solver_state.log_step(step)
         increment = krylov_solver.solve(self._fname('increment'), self._iterate, self._fcn)
         self._solver_state.log_step(fcn_complete_step)
+        increment.log('Newton increment %02d' % self._solver_state.get_iteration())
         logger.debug('returning')
         return increment
 

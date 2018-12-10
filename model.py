@@ -17,8 +17,12 @@ def get_region_cnt():
     return _model_static_vars.region_cnt
 
 def get_tracer_module_def(tracer_module_name):
-    """return the tracer_module_defs dictionary from _model_static_vars"""
+    """return an entry from tracer_module_defs"""
     return _model_static_vars.tracer_module_defs[tracer_module_name]
+
+def get_precond_matrix_def(matrix_name):
+    """return an entry from precond_matrix_defs"""
+    return _model_static_vars.precond_matrix_defs[matrix_name]
 
 def get_modelinfo(key):
     """return value associated in modelinfo with key"""
@@ -43,15 +47,15 @@ class ModelStaticVars:
         self.tracer_module_state = newton_fcn_mod.TracerModuleState
         self.newton_fcn = newton_fcn_mod.NewtonFcn()
 
-        # extract tracer_module_defs from modelinfo config object
+        # load content from tracer_module_defs_fname
         fname = modelinfo['tracer_module_defs_fname']
-        logger.log(lvl, 'reading tracer_module_defs from %s', fname)
+        logger.log(lvl, 'loading content from %s', fname)
         with open(fname, mode='r') as fptr:
-            self.tracer_module_defs = yaml.load(fptr)
-
-        self._pad_tracer_module_defs(lvl)
-
-        self._check_shadow_tracers(lvl)
+            file_contents = yaml.load(fptr)
+            self.tracer_module_defs = \
+                pad_tracer_module_defs(file_contents['tracer_module_defs'], lvl)
+            check_shadow_tracers(self.tracer_module_defs, lvl)
+            self.precond_matrix_defs = file_contents['precond_matrix_defs']
 
         # extract grid_weight from modelinfo config object
         fname = modelinfo['grid_weight_fname']
@@ -94,37 +98,38 @@ class ModelStaticVars:
 
         logger.debug('returning')
 
-    def _pad_tracer_module_defs(self, lvl):
-        """
-        Place emtpy objects in tracer module definitions where they do not exist.
-        This is to ease subsequent coding.
-        """
-        logger = logging.getLogger(__name__)
-        def_keys = {'tracer_names':'list',
-                    'shadow_tracers':'dict',
-                    'hist_to_precond_var_names':'list'}
-        for tracer_module_name, tracer_module_def in self.tracer_module_defs.items():
-            for key, value in def_keys.items():
-                if key not in tracer_module_def:
-                    logger.log(lvl, 'tracer module %s has no key %s', tracer_module_name, key)
-                    tracer_module_def[key] = [] if value == 'list' else {}
+def pad_tracer_module_defs(tracer_module_defs, lvl):
+    """
+    Place emtpy objects in tracer module definitions where they do not exist.
+    This is to ease subsequent coding.
+    """
+    logger = logging.getLogger(__name__)
+    def_keys = {'tracer_names':'list',
+                'shadow_tracers':'dict',
+                'precond_matrices':'dict'}
+    for tracer_module_name, tracer_module_def in tracer_module_defs.items():
+        for key, value in def_keys.items():
+            if key not in tracer_module_def:
+                logger.log(lvl, 'tracer module %s has no key %s', tracer_module_name, key)
+                tracer_module_def[key] = [] if value == 'list' else {}
+    return tracer_module_defs
 
-    def _check_shadow_tracers(self, lvl):
-        """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
-        # This check is done for all entries in tracer_module_defs,
-        # whether they are being used or not.
-        logger = logging.getLogger(__name__)
-        for tracer_module_name, tracer_module_def in self.tracer_module_defs.items():
-            # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
-            for shadow_tracer_name, real_tracer_name in tracer_module_def['shadow_tracers'].items():
-                if shadow_tracer_name not in tracer_module_def['tracer_names']:
-                    raise ValueError('specified shadow tracer %s in tracer module %s not known'
-                                     % (shadow_tracer_name, tracer_module_name))
-                if real_tracer_name not in tracer_module_def['tracer_names']:
-                    raise ValueError('specified tracer %s in tracer module %s not known'
-                                     % (real_tracer_name, tracer_module_name))
-                logger.log(lvl, 'tracer module %s has %s as a shadow for %s',
-                           tracer_module_name, shadow_tracer_name, real_tracer_name)
+def check_shadow_tracers(tracer_module_defs, lvl):
+    """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
+    # This check is done for all entries in tracer_module_defs,
+    # whether they are being used or not.
+    logger = logging.getLogger(__name__)
+    for tracer_module_name, tracer_module_def in tracer_module_defs.items():
+        # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
+        for shadow_tracer_name, real_tracer_name in tracer_module_def['shadow_tracers'].items():
+            if shadow_tracer_name not in tracer_module_def['tracer_names']:
+                raise ValueError('specified shadow tracer %s in tracer module %s not known'
+                                 % (shadow_tracer_name, tracer_module_name))
+            if real_tracer_name not in tracer_module_def['tracer_names']:
+                raise ValueError('specified tracer %s in tracer module %s not known'
+                                 % (real_tracer_name, tracer_module_name))
+            logger.log(lvl, 'tracer module %s has %s as a shadow for %s',
+                       tracer_module_name, shadow_tracer_name, real_tracer_name)
 
 ################################################################################
 
@@ -449,7 +454,7 @@ class ModelState:
         logger.debug('returning')
         return res
 
-    def apply_precond_jacobian(self, res_fname, solver_state):
+    def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
         """Apply preconditioner of jacobian of comp_fcn to self."""
         logger = logging.getLogger(__name__)
         logger.debug('entering, res_fname="%s"', res_fname)
@@ -462,7 +467,8 @@ class ModelState:
             return ModelState(res_fname)
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
-        res = _model_static_vars.newton_fcn.apply_precond_jacobian(self, res_fname, solver_state)
+        res = _model_static_vars.newton_fcn.apply_precond_jacobian(self, precond_fname, \
+                                                                   res_fname, solver_state)
 
         solver_state.log_step(fcn_complete_step)
 
@@ -530,7 +536,7 @@ class TracerModuleStateBase:
                   ', ModelStaticVars.__init__ must be called before TracerModuleStateBase.__init__'
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
-        self._tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
+        self._tracer_module_def = get_tracer_module_def(tracer_module_name)
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if dims is not None:
@@ -969,7 +975,7 @@ def lin_comb(coeff, fname_fcn, quantity):
         res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
     return res
 
-def gen_precond_jacobian(hist_fname, solver_state):
+def gen_precond_jacobian(hist_fname, precond_fname, solver_state):
     """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
     logger = logging.getLogger(__name__)
     logger.debug('entering, hist_fname="%s"', hist_fname)
@@ -982,7 +988,7 @@ def gen_precond_jacobian(hist_fname, solver_state):
         return
     logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-    _model_static_vars.newton_fcn.gen_precond_jacobian(hist_fname, solver_state)
+    _model_static_vars.newton_fcn.gen_precond_jacobian(hist_fname, precond_fname, solver_state)
 
     solver_state.log_step(fcn_complete_step)
 

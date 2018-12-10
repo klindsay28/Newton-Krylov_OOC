@@ -18,7 +18,7 @@ import numpy as np
 from netCDF4 import Dataset
 
 from model import TracerModuleStateBase, ModelState, ModelStaticVars
-from model import get_tracer_module_def, get_modelinfo
+from model import get_modelinfo
 
 def _parse_args():
     """parse command line arguments"""
@@ -155,19 +155,14 @@ class NewtonFcn():
         for dimname in ['nlon', 'nlat', 'z_t']:
             fptr_out.createDimension(dimname, fptr_in.dimensions[dimname].size)
 
-    def _precond_fname(self, solver_state):
-        """filename of preconditioner of jacobian of comp_fcn."""
-        return os.path.join(solver_state.get_workdir(), 'precond.nc')
-
-    def gen_precond_jacobian(self, hist_fname, solver_state):
+    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        with Dataset(hist_fname, 'r') as fptr_in, \
-                Dataset(self._precond_fname(solver_state), 'w') as fptr_out:
+        with Dataset(hist_fname, 'r') as fptr_in, Dataset(precond_fname, 'w') as fptr_out:
             # define output vars
             self._def_dims(fptr_in, fptr_out)
 
             for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-                tracer_module_def = get_tracer_module_def(tracer_module_name)
+                tracer_module_def = get_modelinfo('tracer_module_defs')[tracer_module_name]
                 for hist_to_precond_var_name in tracer_module_def['hist_to_precond_var_names']:
                     hist_var_name, _, time_op = hist_to_precond_var_name.partition(':')
                     hist_var = fptr_in.variables[hist_var_name]
@@ -201,22 +196,22 @@ class NewtonFcn():
                         except AttributeError:
                             pass
 
-        self._gen_precond_matrix_files(solver_state)
+        self._gen_precond_matrix_files(precond_fname, solver_state)
 
-    def _gen_precond_matrix_files(self, solver_state):
+    def _gen_precond_matrix_files(self, precond_fname, solver_state):
         """Generate matrix files for preconditioner of jacobian of comp_fcn."""
         jacobian_precond_tools_dir = get_modelinfo('jacobian_precond_tools_dir')
 
-        tracer_module_base_def = get_tracer_module_def('base')
+        tracer_module_base_def = get_modelinfo('tracer_module_defs')['base']
         matrix_base_opts = tracer_module_base_def['precond_matrices_opts']
 
         opt_str_subs = {'day_cnt':365*_yr_cnt(),
-                        'precond_fname':self._precond_fname(solver_state),
+                        'precond_fname':precond_fname,
                         'reg_fname':get_modelinfo('region_mask_fname'),
                         'irf_fname':get_modelinfo('irf_fname')}
 
         for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
-            tracer_module_def = get_tracer_module_def(tracer_module_name)
+            tracer_module_def = get_modelinfo('tracer_module_defs')[tracer_module_name]
             for matrix_name, matrix_opts in tracer_module_def['precond_matrices_opts'].items():
                 matrix_opts_fname = os.path.join(solver_state.get_workdir(),
                                                  'matrix_'+matrix_name+'.opts')
@@ -229,7 +224,7 @@ class NewtonFcn():
                        '-D1', '-o', matrix_opts_fname, matrix_fname]
                 subprocess.run(cmd, check=True)
 
-    def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
+    def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
@@ -244,8 +239,8 @@ class NewtonFcn():
 
         lin_eqns_soln_fname = os.path.join(os.path.dirname(res_fname),
                                            'lin_eqns_soln_'+os.path.basename(res_fname))
-        ms_res = _apply_precond_jacobian_solve_lin_eqns(ms_in, self._precond_fname(solver_state),
-                                                        lin_eqns_soln_fname, solver_state)
+        ms_res = _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, lin_eqns_soln_fname,
+                                                        solver_state)
 
         ms_res -= ms_in
 
@@ -305,7 +300,7 @@ def _gen_post_modelrun_script(script_fname):
     cwd = os.path.dirname(os.path.realpath(__file__))
     batch_cmd_script = get_modelinfo('batch_cmd_script').replace('\n', ' ').replace('\r', ' ')
     with open(script_fname, mode='w') as fptr:
-        fptr.write('#!/bin/bash\n')
+        fptr.write('#!/bin/bash -l\n')
         fptr.write('cd %s\n' % cwd)
         fptr.write('%s %s --resume\n' % (batch_cmd_script,
                                          get_modelinfo('nk_driver_invoker_fname')))
@@ -427,7 +422,7 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
     nprow, npcol = _matrix_block_decomp()
 
     for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
-        tracer_module_def = get_tracer_module_def(tracer_module_name)
+        tracer_module_def = get_modelinfo('tracer_module_defs')[tracer_module_name]
         for matrix_name, matrix_opts in tracer_module_def['precond_matrices_opts'].items():
             matrix_fname = os.path.join(solver_state.get_workdir(),
                                         'matrix_'+matrix_name+'.nc')
@@ -474,7 +469,7 @@ def _tracer_names_list(matrix_name, matrix_opts):
     return tracer_names
 
 def _tracer_names_str(matrix_name, matrix_opts):
-    """comma seperated string of tracers being solved for"""
+    """comma separated string of tracers being solved for"""
     return ','.join([tracer_name+'_CUR' for tracer_name \
                      in _tracer_names_list(matrix_name, matrix_opts)])
 
@@ -521,7 +516,7 @@ def _case_submit():
     cwd = os.path.dirname(os.path.realpath(__file__))
     script_fname = os.path.join(cwd, 'generated_scripts', 'case_submit.sh')
     with open(script_fname, mode='w') as fptr:
-        fptr.write('#!/bin/bash\n')
+        fptr.write('#!/bin/bash -l\n')
         fptr.write('source %s\n' % get_modelinfo('cime_env_cmds_fname'))
         fptr.write('cd %s\n' % get_modelinfo('caseroot'))
         fptr.write('./case.submit\n')

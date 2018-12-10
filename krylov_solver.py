@@ -35,7 +35,7 @@ class KrylovSolver:
         self._workdir = workdir
         self._solver_state = SolverState('Krylov', workdir, resume, rewind)
 
-        gen_precond_jacobian(hist_fname, self._solver_state)
+        gen_precond_jacobian(hist_fname, self._fname('precond', 0), self._solver_state)
 
         logger.debug('returning')
 
@@ -57,7 +57,9 @@ class KrylovSolver:
         fcn_complete_step = '_solve0 complete'
         if not self._solver_state.step_logged(fcn_complete_step):
             # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-            precond_fcn = fcn.apply_precond_jacobian(self._fname('precond_fcn'), self._solver_state)
+            precond_fcn = fcn.apply_precond_jacobian(self._fname('precond', 0),
+                                                     self._fname('precond_fcn'),
+                                                     self._solver_state)
             beta = precond_fcn.norm()
             (-precond_fcn / beta).dump(self._fname('basis'))
             self._solver_state.set_value_saved_state('beta_ndarray', to_ndarray(beta))
@@ -81,7 +83,8 @@ class KrylovSolver:
             basis_j = ModelState(self._fname('basis'))
             w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._fname('w_raw'),
                                                          self._solver_state)
-            w_j = w_raw.apply_precond_jacobian(self._fname('w'), self._solver_state)
+            w_j = w_raw.apply_precond_jacobian(self._fname('precond', 0), self._fname('w'),
+                                               self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()
             w_j /= h_mat[:, -1, -1]

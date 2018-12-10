@@ -17,7 +17,7 @@ from scipy.integrate import solve_ivp
 from netCDF4 import Dataset
 
 from model import TracerModuleStateBase, ModelState, ModelStaticVars
-from model import get_tracer_module_def, get_modelinfo
+from model import get_tracer_module_def, get_precond_matrix_def, get_modelinfo
 from solver import SolverState
 
 def _parse_args():
@@ -30,6 +30,7 @@ def _parse_args():
                         default='newton_krylov.cfg')
     parser.add_argument('--workdir', help='directory that filename are relative to', default='.')
     parser.add_argument('--hist_fname', help='name of history file', default=None)
+    parser.add_argument('--precond_fname', help='name of precond file', default=None)
     parser.add_argument('--in_fname', help='name of file with input')
     parser.add_argument('--res_fname', help='name of file for result')
     return parser.parse_args()
@@ -62,11 +63,14 @@ def main(args):
         newton_fcn.comp_fcn(ms_in, os.path.join(args.workdir, args.res_fname), None,
                             os.path.join(args.workdir, args.hist_fname))
     elif args.cmd == 'gen_precond_jacobian':
-        newton_fcn.gen_precond_jacobian(os.path.join(args.workdir, args.hist_fname), solver_state)
+        newton_fcn.gen_precond_jacobian(
+            os.path.join(args.workdir, args.hist_fname),
+            os.path.join(args.workdir, args.precond_fname), solver_state)
     elif args.cmd == 'apply_precond_jacobian':
         ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
-        newton_fcn.apply_precond_jacobian(ms_in, os.path.join(args.workdir, args.res_fname),
-                                          solver_state)
+        newton_fcn.apply_precond_jacobian(
+            ms_in, os.path.join(args.workdir, args.precond_fname),
+            os.path.join(args.workdir, args.res_fname), solver_state)
     else:
         raise ValueError('unknown cmd=%s' % args.cmd)
 
@@ -322,55 +326,64 @@ class NewtonFcn():
                 fptr.variables['mixing_coeff'][time_ind, :] = \
                     (1.0 / 86400.0) * self.depth.mixing_coeff(time)
 
-    def _precond_fname(self, solver_state):
-        """filename of preconditioner of jacobian of comp_fcn."""
-        return os.path.join(solver_state.get_workdir(), 'precond.nc')
+    def precond_matrix_list(self):
+        """Return list of precond matrices being used"""
+        res = ['base']
+        for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
+            tracer_module_def = get_tracer_module_def(tracer_module_name)
+            res.extend(tracer_module_def['precond_matrices'].values())
+        return res
 
-    def gen_precond_jacobian(self, hist_fname, solver_state):
+    def hist_vars_for_precond_list(self):
+        """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
+        res = []
+        for matrix_name in self.precond_matrix_list():
+            precond_matrix_def = get_precond_matrix_def(matrix_name)
+            if 'hist_to_precond_var_names' in precond_matrix_def:
+                res.extend(precond_matrix_def['hist_to_precond_var_names'])
+        return res
+
+    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        with Dataset(hist_fname, 'r') as fptr_in, \
-                Dataset(self._precond_fname(solver_state), 'w') as fptr_out:
+        with Dataset(hist_fname, 'r') as fptr_in, Dataset(precond_fname, 'w') as fptr_out:
             # define output vars
             self._def_dims(fptr_out)
             self._def_coord_vars(fptr_out)
             self._write_coord_vars(fptr_out)
 
-            for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-                tracer_module_def = get_tracer_module_def(tracer_module_name)
-                for hist_to_precond_var_name in tracer_module_def['hist_to_precond_var_names']:
-                    hist_var_name, _, time_op = hist_to_precond_var_name.partition(':')
-                    hist_var = fptr_in.variables[hist_var_name]
+            for hist_var in self.hist_vars_for_precond_list():
+                hist_var_name, _, time_op = hist_var.partition(':')
+                hist_var = fptr_in.variables[hist_var_name]
 
-                    if time_op not in ['avg', 'log_avg', 'copy', '']:
-                        raise ValueError('unknown time_op=%s in %s for %s'
-                                         % (time_op, hist_to_precond_var_name, tracer_module_name))
+                if time_op not in ['avg', 'log_avg', 'copy', '']:
+                    raise ValueError('unknown time_op=%s in %s' % (time_op, hist_var))
 
-                    if time_op == 'avg':
-                        precond_var = fptr_out.createVariable(hist_var_name+'_avg',
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions[1:])
-                        precond_var.long_name = hist_var.long_name+', avg over time dim'
-                        precond_var[:] = hist_var[:].mean(axis=0)
-                    elif time_op == 'log_avg':
-                        precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions[1:])
-                        precond_var.long_name = hist_var.long_name+', log avg over time dim'
-                        precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
-                    else:
-                        precond_var = fptr_out.createVariable(hist_var_name,
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions)
-                        precond_var.long_name = hist_var.long_name
-                        precond_var[:] = hist_var[:]
+                if time_op == 'avg':
+                    precond_var = fptr_out.createVariable(hist_var_name+'_avg',
+                                                          hist_var.datatype,
+                                                          dimensions=hist_var.dimensions[1:])
+                    precond_var.long_name = hist_var.long_name+', avg over time dim'
+                    precond_var[:] = hist_var[:].mean(axis=0)
+                elif time_op == 'log_avg':
+                    precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
+                                                          hist_var.datatype,
+                                                          dimensions=hist_var.dimensions[1:])
+                    precond_var.long_name = hist_var.long_name+', log avg over time dim'
+                    precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
+                else:
+                    precond_var = fptr_out.createVariable(hist_var_name,
+                                                          hist_var.datatype,
+                                                          dimensions=hist_var.dimensions)
+                    precond_var.long_name = hist_var.long_name
+                    precond_var[:] = hist_var[:]
 
-                    for att_name in ['units', 'coordinates', 'positive']:
-                        try:
-                            setattr(precond_var, att_name, getattr(hist_var, att_name))
-                        except AttributeError:
-                            pass
+                for att_name in ['units', 'coordinates', 'positive']:
+                    try:
+                        setattr(precond_var, att_name, getattr(hist_var, att_name))
+                    except AttributeError:
+                        pass
 
-    def apply_precond_jacobian(self, ms_in, res_fname, solver_state):
+    def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
@@ -383,7 +396,7 @@ class NewtonFcn():
 
         ms_res = ms_in.copy()
 
-        with Dataset(self._precond_fname(solver_state), 'r') as fptr:
+        with Dataset(precond_fname, 'r') as fptr:
             # hist and precond files have mixing_coeff in m2 s-1
             # convert back to model units of m2 d-1
             mca = 86400.0 * fptr.variables['mixing_coeff_log_avg'][:]

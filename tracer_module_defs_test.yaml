@@ -1,7 +1,10 @@
-iage_test:
-    tracer_names: [iage_test]
-phosphorus:
-    tracer_names: [po4, dop, pop, po4_s, dop_s, pop_s]
-    shadow_tracers: {dop_s: dop, po4_s: po4, pop_s: pop}
-base:
-    hist_to_precond_var_names: ['mixing_coeff:avg', 'mixing_coeff:log_avg']
+tracer_module_defs:
+    iage_test:
+        tracer_names: [iage_test]
+    phosphorus:
+        tracer_names: [po4, dop, pop, po4_s, dop_s, pop_s]
+        shadow_tracers: {dop_s: dop, po4_s: po4, pop_s: pop}
+
+precond_matrix_defs:
+    base:
+        hist_to_precond_var_names: ['mixing_coeff:avg', 'mixing_coeff:log_avg']
