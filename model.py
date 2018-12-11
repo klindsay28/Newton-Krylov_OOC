@@ -53,9 +53,14 @@ class ModelStaticVars:
         with open(fname, mode='r') as fptr:
             file_contents = yaml.load(fptr)
             self.tracer_module_defs = \
-                pad_tracer_module_defs(file_contents['tracer_module_defs'], lvl)
+                pad_defs(file_contents['tracer_module_defs'], 'tracer module',
+                         {'tracer_names':'list', 'shadow_tracers':'dict',
+                          'precond_matrices':'dict'}, lvl)
             check_shadow_tracers(self.tracer_module_defs, lvl)
-            self.precond_matrix_defs = file_contents['precond_matrix_defs']
+            self.precond_matrix_defs = \
+                pad_defs(file_contents['precond_matrix_defs'], 'precond matrix',
+                         {'hist_to_precond_var_names':'list'}, lvl)
+            check_precond_matrix_defs(self.precond_matrix_defs)
 
         # extract grid_weight from modelinfo config object
         fname = modelinfo['grid_weight_fname']
@@ -98,21 +103,18 @@ class ModelStaticVars:
 
         logger.debug('returning')
 
-def pad_tracer_module_defs(tracer_module_defs, lvl):
+def pad_defs(def_dict, obj_desc, def_entries, lvl):
     """
-    Place emtpy objects in tracer module definitions where they do not exist.
+    Place emtpy objects in dict of definitions where they do not exist.
     This is to ease subsequent coding.
     """
     logger = logging.getLogger(__name__)
-    def_keys = {'tracer_names':'list',
-                'shadow_tracers':'dict',
-                'precond_matrices':'dict'}
-    for tracer_module_name, tracer_module_def in tracer_module_defs.items():
-        for key, value in def_keys.items():
-            if key not in tracer_module_def:
-                logger.log(lvl, 'tracer module %s has no key %s', tracer_module_name, key)
-                tracer_module_def[key] = [] if value == 'list' else {}
-    return tracer_module_defs
+    for def_dict_key, def_dict_value in def_dict.items():
+        for entry, entry_type in def_entries.items():
+            if entry not in def_dict_value:
+                logger.log(lvl, '%s %s has no entry %s', obj_desc, def_dict_key, entry)
+                def_dict_value[entry] = [] if entry_type == 'list' else {}
+    return def_dict
 
 def check_shadow_tracers(tracer_module_defs, lvl):
     """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
@@ -130,6 +132,18 @@ def check_shadow_tracers(tracer_module_defs, lvl):
                                  % (real_tracer_name, tracer_module_name))
             logger.log(lvl, 'tracer module %s has %s as a shadow for %s',
                        tracer_module_name, shadow_tracer_name, real_tracer_name)
+
+def check_precond_matrix_defs(precond_matrix_defs):
+    """Perform basic vetting of precond_matrix_defs"""
+    # This check is done for all entries in def_dict,
+    # whether they are being used or not.
+    for precond_matrix_name, precond_matrix_def in precond_matrix_defs.items():
+        # verify that suffixes in hist_to_precond_var_names are recognized
+        for hist_var in precond_matrix_def['hist_to_precond_var_names']:
+            _, _, time_op = hist_var.partition(':')
+            if time_op not in ['avg', 'log_avg', 'copy', '']:
+                raise ValueError('unknown time_op=%s in %s from %s'
+                                 % (time_op, hist_var, precond_matrix_name))
 
 ################################################################################
 

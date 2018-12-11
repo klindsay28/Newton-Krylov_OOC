@@ -17,8 +17,8 @@ import numpy as np
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars
-from model import get_modelinfo
+from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
+from newton_fcn_base import NewtonFcnBase
 
 def _parse_args():
     """parse command line arguments"""
@@ -131,7 +131,7 @@ class TracerModuleState(TracerModuleStateBase):
 
 ################################################################################
 
-class NewtonFcn():
+class NewtonFcn(NewtonFcnBase):
     """class of methods related to problem being solved with Newton's method"""
     def __init__(self):
         pass
@@ -150,51 +150,10 @@ class NewtonFcn():
         logger.debug('returning')
         return ms_res.dump(res_fname)
 
-    def _def_dims(self, fptr_in, fptr_out):
-        """define netCDF4 dimensions relevant to cesm_pop"""
-        for dimname in ['nlon', 'nlat', 'z_t']:
-            fptr_out.createDimension(dimname, fptr_in.dimensions[dimname].size)
-
     def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        with Dataset(hist_fname, 'r') as fptr_in, Dataset(precond_fname, 'w') as fptr_out:
-            # define output vars
-            self._def_dims(fptr_in, fptr_out)
 
-            for tracer_module_name in get_modelinfo('tracer_module_names').split(',')+['base']:
-                tracer_module_def = get_modelinfo('tracer_module_defs')[tracer_module_name]
-                for hist_to_precond_var_name in tracer_module_def['hist_to_precond_var_names']:
-                    hist_var_name, _, time_op = hist_to_precond_var_name.partition(':')
-                    hist_var = fptr_in.variables[hist_var_name]
-
-                    if time_op not in ['avg', 'log_avg', 'copy', '']:
-                        raise ValueError('unknown time_op=%s in %s for %s'
-                                         % (time_op, hist_to_precond_var_name, tracer_module_name))
-
-                    if time_op == 'avg':
-                        precond_var = fptr_out.createVariable(hist_var_name+'_avg',
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions[1:])
-                        precond_var.long_name = hist_var.long_name+', avg over time dim'
-                        precond_var[:] = hist_var[:].mean(axis=0)
-                    elif time_op == 'log_avg':
-                        precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions[1:])
-                        precond_var.long_name = hist_var.long_name+', log avg over time dim'
-                        precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
-                    else:
-                        precond_var = fptr_out.createVariable(hist_var_name,
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions)
-                        precond_var.long_name = hist_var.long_name
-                        precond_var[:] = hist_var[:]
-
-                    for att_name in ['units', 'coordinates', 'positive']:
-                        try:
-                            setattr(precond_var, att_name, getattr(hist_var, att_name))
-                        except AttributeError:
-                            pass
+        super().gen_precond_jacobian(hist_fname, precond_fname, solver_state)
 
         self._gen_precond_matrix_files(precond_fname, solver_state)
 

@@ -16,8 +16,8 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars
-from model import get_tracer_module_def, get_precond_matrix_def, get_modelinfo
+from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
+from newton_fcn_base import NewtonFcnBase
 from solver import SolverState
 
 def _parse_args():
@@ -144,7 +144,7 @@ class TracerModuleState(TracerModuleStateBase):
 
 ################################################################################
 
-class NewtonFcn():
+class NewtonFcn(NewtonFcnBase):
     """class of methods related to problem being solved with Newton's method"""
     def __init__(self):
         self.time_range = (0.0, 365.0)
@@ -276,13 +276,13 @@ class NewtonFcn():
         tracer_flux_neg[1:-1] = -tracer_vals[:-1] # assume velocity is 1 m / day
         return np.ediff1d(tracer_flux_neg) * self.depth.axis.delta_r
 
-    def _def_dims(self, fptr):
+    def _def_hist_dims(self, fptr):
         """define netCDF4 dimensions relevant to test_problem"""
         fptr.createDimension('time', None)
         fptr.createDimension('depth', self.depth.axis.nlevs)
         fptr.createDimension('depth_edges', 1+self.depth.axis.nlevs)
 
-    def _def_coord_vars(self, fptr):
+    def _def_hist_coord_vars(self, fptr):
         """define netCDF4 coordinate vars relevant to test_problem"""
         fptr.createVariable('time', 'f8', dimensions=('time',))
         fptr.variables['time'].long_name = 'time'
@@ -296,18 +296,17 @@ class NewtonFcn():
         fptr.variables['depth_edges'].long_name = 'depth_edges'
         fptr.variables['depth_edges'].units = 'm'
 
-    def _write_coord_vars(self, fptr, sol=None):
+    def _write_hist_coord_vars(self, fptr, sol):
         """write netCDF4 coordinate vars relevant to test_problem"""
-        if sol is not None:
-            fptr.variables['time'][:] = sol.t
+        fptr.variables['time'][:] = sol.t
         fptr.variables['depth'][:] = self.depth.axis.mid
         fptr.variables['depth_edges'][:] = self.depth.axis.edges
 
     def _write_hist(self, sol, hist_fname):
         """write tracer values generated in comp_fcn to hist_fname"""
         with Dataset(hist_fname, mode='w') as fptr:
-            self._def_dims(fptr)
-            self._def_coord_vars(fptr)
+            self._def_hist_dims(fptr)
+            self._def_hist_coord_vars(fptr)
 
             for tracer_name in self._tracer_names:
                 fptr.createVariable(tracer_name, 'f8', dimensions=('time', 'depth'))
@@ -316,7 +315,7 @@ class NewtonFcn():
             fptr.variables['mixing_coeff'].long_name = 'vertical mixing coefficient'
             fptr.variables['mixing_coeff'].units = 'm2 s-1'
 
-            self._write_coord_vars(fptr, sol)
+            self._write_hist_coord_vars(fptr, sol)
 
             tracer_vals = sol.y.reshape((len(self._tracer_names), self.depth.axis.nlevs, -1))
             for tracer_ind, tracer_name in enumerate(self._tracer_names):
@@ -325,63 +324,6 @@ class NewtonFcn():
             for time_ind, time in enumerate(sol.t):
                 fptr.variables['mixing_coeff'][time_ind, :] = \
                     (1.0 / 86400.0) * self.depth.mixing_coeff(time)
-
-    def precond_matrix_list(self):
-        """Return list of precond matrices being used"""
-        res = ['base']
-        for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
-            tracer_module_def = get_tracer_module_def(tracer_module_name)
-            res.extend(tracer_module_def['precond_matrices'].values())
-        return res
-
-    def hist_vars_for_precond_list(self):
-        """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
-        res = []
-        for matrix_name in self.precond_matrix_list():
-            precond_matrix_def = get_precond_matrix_def(matrix_name)
-            if 'hist_to_precond_var_names' in precond_matrix_def:
-                res.extend(precond_matrix_def['hist_to_precond_var_names'])
-        return res
-
-    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
-        """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        with Dataset(hist_fname, 'r') as fptr_in, Dataset(precond_fname, 'w') as fptr_out:
-            # define output vars
-            self._def_dims(fptr_out)
-            self._def_coord_vars(fptr_out)
-            self._write_coord_vars(fptr_out)
-
-            for hist_var in self.hist_vars_for_precond_list():
-                hist_var_name, _, time_op = hist_var.partition(':')
-                hist_var = fptr_in.variables[hist_var_name]
-
-                if time_op not in ['avg', 'log_avg', 'copy', '']:
-                    raise ValueError('unknown time_op=%s in %s' % (time_op, hist_var))
-
-                if time_op == 'avg':
-                    precond_var = fptr_out.createVariable(hist_var_name+'_avg',
-                                                          hist_var.datatype,
-                                                          dimensions=hist_var.dimensions[1:])
-                    precond_var.long_name = hist_var.long_name+', avg over time dim'
-                    precond_var[:] = hist_var[:].mean(axis=0)
-                elif time_op == 'log_avg':
-                    precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
-                                                          hist_var.datatype,
-                                                          dimensions=hist_var.dimensions[1:])
-                    precond_var.long_name = hist_var.long_name+', log avg over time dim'
-                    precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
-                else:
-                    precond_var = fptr_out.createVariable(hist_var_name,
-                                                          hist_var.datatype,
-                                                          dimensions=hist_var.dimensions)
-                    precond_var.long_name = hist_var.long_name
-                    precond_var[:] = hist_var[:]
-
-                for att_name in ['units', 'coordinates', 'positive']:
-                    try:
-                        setattr(precond_var, att_name, getattr(hist_var, att_name))
-                    except AttributeError:
-                        pass
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
