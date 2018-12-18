@@ -236,11 +236,7 @@ class ModelState:
         called to evaluate res = self + other
         """
         res = ModelState()
-        if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            res._tracer_modules = self._tracer_modules + other # pylint: disable=W0212
-        elif isinstance(other, ModelState):
+        if isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -258,11 +254,7 @@ class ModelState:
         inplace addition operator
         called to evaluate self += other
         """
-        if isinstance(other, float):
-            self._tracer_modules += other
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            self._tracer_modules += other
-        elif isinstance(other, ModelState):
+        if isinstance(other, ModelState):
             self._tracer_modules += other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -274,11 +266,7 @@ class ModelState:
         called to evaluate res = self - other
         """
         res = ModelState()
-        if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            res._tracer_modules = self._tracer_modules - other # pylint: disable=W0212
-        elif isinstance(other, ModelState):
+        if isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -289,11 +277,7 @@ class ModelState:
         inplace subtraction operator
         called to evaluate self -= other
         """
-        if isinstance(other, float):
-            self._tracer_modules -= other
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            self._tracer_modules -= other
-        elif isinstance(other, ModelState):
+        if isinstance(other, ModelState):
             self._tracer_modules -= other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -426,7 +410,7 @@ class ModelState:
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
         res = _model_static_vars.newton_fcn.comp_fcn(self, res_fname, solver_state, hist_fname)
-        res.zero_extra_tracers().dump(res_fname)
+        res.zero_extra_tracers().apply_region_mask().dump(res_fname)
 
         solver_state.log_step(fcn_complete_step)
 
@@ -569,6 +553,12 @@ class ModelState:
             tracer_module.zero_extra_tracers()
         return self
 
+    def apply_region_mask(self):
+        """set _vals to zero where region_mask == 0"""
+        for tracer_module in self._tracer_modules:
+            tracer_module.apply_region_mask()
+        return self
+
 ################################################################################
 
 class TracerModuleStateBase:
@@ -671,11 +661,7 @@ class TracerModuleStateBase:
         called to evaluate res = self + other
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
-        if isinstance(other, float):
-            res._vals = self._vals + other # pylint: disable=W0212
-        elif isinstance(other, RegionScalars):
-            res._vals = self._vals + other.broadcast(0.0) # pylint: disable=W0212
-        elif isinstance(other, TracerModuleStateBase):
+        if isinstance(other, TracerModuleStateBase):
             res._vals = self._vals + other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -686,11 +672,7 @@ class TracerModuleStateBase:
         inplace addition operator
         called to evaluate self += other
         """
-        if isinstance(other, float):
-            self._vals += other
-        elif isinstance(other, RegionScalars):
-            self._vals += other.broadcast(0.0)
-        elif isinstance(other, TracerModuleStateBase):
+        if isinstance(other, TracerModuleStateBase):
             self._vals += other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -702,11 +684,7 @@ class TracerModuleStateBase:
         called to evaluate res = self - other
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
-        if isinstance(other, float):
-            res._vals = self._vals - other # pylint: disable=W0212
-        elif isinstance(other, RegionScalars):
-            res._vals = self._vals - other.broadcast(0.0) # pylint: disable=W0212
-        elif isinstance(other, TracerModuleStateBase):
+        if isinstance(other, TracerModuleStateBase):
             res._vals = self._vals - other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -717,11 +695,7 @@ class TracerModuleStateBase:
         inplace subtraction operator
         called to evaluate self -= other
         """
-        if isinstance(other, float):
-            self._vals -= other
-        elif isinstance(other, RegionScalars):
-            self._vals -= other.broadcast(0.0)
-        elif isinstance(other, TracerModuleStateBase):
+        if isinstance(other, TracerModuleStateBase):
             self._vals -= other._vals # pylint: disable=W0212
         else:
             return NotImplemented
@@ -899,6 +873,12 @@ class TracerModuleStateBase:
         """set extra tracers (i.e., not being solved for) to zero"""
         for tracer_ind in self.extra_tracer_inds():
             self._vals[tracer_ind, :] = 0.0
+
+    def apply_region_mask(self):
+        """set _vals to zero where region_mask == 0"""
+        for tracer_ind in range(self.tracer_cnt()):
+            self._vals[tracer_ind, :] = np.where(_model_static_vars.region_mask != 0,
+                                                 self._vals[tracer_ind, :], 0.0)
 
 ################################################################################
 
