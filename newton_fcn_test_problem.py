@@ -58,16 +58,15 @@ def main(args):
 
     solver_state = SolverState('newton_fcn_test_problem', args.workdir)
 
+    ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
     if args.cmd == 'comp_fcn':
-        ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
         newton_fcn.comp_fcn(ms_in, os.path.join(args.workdir, args.res_fname), None,
                             os.path.join(args.workdir, args.hist_fname))
     elif args.cmd == 'gen_precond_jacobian':
         newton_fcn.gen_precond_jacobian(
-            os.path.join(args.workdir, args.hist_fname),
+            ms_in, os.path.join(args.workdir, args.hist_fname),
             os.path.join(args.workdir, args.precond_fname), solver_state)
     elif args.cmd == 'apply_precond_jacobian':
-        ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
         newton_fcn.apply_precond_jacobian(
             ms_in, os.path.join(args.workdir, args.precond_fname),
             os.path.join(args.workdir, args.res_fname), solver_state)

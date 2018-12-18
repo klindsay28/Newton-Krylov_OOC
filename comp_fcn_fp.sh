@@ -21,6 +21,7 @@ while [ $fp_ind -lt $fp_cnt ]; do
         --res_fname fcn_test_00_fp${fp_ind}.nc
     ./$newton_fcn_script gen_precond_jacobian --workdir $workdir \
         --hist_fname hist_00_fp${fp_ind}.nc \
+        --in_fname iterate_test_00_fp${fp_ind}.nc \
         --precond_fname precond_00_fp${fp_ind}.nc
     ./$newton_fcn_script apply_precond_jacobian --workdir $workdir \
         --in_fname fcn_test_00_fp${fp_ind}.nc \

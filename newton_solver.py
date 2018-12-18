@@ -87,7 +87,7 @@ class NewtonSolver:
         resume = rewind or self._solver_state.step_logged(step)
         if not resume:
             self.log()
-        krylov_solver = KrylovSolver(krylov_dir, resume, rewind, self._fname('hist'))
+        krylov_solver = KrylovSolver(self._iterate, krylov_dir, resume, rewind, self._fname('hist'))
         self._solver_state.log_step(step)
         increment = krylov_solver.solve(self._fname('increment'), self._iterate, self._fcn)
         self._solver_state.log_step(fcn_complete_step)

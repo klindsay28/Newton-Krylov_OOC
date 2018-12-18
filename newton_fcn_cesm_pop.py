@@ -4,7 +4,6 @@
 from __future__ import division
 
 import argparse
-import collections
 import configparser
 import glob
 import logging
@@ -20,13 +19,14 @@ import numpy as np
 from netCDF4 import Dataset
 
 from model import TracerModuleStateBase, ModelState, ModelStaticVars
-from model import get_tracer_module_def, get_precond_matrix_def, get_modelinfo
+from model import get_precond_matrix_def, get_modelinfo
 from newton_fcn_base import NewtonFcnBase
 
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(description="cesm pop hooks for Newton-Krylov solver")
-    parser.add_argument('cmd', choices=['comp_fcn', 'apply_precond_jacobian'],
+    parser.add_argument('cmd', choices=['comp_fcn', 'gen_precond_jacobian',
+                                        'apply_precond_jacobian'],
                         help='command to run')
     parser.add_argument('--cfg_fname', help='name of configuration file',
                         default='newton_krylov_cesm_pop.cfg')
@@ -55,6 +55,9 @@ def main(args):
     ModelStaticVars(config['modelinfo'])
 
     if args.cmd == 'comp_fcn':
+        raise NotImplementedError(
+            '%s not implemented for command line execution in %s ' % (args.cmd, __file__))
+    elif args.cmd == 'gen_precond_jacobian':
         raise NotImplementedError(
             '%s not implemented for command line execution in %s ' % (args.cmd, __file__))
     elif args.cmd == 'apply_precond_jacobian':
@@ -153,14 +156,14 @@ class NewtonFcn(NewtonFcnBase):
         logger.debug('returning')
         return ms_res.dump(res_fname)
 
-    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
+    def gen_precond_jacobian(self, iterate, hist_fname, precond_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
 
-        super().gen_precond_jacobian(hist_fname, precond_fname, solver_state)
+        super().gen_precond_jacobian(iterate, hist_fname, precond_fname, solver_state)
 
-        self._gen_precond_matrix_files(precond_fname, solver_state)
+        self._gen_precond_matrix_files(iterate, precond_fname, solver_state)
 
-    def _gen_precond_matrix_files(self, precond_fname, solver_state):
+    def _gen_precond_matrix_files(self, iterate, precond_fname, solver_state):
         """Generate matrix files for preconditioner of jacobian of comp_fcn."""
         jacobian_precond_tools_dir = get_modelinfo('jacobian_precond_tools_dir')
 
@@ -172,7 +175,7 @@ class NewtonFcn(NewtonFcnBase):
                         'reg_fname':get_modelinfo('region_mask_fname'),
                         'irf_fname':get_modelinfo('irf_fname')}
 
-        for matrix_name in self._precond_matrix_list():
+        for matrix_name in iterate.precond_matrix_list():
             matrix_opts = get_precond_matrix_def(matrix_name)['precond_matrices_opts']
             matrix_opts_fname = os.path.join(solver_state.get_workdir(),
                                              'matrix_'+matrix_name+'.opts')
@@ -382,20 +385,9 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
     # determine size of decomposition to be used in matrix factorization
     nprow, npcol = _matrix_block_decomp()
 
-    # construct list of tracers for each matrix
-    matrix_tracer_names_od = collections.OrderedDict()
-    for tracer_module in ms_in._tracer_modules:
-        tracer_module_def = tracer_module._tracer_module_def
-        for tracer_name in tracer_module.tracer_names():
-            matrix_name = tracer_module_def['precond_matrices'][tracer_name]
-            if matrix_name not in matrix_tracer_names_od:
-                matrix_tracer_names_od[matrix_name] = [tracer_name]
-            else:
-                matrix_tracer_names_od[matrix_name].append(tracer_name)
-
     tracer_names_all = ms_in.tracer_names()
 
-    for matrix_name, tracer_names_subset in matrix_tracer_names_od.items():
+    for matrix_name, tracer_names_subset in ms_in.tracer_names_per_precond_matrix().items():
         matrix_fname = os.path.join(solver_state.get_workdir(),
                                     'matrix_'+matrix_name+'.nc')
         cmd = [get_modelinfo('mpi_cmd'),

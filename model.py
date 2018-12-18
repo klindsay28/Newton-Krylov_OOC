@@ -1,5 +1,6 @@
 """class for representing the state space of a model, and operations on it"""
 
+import collections
 import importlib
 import logging
 import os
@@ -15,10 +16,6 @@ _model_static_vars = None
 def get_region_cnt():
     """return number of regions specified by region_mask"""
     return _model_static_vars.region_cnt
-
-def get_tracer_module_def(tracer_module_name):
-    """return an entry from tracer_module_defs"""
-    return _model_static_vars.tracer_module_defs[tracer_module_name]
 
 def get_precond_matrix_def(matrix_name):
     """return an entry from precond_matrix_defs"""
@@ -468,6 +465,47 @@ class ModelState:
         logger.debug('returning')
         return res
 
+    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
+        """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
+        logger = logging.getLogger(__name__)
+        logger.debug('entering, hist_fname="%s"', hist_fname)
+
+        cmd = 'gen_precond_jacobian'
+        fcn_complete_step = '%s done for %s' % (cmd, hist_fname)
+
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning', fcn_complete_step)
+            return
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+        _model_static_vars.newton_fcn.gen_precond_jacobian(self, hist_fname, precond_fname,
+                                                           solver_state)
+
+        solver_state.log_step(fcn_complete_step)
+
+        logger.debug('returning')
+
+    def hist_vars_for_precond_list(self):
+        """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
+        res = []
+        for matrix_name in self.precond_matrix_list()+['base']:
+            res.extend(get_precond_matrix_def(matrix_name)['hist_to_precond_var_names'])
+        return res
+
+    def precond_matrix_list(self):
+        """Return list of precond matrices being used"""
+        res = []
+        for tracer_module in self._tracer_modules:
+            res.extend(tracer_module.precond_matrix_list())
+        return res
+
+    def tracer_names_per_precond_matrix(self):
+        """Return OrderedDict of tracer names for each precond matrix"""
+        res = collections.OrderedDict()
+        for tracer_module in self._tracer_modules:
+            tracer_module.append_tracer_names_per_precond_matrix(res)
+        return res
+
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
         """Apply preconditioner of jacobian of comp_fcn to self."""
         logger = logging.getLogger(__name__)
@@ -550,7 +588,7 @@ class TracerModuleStateBase:
                   ', ModelStaticVars.__init__ must be called before TracerModuleStateBase.__init__'
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
-        self._tracer_module_def = get_tracer_module_def(tracer_module_name)
+        self._tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
         if dims is None != vals_fname is None:
             raise ValueError('exactly one of dims and vals_fname must be passed')
         if dims is not None:
@@ -807,6 +845,21 @@ class TracerModuleStateBase:
         # return RegionScalars object
         return RegionScalars(tmp)
 
+    def precond_matrix_list(self):
+        """Return list of precond matrices being used"""
+        return self._tracer_module_def['precond_matrices'].values()
+
+    def append_tracer_names_per_precond_matrix(self, res):
+        """Append tracer names for each precond matrix to res"""
+        # process tracers in order of tracer_names
+        for tracer_name in self._tracer_module_def['tracer_names']:
+            if tracer_name in self._tracer_module_def['precond_matrices']:
+                precond_matrix_name = self._tracer_module_def['precond_matrices'][tracer_name]
+                if precond_matrix_name not in res:
+                    res[precond_matrix_name] = [tracer_name]
+                else:
+                    res[precond_matrix_name].append(tracer_name)
+
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
         return self._vals[self.tracer_index(tracer_name), :]
@@ -988,22 +1041,3 @@ def lin_comb(coeff, fname_fcn, quantity):
     for j_val in range(1, coeff.shape[-1]):
         res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
     return res
-
-def gen_precond_jacobian(hist_fname, precond_fname, solver_state):
-    """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-    logger = logging.getLogger(__name__)
-    logger.debug('entering, hist_fname="%s"', hist_fname)
-
-    cmd = 'gen_precond_jacobian'
-    fcn_complete_step = '%s done for %s' % (cmd, hist_fname)
-
-    if solver_state.step_logged(fcn_complete_step):
-        logger.debug('"%s" logged, returning', fcn_complete_step)
-        return
-    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
-
-    _model_static_vars.newton_fcn.gen_precond_jacobian(hist_fname, precond_fname, solver_state)
-
-    solver_state.log_step(fcn_complete_step)
-
-    logger.debug('returning')

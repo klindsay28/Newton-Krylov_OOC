@@ -5,16 +5,14 @@ import logging
 import numpy as np
 from netCDF4 import Dataset
 
-from model import get_modelinfo, get_tracer_module_def, get_precond_matrix_def
-
 class NewtonFcnBase():
     """Base class of methods related to problem being solved with Newton's method"""
 
-    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
+    def gen_precond_jacobian(self, iterate, hist_fname, precond_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
         logger = logging.getLogger(__name__)
         logger.debug('precond_fname="%s"', precond_fname)
-        hist_vars = self._hist_vars_for_precond_list()
+        hist_vars = iterate.hist_vars_for_precond_list()
 
         with Dataset(hist_fname, 'r') as fptr_in, Dataset(precond_fname, 'w') as fptr_out:
             # define output vars
@@ -59,21 +57,6 @@ class NewtonFcnBase():
                 for att_name in ['missing_value', 'units', 'coordinates', 'positive']:
                     if hasattr(hist_var, att_name):
                         setattr(precond_var, att_name, getattr(hist_var, att_name))
-
-    def _hist_vars_for_precond_list(self):
-        """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
-        res = []
-        for matrix_name in self._precond_matrix_list()+['base']:
-            res.extend(get_precond_matrix_def(matrix_name)['hist_to_precond_var_names'])
-        return res
-
-    def _precond_matrix_list(self):
-        """Return list of precond matrices being used"""
-        res = []
-        for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
-            tracer_module_def = get_tracer_module_def(tracer_module_name)
-            res.extend(tracer_module_def['precond_matrices'].values())
-        return res
 
     def _def_precond_dims_and_coord_vars(self, hist_vars, fptr_in, fptr_out):
         """define netCDF4 dimensions needed for hist_vars from hist_fname"""

@@ -7,7 +7,6 @@ import numpy as np
 import util
 
 from model import ModelState, lin_comb, get_region_cnt, to_ndarray, to_region_scalar_ndarray
-from model import gen_precond_jacobian
 from solver import SolverState
 
 class KrylovSolver:
@@ -24,7 +23,7 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, workdir, resume, rewind, hist_fname):
+    def __init__(self, iterate, workdir, resume, rewind, hist_fname):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug('KrylovSolver:entering, resume=%r, rewind=%r', resume, rewind)
@@ -35,7 +34,7 @@ class KrylovSolver:
         self._workdir = workdir
         self._solver_state = SolverState('Krylov', workdir, resume, rewind)
 
-        gen_precond_jacobian(hist_fname, self._fname('precond', 0), self._solver_state)
+        iterate.gen_precond_jacobian(hist_fname, self._fname('precond', 0), self._solver_state)
 
         logger.debug('returning')
 
