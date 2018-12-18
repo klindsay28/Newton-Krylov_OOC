@@ -4,9 +4,11 @@
 from __future__ import division
 
 import argparse
+import collections
 import configparser
 import glob
 import logging
+import math
 import os
 import shutil
 import stat
@@ -17,7 +19,8 @@ import numpy as np
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
+from model import TracerModuleStateBase, ModelState, ModelStaticVars
+from model import get_tracer_module_def, get_precond_matrix_def, get_modelinfo
 from newton_fcn_base import NewtonFcnBase
 
 def _parse_args():
@@ -161,27 +164,26 @@ class NewtonFcn(NewtonFcnBase):
         """Generate matrix files for preconditioner of jacobian of comp_fcn."""
         jacobian_precond_tools_dir = get_modelinfo('jacobian_precond_tools_dir')
 
-        tracer_module_base_def = get_modelinfo('tracer_module_defs')['base']
-        matrix_base_opts = tracer_module_base_def['precond_matrices_opts']
+        matrix_def_base = get_precond_matrix_def('base')
+        matrix_opts_base = matrix_def_base['precond_matrices_opts']
 
         opt_str_subs = {'day_cnt':365*_yr_cnt(),
                         'precond_fname':precond_fname,
                         'reg_fname':get_modelinfo('region_mask_fname'),
                         'irf_fname':get_modelinfo('irf_fname')}
 
-        for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
-            tracer_module_def = get_modelinfo('tracer_module_defs')[tracer_module_name]
-            for matrix_name, matrix_opts in tracer_module_def['precond_matrices_opts'].items():
-                matrix_opts_fname = os.path.join(solver_state.get_workdir(),
-                                                 'matrix_'+matrix_name+'.opts')
-                with open(matrix_opts_fname, 'w') as fptr:
-                    for opt in matrix_base_opts+matrix_opts:
-                        fptr.write("%s\n" % opt.format(**opt_str_subs))
-                matrix_fname = os.path.join(solver_state.get_workdir(),
-                                            'matrix_'+matrix_name+'.nc')
-                cmd = [os.path.join(jacobian_precond_tools_dir, 'bin', 'gen_A'),
-                       '-D1', '-o', matrix_opts_fname, matrix_fname]
-                subprocess.run(cmd, check=True)
+        for matrix_name in self._precond_matrix_list():
+            matrix_opts = get_precond_matrix_def(matrix_name)['precond_matrices_opts']
+            matrix_opts_fname = os.path.join(solver_state.get_workdir(),
+                                             'matrix_'+matrix_name+'.opts')
+            with open(matrix_opts_fname, 'w') as fptr:
+                for opt in matrix_opts_base+matrix_opts:
+                    fptr.write("%s\n" % opt.format(**opt_str_subs))
+            matrix_fname = os.path.join(solver_state.get_workdir(),
+                                        'matrix_'+matrix_name+'.nc')
+            cmd = [os.path.join(jacobian_precond_tools_dir, 'bin', 'gen_A'),
+                   '-D1', '-o', matrix_opts_fname, matrix_fname]
+            subprocess.run(cmd, check=True)
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
@@ -347,7 +349,7 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
     if get_modelinfo('batch_cmd_precond'):
         precond_task_cnt = int(get_modelinfo('precond_task_cnt'))
         precond_cpus_per_node = int(get_modelinfo('precond_cpus_per_node'))
-        precond_node_cnt = int(np.ceil(precond_task_cnt / precond_cpus_per_node))
+        precond_node_cnt = int(math.ceil(precond_task_cnt / precond_cpus_per_node))
         opt_str_subs = {'precond_node_cnt':precond_node_cnt}
         batch_cmd = get_modelinfo('batch_cmd_precond').replace('\n', ' ').replace('\r', ' ')
         cmd = '%s %s --resume' % (batch_cmd.format(**opt_str_subs),
@@ -380,20 +382,31 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
     # determine size of decomposition to be used in matrix factorization
     nprow, npcol = _matrix_block_decomp()
 
-    for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
-        tracer_module_def = get_modelinfo('tracer_module_defs')[tracer_module_name]
-        for matrix_name, matrix_opts in tracer_module_def['precond_matrices_opts'].items():
-            matrix_fname = os.path.join(solver_state.get_workdir(),
-                                        'matrix_'+matrix_name+'.nc')
-            cmd = [get_modelinfo('mpi_cmd'),
-                   os.path.join(jacobian_precond_tools_dir, 'bin', 'solve_ABdist'),
-                   '-D1', '-n', '%d,%d' % (nprow, npcol),
-                   '-v', _tracer_names_str(matrix_name, matrix_opts),
-                   matrix_fname, res_fname]
-            subprocess.run(cmd, check=True)
+    # construct list of tracers for each matrix
+    matrix_tracer_names_od = collections.OrderedDict()
+    for tracer_module in ms_in._tracer_modules:
+        tracer_module_def = tracer_module._tracer_module_def
+        for tracer_name in tracer_module.tracer_names():
+            matrix_name = tracer_module_def['precond_matrices'][tracer_name]
+            if matrix_name not in matrix_tracer_names_od:
+                matrix_tracer_names_od[matrix_name] = [tracer_name]
+            else:
+                matrix_tracer_names_od[matrix_name].append(tracer_name)
 
-            _apply_tracers_sflux_term(tracer_module_def, matrix_name, matrix_opts, precond_fname,
-                                      res_fname)
+    tracer_names_all = ms_in.tracer_names()
+
+    for matrix_name, tracer_names_subset in matrix_tracer_names_od.items():
+        matrix_fname = os.path.join(solver_state.get_workdir(),
+                                    'matrix_'+matrix_name+'.nc')
+        cmd = [get_modelinfo('mpi_cmd'),
+               os.path.join(jacobian_precond_tools_dir, 'bin', 'solve_ABdist'),
+               '-D1', '-n', '%d,%d' % (nprow, npcol),
+               '-v', tracer_names_list_to_str(tracer_names_subset),
+               matrix_fname, res_fname]
+        logger.info('cmd="%s"', ' '.join(cmd))
+        subprocess.run(cmd, check=True)
+
+        _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fname, res_fname)
 
     ms_res = ModelState(res_fname)
 
@@ -404,7 +417,7 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
 def _matrix_block_decomp():
     """determine size of decomposition to be used in matrix factorization"""
     precond_task_cnt = int(get_modelinfo('precond_task_cnt'))
-    log2_precond_task_cnt = int(np.log(precond_task_cnt)/np.log(2.0))
+    log2_precond_task_cnt = round(math.log2(precond_task_cnt))
     if 2 ** log2_precond_task_cnt != precond_task_cnt:
         raise ValueError('precond_task_cnt must be a power of 2')
     if (log2_precond_task_cnt % 2) == 0:
@@ -415,41 +428,35 @@ def _matrix_block_decomp():
         npcol = 2 * nprow
     return nprow, npcol
 
-def _tracer_names_list(matrix_name, matrix_opts):
-    """list of tracers being solved for"""
-    # If there is a tracer_names option in matrix_opts, use that,
-    # otherwise use the name of the matrix.
-    tracer_names = None
-    for matrix_opt in matrix_opts:
-        if 'tracer_names' in matrix_opt:
-            tracer_names = matrix_opt.split()[1:]
-    if tracer_names is None:
-        tracer_names = [matrix_name]
-    return tracer_names
-
-def _tracer_names_str(matrix_name, matrix_opts):
+def tracer_names_list_to_str(tracer_names_list):
     """comma separated string of tracers being solved for"""
-    return ','.join([tracer_name+'_CUR' for tracer_name \
-                     in _tracer_names_list(matrix_name, matrix_opts)])
+    return ','.join([tracer_name+'_CUR' for tracer_name in tracer_names_list])
 
-def _apply_tracers_sflux_term(tracer_module_def, matrix_name, matrix_opts, precond_fname,
-                              res_fname):
-    """apply surface flux term of tracers in tracer_names_list to subsequent vars"""
+def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fname, res_fname):
+    """apply surface flux term of tracers in tracer_names_subset to subsequent tracer_names"""
+    logger = logging.getLogger(__name__)
+    logger.debug('entering')
     model_state = ModelState(res_fname)
     term_applied = False
     delta_time = 365.0 * 86400.0 * _yr_cnt()
     with Dataset(precond_fname, 'r') as fptr:
-        for tracer_name_src in _tracer_names_list(matrix_name, matrix_opts):
-            src = model_state.get_tracer_vals(tracer_name_src)
+        fptr.set_auto_mask(False)
+        for tracer_name_src in tracer_names_subset:
             for tracer_name_dst_ind in \
-                    range(tracer_module_def['tracer_names'].index(tracer_name_src)+1,
-                          len(tracer_module_def['tracer_names'])):
-                tracer_name_dst = tracer_module_def['tracer_names'][tracer_name_dst_ind]
-                var_name = 'd_SF_'+tracer_name_dst+'_d_'+tracer_name_src+':avg'
-                if var_name in fptr.variables:
+                    range(tracer_names_all.index(tracer_name_src)+1, len(tracer_names_all)):
+                tracer_name_dst = tracer_names_all[tracer_name_dst_ind]
+                partial_deriv_var_name = 'd_SF_'+tracer_name_dst+'_d_'+tracer_name_src+'_avg'
+                if partial_deriv_var_name in fptr.variables:
+                    partial_deriv = fptr.variables[partial_deriv_var_name]
+                    # get values, replacing _FillValue values with 0.0
+                    if hasattr(partial_deriv, '_FillValue'):
+                        fill_value = getattr(partial_deriv, '_FillValue')
+                        partial_deriv_vals = np.where(partial_deriv[:] == fill_value, 0.0,
+                                                      partial_deriv[:])
+                    src = model_state.get_tracer_vals(tracer_name_src)
                     dst = model_state.get_tracer_vals(tracer_name_dst)
                     dst[0, :] -= delta_time / fptr.variables['dz'][0] \
-                        * fptr.variables[var_name][:] * src[0, :]
+                        * partial_deriv_vals * src[0, :]
                     model_state.set_tracer_vals(tracer_name_dst, dst)
                     term_applied = True
     if term_applied:

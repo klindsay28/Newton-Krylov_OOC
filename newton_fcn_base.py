@@ -1,5 +1,7 @@
 """Base class of methods related to problem being solved with Newton's method"""
 
+import logging
+
 import numpy as np
 from netCDF4 import Dataset
 
@@ -10,6 +12,8 @@ class NewtonFcnBase():
 
     def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
+        logger = logging.getLogger(__name__)
+        logger.debug('precond_fname="%s"', precond_fname)
         hist_vars = self._hist_vars_for_precond_list()
 
         with Dataset(hist_fname, 'r') as fptr_in, Dataset(precond_fname, 'w') as fptr_out:
@@ -19,42 +23,53 @@ class NewtonFcnBase():
             for hist_var in hist_vars:
                 hist_var_name, _, time_op = hist_var.partition(':')
                 hist_var = fptr_in.variables[hist_var_name]
+                logger.debug('hist_var_name="%s"', hist_var_name)
+
+                fill_value = getattr(hist_var, '_FillValue') if hasattr(hist_var, '_FillValue') \
+                    else None
 
                 if time_op == 'avg':
-                    precond_var = fptr_out.createVariable(hist_var_name+'_avg',
-                                                          hist_var.datatype,
-                                                          dimensions=hist_var.dimensions[1:])
-                    precond_var.long_name = hist_var.long_name+', avg over time dim'
-                    precond_var[:] = hist_var[:].mean(axis=0)
+                    precond_var_name = hist_var_name+'_avg'
+                    if precond_var_name not in fptr_out.variables:
+                        precond_var = fptr_out.createVariable(hist_var_name+'_avg',
+                                                              hist_var.datatype,
+                                                              dimensions=hist_var.dimensions[1:],
+                                                              fill_value=fill_value)
+                        precond_var.long_name = hist_var.long_name+', avg over time dim'
+                        precond_var[:] = hist_var[:].mean(axis=0)
                 elif time_op == 'log_avg':
-                    precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
-                                                          hist_var.datatype,
-                                                          dimensions=hist_var.dimensions[1:])
-                    precond_var.long_name = hist_var.long_name+', log avg over time dim'
-                    precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
+                    precond_var_name = hist_var_name+'_log_avg'
+                    if precond_var_name not in fptr_out.variables:
+                        precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
+                                                              hist_var.datatype,
+                                                              dimensions=hist_var.dimensions[1:],
+                                                              fill_value=fill_value)
+                        precond_var.long_name = hist_var.long_name+', log avg over time dim'
+                        precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
                 else:
-                    precond_var = fptr_out.createVariable(hist_var_name,
-                                                          hist_var.datatype,
-                                                          dimensions=hist_var.dimensions)
-                    precond_var.long_name = hist_var.long_name
-                    precond_var[:] = hist_var[:]
+                    precond_var_name = hist_var_name
+                    if precond_var_name not in fptr_out.variables:
+                        precond_var = fptr_out.createVariable(hist_var_name,
+                                                              hist_var.datatype,
+                                                              dimensions=hist_var.dimensions,
+                                                              fill_value=fill_value)
+                        precond_var.long_name = hist_var.long_name
+                        precond_var[:] = hist_var[:]
 
-                for att_name in ['units', 'coordinates', 'positive']:
-                    try:
+                for att_name in ['missing_value', 'units', 'coordinates', 'positive']:
+                    if hasattr(hist_var, att_name):
                         setattr(precond_var, att_name, getattr(hist_var, att_name))
-                    except AttributeError:
-                        pass
 
     def _hist_vars_for_precond_list(self):
         """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
         res = []
-        for matrix_name in self._precond_matrix_list():
+        for matrix_name in self._precond_matrix_list()+['base']:
             res.extend(get_precond_matrix_def(matrix_name)['hist_to_precond_var_names'])
         return res
 
     def _precond_matrix_list(self):
         """Return list of precond matrices being used"""
-        res = ['base']
+        res = []
         for tracer_module_name in get_modelinfo('tracer_module_names').split(','):
             tracer_module_def = get_tracer_module_def(tracer_module_name)
             res.extend(tracer_module_def['precond_matrices'].values())
@@ -62,6 +77,7 @@ class NewtonFcnBase():
 
     def _def_precond_dims_and_coord_vars(self, hist_vars, fptr_in, fptr_out):
         """define netCDF4 dimensions needed for hist_vars from hist_fname"""
+        logger = logging.getLogger(__name__)
         for hist_var in hist_vars:
             hist_var_name, _, time_op = hist_var.partition(':')
             hist_var = fptr_in.variables[hist_var_name]
@@ -73,10 +89,12 @@ class NewtonFcnBase():
 
             for dimname in dimnames:
                 if dimname not in fptr_out.dimensions:
+                    logger.debug('defining dimension="%s"', dimname)
                     fptr_out.createDimension(dimname, fptr_in.dimensions[dimname].size)
                     # if fptr_in has a cooresponding coordinate variable, then
                     # define it, copy attributes from fptr_in, and write it
                     if dimname in fptr_in.variables:
+                        logger.debug('defining variable="%s"', dimname)
                         fptr_out.createVariable(dimname, fptr_in.variables[dimname].datatype,
                                                 dimensions=(dimname,))
                         for att_name in fptr_in.variables[dimname].ncattrs():
