@@ -6,15 +6,17 @@ import numpy as np
 
 import util
 
-from model import ModelState, lin_comb, get_region_cnt, to_ndarray, to_region_scalar_ndarray
+from model import ModelState, lin_comb, get_region_cnt
+from model import to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
 
 class KrylovSolver:
     """
-    class for applying Krylov method to approximate the solution of system of linear equations
+    class for applying Krylov method to approximate the solution of system of linear
+    equations
 
-    The specific Krylov method used is Left-Preconditioned GMRES, algorithm 9.4 of 'Iterative
-    Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad, available at
+    The specific Krylov method used is Left-Preconditioned GMRES, algorithm 9.4 of
+    'Iterative Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad, available at
     https://www-users.cs.umn.edu/~saad/books.html.
 
     The solver is applied to A x = -fcn, where A is
@@ -34,7 +36,8 @@ class KrylovSolver:
         self._workdir = workdir
         self._solver_state = SolverState('Krylov', workdir, resume, rewind)
 
-        iterate.gen_precond_jacobian(hist_fname, self._fname('precond', 0), self._solver_state)
+        iterate.gen_precond_jacobian(
+            hist_fname, self._fname('precond', 0), self._solver_state)
 
         logger.debug('returning')
 
@@ -56,9 +59,8 @@ class KrylovSolver:
         fcn_complete_step = '_solve0 complete'
         if not self._solver_state.step_logged(fcn_complete_step):
             # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-            precond_fcn = fcn.apply_precond_jacobian(self._fname('precond', 0),
-                                                     self._fname('precond_fcn'),
-                                                     self._solver_state)
+            precond_fcn = fcn.apply_precond_jacobian(
+                self._fname('precond', 0), self._fname('precond_fcn'), self._solver_state)
             beta = precond_fcn.norm()
             (-precond_fcn / beta).dump(self._fname('basis'))
             self._solver_state.set_value_saved_state('beta_ndarray', to_ndarray(beta))
@@ -80,10 +82,10 @@ class KrylovSolver:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state('h_mat_ndarray'))
             basis_j = ModelState(self._fname('basis'))
-            w_raw = iterate.comp_jacobian_fcn_state_prod(fcn, basis_j, self._fname('w_raw'),
-                                                         self._solver_state)
-            w_j = w_raw.apply_precond_jacobian(self._fname('precond', 0), self._fname('w'),
-                                               self._solver_state)
+            w_raw = iterate.comp_jacobian_fcn_state_prod(
+                fcn, basis_j, self._fname('w_raw'), self._solver_state)
+            w_j = w_raw.apply_precond_jacobian(
+                self._fname('precond', 0), self._fname('w'), self._solver_state)
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val+1, self._fname, 'basis')
             h_mat[:, -1, -1] = w_j.norm()
             w_j /= h_mat[:, -1, -1]
@@ -117,5 +119,6 @@ class KrylovSolver:
             for region_ind in range(h_shape[3]):
                 lstsq_rhs[0] = beta_ndarray[tracer_module_ind, region_ind]
                 coeff_ndarray[tracer_module_ind, :, region_ind] = np.linalg.lstsq(
-                    h_mat_ndarray[tracer_module_ind, :, :, region_ind], lstsq_rhs, rcond=None)[0]
+                    h_mat_ndarray[tracer_module_ind, :, :, region_ind], lstsq_rhs,
+                    rcond=None)[0]
         return coeff_ndarray

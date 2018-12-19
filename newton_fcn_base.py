@@ -23,34 +23,32 @@ class NewtonFcnBase():
                 hist_var = fptr_in.variables[hist_var_name]
                 logger.debug('hist_var_name="%s"', hist_var_name)
 
-                fill_value = getattr(hist_var, '_FillValue') if hasattr(hist_var, '_FillValue') \
-                    else None
+                fill_value = getattr(hist_var, '_FillValue') \
+                    if hasattr(hist_var, '_FillValue') else None
 
                 if time_op == 'avg':
                     precond_var_name = hist_var_name+'_avg'
                     if precond_var_name not in fptr_out.variables:
-                        precond_var = fptr_out.createVariable(hist_var_name+'_avg',
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions[1:],
-                                                              fill_value=fill_value)
+                        precond_var = fptr_out.createVariable(
+                            hist_var_name+'_avg', hist_var.datatype,
+                            dimensions=hist_var.dimensions[1:], fill_value=fill_value)
                         precond_var.long_name = hist_var.long_name+', avg over time dim'
                         precond_var[:] = hist_var[:].mean(axis=0)
                 elif time_op == 'log_avg':
                     precond_var_name = hist_var_name+'_log_avg'
                     if precond_var_name not in fptr_out.variables:
-                        precond_var = fptr_out.createVariable(hist_var_name+'_log_avg',
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions[1:],
-                                                              fill_value=fill_value)
-                        precond_var.long_name = hist_var.long_name+', log avg over time dim'
+                        precond_var = fptr_out.createVariable(
+                            hist_var_name+'_log_avg', hist_var.datatype,
+                            dimensions=hist_var.dimensions[1:], fill_value=fill_value)
+                        precond_var.long_name = hist_var.long_name \
+                            +', log avg over time dim'
                         precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
                 else:
                     precond_var_name = hist_var_name
                     if precond_var_name not in fptr_out.variables:
-                        precond_var = fptr_out.createVariable(hist_var_name,
-                                                              hist_var.datatype,
-                                                              dimensions=hist_var.dimensions,
-                                                              fill_value=fill_value)
+                        precond_var = fptr_out.createVariable(
+                            hist_var_name, hist_var.datatype,
+                            dimensions=hist_var.dimensions, fill_value=fill_value)
                         precond_var.long_name = hist_var.long_name
                         precond_var[:] = hist_var[:]
 
@@ -78,9 +76,11 @@ class NewtonFcnBase():
                     # define it, copy attributes from fptr_in, and write it
                     if dimname in fptr_in.variables:
                         logger.debug('defining variable="%s"', dimname)
-                        fptr_out.createVariable(dimname, fptr_in.variables[dimname].datatype,
-                                                dimensions=(dimname,))
+                        fptr_out.createVariable(
+                            dimname, fptr_in.variables[dimname].datatype,
+                            dimensions=(dimname,))
                         for att_name in fptr_in.variables[dimname].ncattrs():
-                            setattr(fptr_out.variables[dimname], att_name,
-                                    getattr(fptr_in.variables[dimname], att_name))
+                            setattr(
+                                fptr_out.variables[dimname], att_name,
+                                getattr(fptr_in.variables[dimname], att_name))
                         fptr_out.variables[dimname][:] = fptr_in.variables[dimname][:]

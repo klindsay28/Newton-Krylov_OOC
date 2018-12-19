@@ -24,12 +24,14 @@ from newton_fcn_base import NewtonFcnBase
 
 def _parse_args():
     """parse command line arguments"""
-    parser = argparse.ArgumentParser(description="cesm pop hooks for Newton-Krylov solver")
-    parser.add_argument('cmd', choices=['comp_fcn', 'gen_precond_jacobian',
-                                        'apply_precond_jacobian'],
-                        help='command to run')
-    parser.add_argument('--cfg_fname', help='name of configuration file',
-                        default='newton_krylov_cesm_pop.cfg')
+    parser = argparse.ArgumentParser(
+        description="cesm pop hooks for Newton-Krylov solver")
+    parser.add_argument(
+        'cmd', choices=['comp_fcn', 'gen_precond_jacobian', 'apply_precond_jacobian'],
+        help='command to run')
+    parser.add_argument(
+        '--cfg_fname', help='name of configuration file',
+        default='newton_krylov_cesm_pop.cfg')
     parser.add_argument('--hist_fname', help='name of history file', default=None)
     parser.add_argument('--in_fname', help='name of file with input')
     parser.add_argument('--res_fname', help='name of file for result')
@@ -42,9 +44,9 @@ def main(args):
     config.read(args.cfg_fname)
     solverinfo = config['solverinfo']
 
-    logging.basicConfig(stream=sys.stdout,
-                        format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
-                        level=solverinfo['logging_level'])
+    logging_format = '%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s'
+    logging.basicConfig(
+        stream=sys.stdout, format=logging_format, level=solverinfo['logging_level'])
     logger = logging.getLogger(__name__)
 
     logger.info('entering, cmd=%s', args.cmd)
@@ -54,17 +56,16 @@ def main(args):
 
     ModelStaticVars(config['modelinfo'])
 
+    msg = '%s not implemented for command line execution in %s ' % (args.cmd, __file__)
     if args.cmd == 'comp_fcn':
-        raise NotImplementedError(
-            '%s not implemented for command line execution in %s ' % (args.cmd, __file__))
+        raise NotImplementedError(msg)
     elif args.cmd == 'gen_precond_jacobian':
-        raise NotImplementedError(
-            '%s not implemented for command line execution in %s ' % (args.cmd, __file__))
+        raise NotImplementedError(msg)
     elif args.cmd == 'apply_precond_jacobian':
-        raise NotImplementedError(
-            '%s not implemented for command line execution in %s ' % (args.cmd, __file__))
+        raise NotImplementedError(msg)
     else:
-        raise ValueError('unknown cmd=%s' % args.cmd)
+        msg = 'unknown cmd=%s' % args.cmd
+        raise ValueError(msg)
 
 ################################################################################
 
@@ -88,19 +89,20 @@ class TracerModuleState(TracerModuleStateBase):
                 dims[dimname] = fptr.dimensions[dimname].size
             # all tracers are stored in a single array
             # tracer index is the leading index
-            vals = np.empty(shape=(self.tracer_cnt(),) + tuple(dims.values()))
+            vals = np.empty((self.tracer_cnt(),) + tuple(dims.values()))
             # check that all vars have the same dimensions
             for tracer_name in self.tracer_names():
                 if fptr.variables[tracer_name+suffix].dimensions != dimnames0:
-                    raise ValueError('not all vars have same dimensions',
-                                     'tracer_module_name=', tracer_module_name,
-                                     'vals_fname=', vals_fname)
+                    msg = 'not all vars have same dimensions' \
+                        ', tracer_module_name=%s, vals_fname=%s' \
+                        % (tracer_module_name, vals_fname)
+                    raise ValueError(msg)
             # read values
             if len(dims) > 3:
-                raise ValueError('ndim too large (for implementation of dot_prod)',
-                                 'tracer_module_name=', tracer_module_name,
-                                 'vals_fname=', vals_fname,
-                                 'ndim=', len(dims))
+                msg = 'ndim too large (for implementation of dot_prod)' \
+                    'tracer_module_name=%s, vals_fname=%s, ndim=%s' \
+                    % (tracer_module_name, vals_fname, len(dims))
+                raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 varid = fptr.variables[tracer_name+suffix]
                 vals[tracer_ind, :] = varid[:]
@@ -116,9 +118,10 @@ class TracerModuleState(TracerModuleStateBase):
             for dimname, dimlen in self._dims.items():
                 try:
                     if fptr.dimensions[dimname].size != dimlen:
-                        raise ValueError('dimname already exists and has wrong size',
-                                         'tracer_module_name=', self._tracer_module_name,
-                                         'dimname=', dimname)
+                        msg = 'dimname already exists and has wrong size' \
+                            'tracer_module_name=%s, dimname=%s' \
+                            % (self._tracer_module_name, dimname)
+                        raise ValueError(msg)
                 except KeyError:
                     fptr.createDimension(dimname, dimlen)
             dimnames = tuple(self._dims.keys())
@@ -132,7 +135,8 @@ class TracerModuleState(TracerModuleStateBase):
                 for suffix in ['_CUR', '_OLD']:
                     fptr.variables[tracer_name+suffix][:] = self._vals[tracer_ind, :]
         else:
-            raise ValueError('unknown action=', action)
+            msg = 'unknown action=', action
+            raise ValueError(msg)
         return self
 
 ################################################################################
@@ -170,20 +174,20 @@ class NewtonFcn(NewtonFcnBase):
         matrix_def_base = get_precond_matrix_def('base')
         matrix_opts_base = matrix_def_base['precond_matrices_opts']
 
-        opt_str_subs = {'day_cnt':365*_yr_cnt(),
-                        'precond_fname':precond_fname,
-                        'reg_fname':get_modelinfo('region_mask_fname'),
-                        'irf_fname':get_modelinfo('irf_fname')}
+        opt_str_subs = {
+            'day_cnt':365*_yr_cnt(), 'precond_fname':precond_fname,
+            'reg_fname':get_modelinfo('region_mask_fname'),
+            'irf_fname':get_modelinfo('irf_fname')}
 
         for matrix_name in iterate.precond_matrix_list():
             matrix_opts = get_precond_matrix_def(matrix_name)['precond_matrices_opts']
-            matrix_opts_fname = os.path.join(solver_state.get_workdir(),
-                                             'matrix_'+matrix_name+'.opts')
+            matrix_opts_fname = os.path.join(
+                solver_state.get_workdir(), 'matrix_'+matrix_name+'.opts')
             with open(matrix_opts_fname, 'w') as fptr:
                 for opt in matrix_opts_base+matrix_opts:
                     fptr.write("%s\n" % opt.format(**opt_str_subs))
-            matrix_fname = os.path.join(solver_state.get_workdir(),
-                                        'matrix_'+matrix_name+'.nc')
+            matrix_fname = os.path.join(
+                solver_state.get_workdir(), 'matrix_'+matrix_name+'.nc')
             cmd = [os.path.join(jacobian_precond_tools_dir, 'bin', 'gen_A'),
                    '-D1', '-o', matrix_opts_fname, matrix_fname]
             subprocess.run(cmd, check=True)
@@ -201,10 +205,10 @@ class NewtonFcn(NewtonFcnBase):
 
         _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state)
 
-        lin_eqns_soln_fname = os.path.join(os.path.dirname(res_fname),
-                                           'lin_eqns_soln_'+os.path.basename(res_fname))
-        ms_res = _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, lin_eqns_soln_fname,
-                                                        solver_state)
+        lin_eqns_soln_fname = os.path.join(
+            os.path.dirname(res_fname), 'lin_eqns_soln_'+os.path.basename(res_fname))
+        ms_res = _apply_precond_jacobian_solve_lin_eqns(
+            ms_in, precond_fname, lin_eqns_soln_fname, solver_state)
 
         ms_res -= ms_in
 
@@ -243,7 +247,8 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
     # generate post-modelrun script and point POSTRUN_SCRIPT to it
     # this will propagate cfg_fname and hist_fname across model run
     cwd = os.path.dirname(os.path.realpath(__file__))
-    post_modelrun_script_fname = os.path.join(cwd, 'generated_scripts', 'post_modelrun.sh')
+    post_modelrun_script_fname = os.path.join(
+        cwd, 'generated_scripts', 'post_modelrun.sh')
     _gen_post_modelrun_script(post_modelrun_script_fname)
     _xmlchange('POSTRUN_SCRIPT', post_modelrun_script_fname)
 
@@ -262,12 +267,13 @@ def _gen_post_modelrun_script(script_fname):
         batch_cmd_script (which can be an empty string)
     """
     cwd = os.path.dirname(os.path.realpath(__file__))
-    batch_cmd_script = get_modelinfo('batch_cmd_script').replace('\n', ' ').replace('\r', ' ')
+    batch_cmd_script = \
+        get_modelinfo('batch_cmd_script').replace('\n', ' ').replace('\r', ' ')
     with open(script_fname, mode='w') as fptr:
         fptr.write('#!/bin/bash -l\n')
         fptr.write('cd %s\n' % cwd)
-        fptr.write('%s %s --resume\n' % (batch_cmd_script,
-                                         get_modelinfo('nk_driver_invoker_fname')))
+        fptr.write('%s %s --resume\n' \
+            % (batch_cmd_script, get_modelinfo('nk_driver_invoker_fname')))
 
     # ensure script_fname is executable by the user, while preserving other permissions
     fstat = os.stat(script_fname)
@@ -281,10 +287,12 @@ def _yr_cnt():
         yr_cnt = stop_n
     elif stop_option == 'nmonth':
         if stop_n % 12 != 0:
-            raise RuntimeError('number of months=%d not divisible by 12' % stop_n)
+            msg = 'number of months=%d not divisible by 12' % stop_n
+            raise RuntimeError(msg)
         yr_cnt = int(stop_n) // 12
     else:
-        raise NotImplementedError('stop_option = %s not implemented' % stop_option)
+        msg = 'stop_option = %s not implemented' % stop_option
+        raise NotImplementedError(msg)
     return yr_cnt
 
 def _gen_hist(hist_fname):
@@ -298,11 +306,13 @@ def _gen_hist(hist_fname):
     # confirm that this is the case
     tavg_freq_opt_0 = _get_pop_nl_var('tavg_freq_opt').split()[0].split("'")[1]
     if tavg_freq_opt_0 != 'nyear':
-        raise NotImplementedError('tavg_freq_opt_0 = %s not implemented' % tavg_freq_opt_0)
+        msg = 'tavg_freq_opt_0 = %s not implemented' % tavg_freq_opt_0
+        raise NotImplementedError(msg)
 
     tavg_freq_0 = _get_pop_nl_var('tavg_freq').split()[0]
     if tavg_freq_0 != '1':
-        raise NotImplementedError('tavg_freq_0 = %s not implemented' % tavg_freq_0)
+        msg = 'tavg_freq_0 = %s not implemented' % tavg_freq_0
+        raise NotImplementedError(msg)
 
     # get starting year
     if _xmlquery('RUN_TYPE') == 'branch':
@@ -343,7 +353,8 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
     logger = logging.getLogger(__name__)
     logger.debug('entering')
 
-    fcn_complete_step = '_apply_precond_jacobian_pre_solve_lin_eqns done for %s' % res_fname
+    fcn_complete_step = '_apply_precond_jacobian_pre_solve_lin_eqns done for %s' \
+        % res_fname
     if solver_state.step_logged(fcn_complete_step):
         logger.debug('"%s" logged, returning', fcn_complete_step)
         return
@@ -354,9 +365,10 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
         precond_cpus_per_node = int(get_modelinfo('precond_cpus_per_node'))
         precond_node_cnt = int(math.ceil(precond_task_cnt / precond_cpus_per_node))
         opt_str_subs = {'precond_node_cnt':precond_node_cnt}
-        batch_cmd = get_modelinfo('batch_cmd_precond').replace('\n', ' ').replace('\r', ' ')
-        cmd = '%s %s --resume' % (batch_cmd.format(**opt_str_subs),
-                                  get_modelinfo('nk_driver_invoker_fname'))
+        batch_cmd = \
+            get_modelinfo('batch_cmd_precond').replace('\n', ' ').replace('\r', ' ')
+        cmd = '%s %s --resume' \
+            % (batch_cmd.format(**opt_str_subs), get_modelinfo('nk_driver_invoker_fname'))
         subprocess.run(cmd, check=True, shell=True)
         solver_state.log_step(fcn_complete_step)
         logger.debug('raising SystemExit')
@@ -387,18 +399,20 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
 
     tracer_names_all = ms_in.tracer_names()
 
-    for matrix_name, tracer_names_subset in ms_in.tracer_names_per_precond_matrix().items():
-        matrix_fname = os.path.join(solver_state.get_workdir(),
-                                    'matrix_'+matrix_name+'.nc')
-        cmd = [get_modelinfo('mpi_cmd'),
-               os.path.join(jacobian_precond_tools_dir, 'bin', 'solve_ABdist'),
-               '-D1', '-n', '%d,%d' % (nprow, npcol),
-               '-v', tracer_names_list_to_str(tracer_names_subset),
-               matrix_fname, res_fname]
+    for matrix_name, tracer_names_subset in \
+            ms_in.tracer_names_per_precond_matrix().items():
+        matrix_fname = os.path.join(
+            solver_state.get_workdir(), 'matrix_'+matrix_name+'.nc')
+        cmd = [
+            get_modelinfo('mpi_cmd'),
+            os.path.join(jacobian_precond_tools_dir, 'bin', 'solve_ABdist'),
+            '-D1', '-n', '%d,%d' % (nprow, npcol), '-v',
+            tracer_names_list_to_str(tracer_names_subset), matrix_fname, res_fname]
         logger.info('cmd="%s"', ' '.join(cmd))
         subprocess.run(cmd, check=True)
 
-        _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fname, res_fname)
+        _apply_tracers_sflux_term(
+            tracer_names_subset, tracer_names_all, precond_fname, res_fname)
 
     ms_res = ModelState(res_fname)
 
@@ -411,7 +425,8 @@ def _matrix_block_decomp():
     precond_task_cnt = int(get_modelinfo('precond_task_cnt'))
     log2_precond_task_cnt = round(math.log2(precond_task_cnt))
     if 2 ** log2_precond_task_cnt != precond_task_cnt:
-        raise ValueError('precond_task_cnt must be a power of 2')
+        msg = 'precond_task_cnt must be a power of 2'
+        raise ValueError(msg)
     if (log2_precond_task_cnt % 2) == 0:
         nprow = 2 ** (log2_precond_task_cnt // 2)
         npcol = nprow
@@ -424,8 +439,11 @@ def tracer_names_list_to_str(tracer_names_list):
     """comma separated string of tracers being solved for"""
     return ','.join([tracer_name+'_CUR' for tracer_name in tracer_names_list])
 
-def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fname, res_fname):
-    """apply surface flux term of tracers in tracer_names_subset to subsequent tracer_names"""
+def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fname,
+                              res_fname):
+    """
+    apply surface flux term of tracers in tracer_names_subset to subsequent tracer_names
+    """
     logger = logging.getLogger(__name__)
     logger.debug('entering')
     model_state = ModelState(res_fname)
@@ -434,17 +452,18 @@ def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fna
     with Dataset(precond_fname, 'r') as fptr:
         fptr.set_auto_mask(False)
         for tracer_name_src in tracer_names_subset:
-            for tracer_name_dst_ind in \
-                    range(tracer_names_all.index(tracer_name_src)+1, len(tracer_names_all)):
+            for tracer_name_dst_ind in range(
+                    tracer_names_all.index(tracer_name_src)+1, len(tracer_names_all)):
                 tracer_name_dst = tracer_names_all[tracer_name_dst_ind]
-                partial_deriv_var_name = 'd_SF_'+tracer_name_dst+'_d_'+tracer_name_src+'_avg'
+                partial_deriv_var_name = \
+                    'd_SF_'+tracer_name_dst+'_d_'+tracer_name_src+'_avg'
                 if partial_deriv_var_name in fptr.variables:
                     partial_deriv = fptr.variables[partial_deriv_var_name]
                     # get values, replacing _FillValue values with 0.0
                     if hasattr(partial_deriv, '_FillValue'):
                         fill_value = getattr(partial_deriv, '_FillValue')
-                        partial_deriv_vals = np.where(partial_deriv[:] == fill_value, 0.0,
-                                                      partial_deriv[:])
+                        partial_deriv_vals = np.where(
+                            partial_deriv[:] == fill_value, 0.0, partial_deriv[:])
                     src = model_state.get_tracer_vals(tracer_name_src)
                     dst = model_state.get_tracer_vals(tracer_name_dst)
                     dst[0, :] -= delta_time / fptr.variables['dz'][0] \
@@ -457,7 +476,8 @@ def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fna
 def _xmlquery(varname):
     """run CIME's _xmlquery for varname in the directory caseroot, return the value"""
     caseroot = get_modelinfo('caseroot')
-    return subprocess.check_output(['./xmlquery', '--value', varname], cwd=caseroot).decode()
+    return subprocess.check_output(
+        ['./xmlquery', '--value', varname], cwd=caseroot).decode()
 
 def _xmlchange(varname, value):
     """run CIME's _xmlchange in the directory caseroot, setting varname to value"""
@@ -465,7 +485,8 @@ def _xmlchange(varname, value):
     # this avoids clutter in the file CaseStatus
     if value != _xmlquery(varname):
         caseroot = get_modelinfo('caseroot')
-        subprocess.run(['./xmlchange', '%s=%s' % (varname, value)], cwd=caseroot, check=True)
+        subprocess.run(
+            ['./xmlchange', '%s=%s' % (varname, value)], cwd=caseroot, check=True)
 
 def _case_submit():
     """submit a CIME case, return after submit completes"""

@@ -40,7 +40,8 @@ class ModelStaticVars:
         # import module with TracerModuleState and NewtonFcn
         newton_fcn_mod = importlib.import_module(modelinfo['newton_fcn_modname'])
 
-        # store newton_fcn_mod's TracerModuleState class and an instance of class NewtonFcn
+        # store newton_fcn_mod's TracerModuleState class
+        # and an instance of class NewtonFcn
         self.tracer_module_state = newton_fcn_mod.TracerModuleState
         self.newton_fcn = newton_fcn_mod.NewtonFcn()
 
@@ -49,14 +50,14 @@ class ModelStaticVars:
         logger.log(lvl, 'loading content from %s', fname)
         with open(fname, mode='r') as fptr:
             file_contents = yaml.load(fptr)
-            self.tracer_module_defs = \
-                pad_defs(file_contents['tracer_module_defs'], 'tracer module',
-                         {'tracer_names':'list', 'shadow_tracers':'dict',
-                          'precond_matrices':'dict'}, lvl)
+            self.tracer_module_defs = pad_defs(
+                file_contents['tracer_module_defs'], 'tracer module',
+                {'tracer_names':'list', 'shadow_tracers':'dict',
+                 'precond_matrices':'dict'}, lvl)
             check_shadow_tracers(self.tracer_module_defs, lvl)
-            self.precond_matrix_defs = \
-                pad_defs(file_contents['precond_matrix_defs'], 'precond matrix',
-                         {'hist_to_precond_var_names':'list'}, lvl)
+            self.precond_matrix_defs = pad_defs(
+                file_contents['precond_matrix_defs'], 'precond matrix',
+                {'hist_to_precond_var_names':'list'}, lvl)
             check_precond_matrix_defs(self.precond_matrix_defs)
 
         # extract grid_weight from modelinfo config object
@@ -76,23 +77,26 @@ class ModelStaticVars:
                 fptr.set_auto_mask(False)
                 self.region_mask = fptr.variables[varname][:]
                 if self.region_mask.shape != grid_weight_no_region_dim.shape:
-                    raise RuntimeError('region_mask and grid_weight must have the same shape')
+                    msg = 'region_mask and grid_weight must have the same shape'
+                    raise RuntimeError(msg)
         else:
             self.region_mask = np.ones_like(grid_weight_no_region_dim, dtype=np.int32)
 
         # enforce that region_mask and grid_weight and both 0 where one of them is
         self.region_mask = np.where(grid_weight_no_region_dim == 0.0, 0, self.region_mask)
-        grid_weight_no_region_dim = np.where(self.region_mask == 0, 0.0, grid_weight_no_region_dim)
+        grid_weight_no_region_dim = np.where(
+            self.region_mask == 0, 0.0, grid_weight_no_region_dim)
 
         self.region_cnt = self.region_mask.max()
 
         # add region dimension to grid_weight and normalize
-        self.grid_weight = np.empty(shape=(self.region_cnt,) + grid_weight_no_region_dim.shape)
+        self.grid_weight = np.empty((self.region_cnt,) + grid_weight_no_region_dim.shape)
         for region_ind in range(self.region_cnt):
-            self.grid_weight[region_ind, :] = np.where(self.region_mask == region_ind+1,
-                                                       grid_weight_no_region_dim, 0.0)
+            self.grid_weight[region_ind, :] = np.where(
+                self.region_mask == region_ind+1, grid_weight_no_region_dim, 0.0)
             # normalize grid_weight so that its sum is 1.0 over each region
-            self.grid_weight[region_ind, :] *= 1.0 / np.sum(self.grid_weight[region_ind, :])
+            self.grid_weight[region_ind, :] *= \
+                1.0 / np.sum(self.grid_weight[region_ind, :])
 
         # store contents in module level var, to enable use elsewhere
         global _model_static_vars # pylint: disable=W0603
@@ -120,13 +124,16 @@ def check_shadow_tracers(tracer_module_defs, lvl):
     logger = logging.getLogger(__name__)
     for tracer_module_name, tracer_module_def in tracer_module_defs.items():
         # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
-        for shadow_tracer_name, real_tracer_name in tracer_module_def['shadow_tracers'].items():
+        for shadow_tracer_name, real_tracer_name in \
+                tracer_module_def['shadow_tracers'].items():
             if shadow_tracer_name not in tracer_module_def['tracer_names']:
-                raise ValueError('specified shadow tracer %s in tracer module %s not known'
-                                 % (shadow_tracer_name, tracer_module_name))
+                msg = 'specified shadow tracer %s in tracer module %s not known' \
+                    % (shadow_tracer_name, tracer_module_name)
+                raise ValueError(msg)
             if real_tracer_name not in tracer_module_def['tracer_names']:
-                raise ValueError('specified tracer %s in tracer module %s not known'
-                                 % (real_tracer_name, tracer_module_name))
+                msg = 'specified tracer %s in tracer module %s not known' \
+                    % (real_tracer_name, tracer_module_name)
+                raise ValueError(msg)
             logger.log(lvl, 'tracer module %s has %s as a shadow for %s',
                        tracer_module_name, shadow_tracer_name, real_tracer_name)
 
@@ -139,8 +146,9 @@ def check_precond_matrix_defs(precond_matrix_defs):
         for hist_var in precond_matrix_def['hist_to_precond_var_names']:
             _, _, time_op = hist_var.partition(':')
             if time_op not in ['avg', 'log_avg', 'copy', '']:
-                raise ValueError('unknown time_op=%s in %s from %s'
-                                 % (time_op, hist_var, precond_matrix_name))
+                msg = 'unknown time_op=%s in %s from %s' \
+                    % (time_op, hist_var, precond_matrix_name)
+                raise ValueError(msg)
 
 ################################################################################
 
@@ -160,11 +168,12 @@ class ModelState:
         self.tracer_module_names = get_modelinfo('tracer_module_names').split(',')
         self.tracer_module_cnt = len(self.tracer_module_names)
         if vals_fname is not None:
-            self._tracer_modules = np.empty(shape=(self.tracer_module_cnt,), dtype=np.object)
-            for tracer_module_ind, tracer_module_name in enumerate(self.tracer_module_names):
+            self._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object)
+            for tracer_module_ind, tracer_module_name in \
+                    enumerate(self.tracer_module_names):
                 self._tracer_modules[tracer_module_ind] = \
-                    _model_static_vars.tracer_module_state(tracer_module_name,
-                                                           vals_fname=vals_fname)
+                    _model_static_vars.tracer_module_state(
+                        tracer_module_name, vals_fname=vals_fname)
         logger.debug('returning')
 
     def tracer_names(self):
@@ -198,7 +207,8 @@ class ModelState:
                     if vals.ndim == 2:
                         tracer_module.log_vals(submsg, vals[msg_ind, tracer_module_ind])
                     else:
-                        tracer_module.log_vals(submsg, vals[msg_ind, tracer_module_ind, :])
+                        tracer_module.log_vals(
+                            submsg, vals[msg_ind, tracer_module_ind, :])
             else:
                 if vals.ndim == 1:
                     tracer_module.log_vals(msg, vals[tracer_module_ind])
@@ -216,7 +226,7 @@ class ModelState:
     def copy(self):
         """return a copy of self"""
         res = ModelState()
-        res._tracer_modules = np.empty(shape=(self.tracer_module_cnt,), dtype=np.object) # pylint: disable=W0212
+        res._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object) # pylint: disable=W0212
         for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
             res._tracer_modules[tracer_module_ind] = tracer_module.copy() # pylint: disable=W0212
         return res
@@ -368,14 +378,14 @@ class ModelState:
 
     def mean(self):
         """compute weighted mean of self"""
-        res = np.empty(shape=self._tracer_modules.shape, dtype=np.object)
+        res = np.empty(self._tracer_modules.shape, dtype=np.object)
         for ind, tracer_module in enumerate(self._tracer_modules):
             res[ind] = tracer_module.mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        res = np.empty(shape=self._tracer_modules.shape, dtype=np.object)
+        res = np.empty(self._tracer_modules.shape, dtype=np.object)
         for ind, tracer_module in enumerate(self._tracer_modules):
             res[ind] = tracer_module.dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
         return res
@@ -389,7 +399,7 @@ class ModelState:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty(shape=(self.tracer_module_cnt, basis_cnt), dtype=np.object)
+        h_val = np.empty((self.tracer_module_cnt, basis_cnt), dtype=np.object)
         for i_val in range(0, basis_cnt):
             basis_i = ModelState(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)
@@ -409,7 +419,8 @@ class ModelState:
             return ModelState(res_fname)
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
-        res = _model_static_vars.newton_fcn.comp_fcn(self, res_fname, solver_state, hist_fname)
+        res = _model_static_vars.newton_fcn.comp_fcn(
+            self, res_fname, solver_state, hist_fname)
         res.zero_extra_tracers().apply_region_mask().dump(res_fname)
 
         solver_state.log_step(fcn_complete_step)
@@ -437,8 +448,8 @@ class ModelState:
 
         # perturbed ModelState
         perturb_ms = self + sigma * direction
-        perturb_fcn_fname = os.path.join(solver_state.get_workdir(),
-                                         'perturb_fcn_'+os.path.basename(res_fname))
+        perturb_fcn_fname = os.path.join(
+            solver_state.get_workdir(), 'perturb_fcn_'+os.path.basename(res_fname))
         perturb_fcn = perturb_ms.comp_fcn(perturb_fcn_fname, solver_state)
 
         # compute finite difference
@@ -462,8 +473,8 @@ class ModelState:
             return
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        _model_static_vars.newton_fcn.gen_precond_jacobian(self, hist_fname, precond_fname,
-                                                           solver_state)
+        _model_static_vars.newton_fcn.gen_precond_jacobian(
+            self, hist_fname, precond_fname, solver_state)
 
         solver_state.log_step(fcn_complete_step)
 
@@ -503,8 +514,8 @@ class ModelState:
             return ModelState(res_fname)
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
-        res = _model_static_vars.newton_fcn.apply_precond_jacobian(self, precond_fname, \
-                                                                   res_fname, solver_state)
+        res = _model_static_vars.newton_fcn.apply_precond_jacobian(
+            self, precond_fname, res_fname, solver_state)
 
         solver_state.log_step(fcn_complete_step)
 
@@ -518,7 +529,8 @@ class ModelState:
                 return tracer_module.get_tracer_vals(tracer_name)
             except ValueError:
                 pass
-        raise ValueError('unknown tracer_name=', tracer_name)
+        msg = 'unknown tracer_name=%s' % tracer_name
+        raise ValueError(msg)
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""
@@ -575,22 +587,26 @@ class TracerModuleStateBase:
         logger.debug('TracerModuleStateBase:entering, vals_fname=%s', vals_fname)
         if _model_static_vars is None:
             msg = '_model_static_vars is None' \
-                  ', ModelStaticVars.__init__ must be called before TracerModuleStateBase.__init__'
+                  ', %s must be called before %s' \
+                  % ('ModelStaticVars.__init__', 'TracerModuleStateBase.__init__')
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
-        self._tracer_module_def = _model_static_vars.tracer_module_defs[tracer_module_name]
+        self._tracer_module_def = \
+            _model_static_vars.tracer_module_defs[tracer_module_name]
         if dims is None != vals_fname is None:
-            raise ValueError('exactly one of dims and vals_fname must be passed')
+            msg = 'exactly one of dims and vals_fname must be passed'
+            raise ValueError(msg)
         if dims is not None:
             self._dims = dims
         if vals_fname is not None:
-            self._vals, self._dims = self._read_vals(tracer_module_name, vals_fname)
+            self._vals, self._dims = self._read_vals(tracer_module_name, vals_fname) # pylint: disable=E1111
         logger.debug('returning')
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
-        raise NotImplementedError(
-            '_read_vals should be implemented in classes derived from TracerModuleStateBase')
+        msg = '% should be implemented in classes derived from %s' \
+            % ('_read_vals', 'TracerModuleStateBase')
+        raise NotImplementedError(msg)
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -609,8 +625,9 @@ class TracerModuleStateBase:
         perform an action (define or write) of dumping a TracerModuleStateBase object
         to an open file
         """
-        raise NotImplementedError(
-            'dump should be implemented in classes derived from TracerModuleStateBase')
+        msg = '% should be implemented in classes derived from %s' \
+            % ('dump', 'TracerModuleStateBase')
+        raise NotImplementedError(msg)
 
     def log_vals(self, msg, vals):
         """write per-tracer module values to the log"""
@@ -619,7 +636,8 @@ class TracerModuleStateBase:
         # simplify subsequent logic by converting implicit RegionScalars dimension
         # to an additional ndarray dimension
         if isinstance(vals, RegionScalars) \
-                or isinstance(vals, np.ndarray) and isinstance(vals.ravel()[0], RegionScalars):
+                or isinstance(vals, np.ndarray) \
+                and isinstance(vals.ravel()[0], RegionScalars):
             self.log_vals(msg, to_ndarray(vals))
             return
 
@@ -636,9 +654,12 @@ class TracerModuleStateBase:
         elif vals.ndim == 2:
             for i in range(vals.shape[0]):
                 for j in range(vals.shape[1]):
-                    logger.info('%s[%s,%d,%d]=%e', msg, self._tracer_module_name, i, j, vals[i, j])
+                    logger.info(
+                        '%s[%s,%d,%d]=%e', msg, self._tracer_module_name, i, j,
+                        vals[i, j])
         else:
-            raise ValueError('vals.ndim=%d not handled' % vals.ndim)
+            msg = 'vals.ndim=%d not handled' % vals.ndim
+            raise ValueError(msg)
 
     def copy(self):
         """return a copy of self"""
@@ -808,14 +829,14 @@ class TracerModuleStateBase:
         # k,l,m : grid dimensions
         # sum over tracer and model grid dimensions, leaving region dimension
         if ndim == 1:
-            tmp = np.einsum('ik,jk,jk', _model_static_vars.grid_weight, self._vals,
-                            other._vals) # pylint: disable=W0212
+            tmp = np.einsum(
+                'ik,jk,jk', _model_static_vars.grid_weight, self._vals, other._vals) # pylint: disable=W0212
         elif ndim == 2:
-            tmp = np.einsum('ikl,jkl,jkl', _model_static_vars.grid_weight, self._vals,
-                            other._vals) # pylint: disable=W0212
+            tmp = np.einsum(
+                'ikl,jkl,jkl', _model_static_vars.grid_weight, self._vals, other._vals) # pylint: disable=W0212
         else:
-            tmp = np.einsum('iklm,jklm,jklm', _model_static_vars.grid_weight, self._vals,
-                            other._vals) # pylint: disable=W0212
+            tmp = np.einsum(
+                'iklm,jklm,jklm', _model_static_vars.grid_weight, self._vals, other._vals) # pylint: disable=W0212
         # return RegionScalars object
         return RegionScalars(tmp)
 
@@ -828,7 +849,8 @@ class TracerModuleStateBase:
         # process tracers in order of tracer_names
         for tracer_name in self._tracer_module_def['tracer_names']:
             if tracer_name in self._tracer_module_def['precond_matrices']:
-                precond_matrix_name = self._tracer_module_def['precond_matrices'][tracer_name]
+                precond_matrix_name = \
+                    self._tracer_module_def['precond_matrices'][tracer_name]
                 if precond_matrix_name not in res:
                     res[precond_matrix_name] = [tracer_name]
                 else:
@@ -850,17 +872,20 @@ class TracerModuleStateBase:
         """copy shadow tracers to their real counterparts"""
         shadow_tracers = self._tracer_module_def['shadow_tracers']
         for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
-            self.set_tracer_vals(real_tracer_name, self.get_tracer_vals(shadow_tracer_name))
+            self.set_tracer_vals(
+                real_tracer_name, self.get_tracer_vals(shadow_tracer_name))
 
     def copy_real_tracers_to_shadow_tracers(self):
         """overwrite shadow tracers with their real counterparts"""
         shadow_tracers = self._tracer_module_def['shadow_tracers']
         for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
-            self.set_tracer_vals(shadow_tracer_name, self.get_tracer_vals(real_tracer_name))
+            self.set_tracer_vals(
+                shadow_tracer_name, self.get_tracer_vals(real_tracer_name))
 
     def extra_tracer_inds(self):
         """
-        return list of indices of tracers that are extra (i.e., they are not being solved for)
+        return list of indices of tracers that are extra
+            (i.e., they are not being solved for)
         the indices are with respect to self
         tracers that are shadowed are automatically extra
         """
@@ -877,8 +902,8 @@ class TracerModuleStateBase:
     def apply_region_mask(self):
         """set _vals to zero where region_mask == 0"""
         for tracer_ind in range(self.tracer_cnt()):
-            self._vals[tracer_ind, :] = np.where(_model_static_vars.region_mask != 0,
-                                                 self._vals[tracer_ind, :], 0.0)
+            self._vals[tracer_ind, :] = np.where(
+                _model_static_vars.region_mask != 0, self._vals[tracer_ind, :], 0.0)
 
 ################################################################################
 
@@ -942,13 +967,15 @@ class RegionScalars:
         """
         broadcast vals from self to an array of same shape as region_mask
         values in the results are:
-            fill_value    where region_mask is <= 0 (e.g. complement of computational domain)
+            fill_value    where region_mask is <= 0
+                            (e.g. complement of computational domain)
             _vals[ind]    where region_mask == ind+1
         """
         res = np.full(shape=_model_static_vars.region_mask.shape, fill_value=fill_value)
         for region_ind in range(get_region_cnt()):
-            res = np.where(_model_static_vars.region_mask == region_ind+1,
-                           self._vals[region_ind], res)
+            res = np.where(
+                _model_static_vars.region_mask == region_ind+1,
+                self._vals[region_ind], res)
         return res
 
 ################################################################################
@@ -963,7 +990,7 @@ def to_ndarray(array_in):
     if isinstance(array_in, RegionScalars):
         return np.array(array_in.vals())
 
-    res = np.empty(shape=array_in.shape+(get_region_cnt(),))
+    res = np.empty(array_in.shape+(get_region_cnt(),))
 
     if array_in.ndim == 0:
         res[:] = array_in[()].vals()
@@ -980,7 +1007,8 @@ def to_ndarray(array_in):
                 for ind2 in range(array_in.shape[2]):
                     res[ind0, ind1, ind2, :] = array_in[ind0, ind1, ind2].vals()
     else:
-        raise ValueError('array_in.ndim=%d not handled' % array_in.ndim)
+        msg = 'array_in.ndim=%d not handled' % array_in.ndim
+        raise ValueError(msg)
 
     return res
 
@@ -988,13 +1016,15 @@ def to_region_scalar_ndarray(array_in):
     """
     Create an ndarray of RegionScalars, res, from an ndarray.
     res.ndim is 1 less than array_in.ndim.
-    The last dimension of array_in corresponds to to implicit RegionScalars dimension in res.
+    The last dimension of array_in corresponds to to implicit RegionScalars dimension in
+    res.
     """
 
     if array_in.shape[-1] != get_region_cnt():
-        raise ValueError('last dimension must have length get_region_cnt()')
+        msg = 'last dimension must have length get_region_cnt()'
+        raise ValueError(msg)
 
-    res = np.empty(shape=array_in.shape[:-1], dtype=np.object)
+    res = np.empty(array_in.shape[:-1], dtype=np.object)
 
     if array_in.ndim == 1:
         res[()] = RegionScalars(array_in[:])
@@ -1011,7 +1041,8 @@ def to_region_scalar_ndarray(array_in):
                 for ind2 in range(array_in.shape[2]):
                     res[ind0, ind1, ind2] = RegionScalars(array_in[ind0, ind1, ind2, :])
     else:
-        raise ValueError('array_in.ndim=%d not handled' % array_in.ndim)
+        msg = 'array_in.ndim=%d not handled' % array_in.ndim
+        raise ValueError(msg)
 
     return res
 

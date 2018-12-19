@@ -13,8 +13,8 @@ args = parse_args()
 config = configparser.ConfigParser()
 config.read(args.cfg_fname)
 
-logging.basicConfig(format='%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s',
-                    stream=sys.stdout, level='DEBUG')
+logging_format = '%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s'
+logging.basicConfig(format=logging_format, stream=sys.stdout, level='DEBUG')
 logger = logging.getLogger(__name__)
 
 ModelStaticVars(config['modelinfo'])
