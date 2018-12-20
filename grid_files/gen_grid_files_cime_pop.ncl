@@ -1,7 +1,7 @@
 ;
-; gen_grid_files_cesm_pop.ncl
+; gen_grid_files_cime_pop.ncl
 ;
-; generate grid files, containing grid_weight and region_mask, from a CESM POP hist (tavg) file
+; generate grid files, containing grid_weight and region_mask, from a CIME POP hist (tavg) file
 ;
 
 begin
@@ -58,7 +58,7 @@ begin
     grid_weight@long_name = "Ocean Grid-Cell Volume"
     grid_weight@units = "m3"
 
-    grid_fname = "grid_vars_cesm_pop_"+grid+".nc"
+    grid_fname = "grid_vars_cime_pop_"+grid+".nc"
     system("rm -f "+grid_fname)
     fptr = addfile(grid_fname, "c")
 

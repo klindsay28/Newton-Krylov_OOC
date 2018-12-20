@@ -20,6 +20,6 @@ logger = logging.getLogger(__name__)
 
 msv = ModelStaticVars(config['modelinfo'])
 
-solver_state = SolverState('cesm_pop', '.')
+solver_state = SolverState('cime_pop', '.')
 
 msv.newton_fcn._gen_precond_matrix_files(solver_state)

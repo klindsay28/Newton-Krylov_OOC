@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""cesm pop hooks for Newton-Krylov solver"""
+"""cime pop hooks for Newton-Krylov solver"""
 
 from __future__ import division
 
@@ -25,20 +25,20 @@ from newton_fcn_base import NewtonFcnBase
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="cesm pop hooks for Newton-Krylov solver")
+        description="cime pop hooks for Newton-Krylov solver")
     parser.add_argument(
         'cmd', choices=['comp_fcn', 'gen_precond_jacobian', 'apply_precond_jacobian'],
         help='command to run')
     parser.add_argument(
         '--cfg_fname', help='name of configuration file',
-        default='newton_krylov_cesm_pop.cfg')
+        default='newton_krylov_cime_pop.cfg')
     parser.add_argument('--hist_fname', help='name of history file', default=None)
     parser.add_argument('--in_fname', help='name of file with input')
     parser.add_argument('--res_fname', help='name of file for result')
     return parser.parse_args()
 
 def main(args):
-    """cesm pop hooks for Newton-Krylov solver"""
+    """cime pop hooks for Newton-Krylov solver"""
 
     config = configparser.ConfigParser()
     config.read(args.cfg_fname)
