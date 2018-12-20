@@ -18,6 +18,7 @@ import numpy as np
 
 from netCDF4 import Dataset
 
+from cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from model import TracerModuleStateBase, ModelState, ModelStaticVars
 from model import get_precond_matrix_def, get_modelinfo
 from newton_fcn_base import NewtonFcnBase
@@ -175,7 +176,7 @@ class NewtonFcn(NewtonFcnBase):
         matrix_opts_base = matrix_def_base['precond_matrices_opts']
 
         opt_str_subs = {
-            'day_cnt':365*_yr_cnt(), 'precond_fname':precond_fname,
+            'day_cnt':365*cime_yr_cnt(), 'precond_fname':precond_fname,
             'reg_fname':get_modelinfo('region_mask_fname'),
             'irf_fname':get_modelinfo('irf_fname')}
 
@@ -232,15 +233,15 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
 
     # relative pathname of tracer_ic
     tracer_ic_fname_rel = 'tracer_ic.nc'
-    fname = os.path.join(_xmlquery('RUNDIR'), tracer_ic_fname_rel)
+    fname = os.path.join(cime_xmlquery('RUNDIR'), tracer_ic_fname_rel)
     ms_in.dump(fname)
 
     # ensure certain env xml vars are set properly
-    _xmlchange('POP_PASSIVE_TRACER_RESTART_OVERRIDE', tracer_ic_fname_rel)
-    _xmlchange('CONTINUE_RUN', 'FALSE')
+    cime_xmlchange('POP_PASSIVE_TRACER_RESTART_OVERRIDE', tracer_ic_fname_rel)
+    cime_xmlchange('CONTINUE_RUN', 'FALSE')
 
     # copy rpointer files to rundir
-    rundir = _xmlquery('RUNDIR')
+    rundir = cime_xmlquery('RUNDIR')
     for src in glob.glob(os.path.join(get_modelinfo('rpointer_dir'), 'rpointer.*')):
         shutil.copy(src, rundir)
 
@@ -250,10 +251,10 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
     post_modelrun_script_fname = os.path.join(
         cwd, 'generated_scripts', 'post_modelrun.sh')
     _gen_post_modelrun_script(post_modelrun_script_fname)
-    _xmlchange('POSTRUN_SCRIPT', post_modelrun_script_fname)
+    cime_xmlchange('POSTRUN_SCRIPT', post_modelrun_script_fname)
 
     # submit the model run and exit
-    _case_submit()
+    cime_case_submit()
 
     solver_state.log_step(fcn_complete_step)
 
@@ -279,22 +280,6 @@ def _gen_post_modelrun_script(script_fname):
     fstat = os.stat(script_fname)
     os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
-def _yr_cnt():
-    """return how many years are in forward model run"""
-    stop_option = _xmlquery('STOP_OPTION')
-    stop_n = int(_xmlquery('STOP_N'))
-    if stop_option == 'nyear':
-        yr_cnt = stop_n
-    elif stop_option == 'nmonth':
-        if stop_n % 12 != 0:
-            msg = 'number of months=%d not divisible by 12' % stop_n
-            raise RuntimeError(msg)
-        yr_cnt = int(stop_n) // 12
-    else:
-        msg = 'stop_option = %s not implemented' % stop_option
-        raise NotImplementedError(msg)
-    return yr_cnt
-
 def _gen_hist(hist_fname):
     """generate history file corresponding to just completed model run"""
     logger = logging.getLogger(__name__)
@@ -315,20 +300,20 @@ def _gen_hist(hist_fname):
         raise NotImplementedError(msg)
 
     # get starting year
-    if _xmlquery('RUN_TYPE') == 'branch':
-        date0 = _xmlquery('RUN_REFDATE')
+    if cime_xmlquery('RUN_TYPE') == 'branch':
+        date0 = cime_xmlquery('RUN_REFDATE')
     else:
-        date0 = _xmlquery('RUN_STARTDATE')
+        date0 = cime_xmlquery('RUN_STARTDATE')
     yyyy = date0.split('-')[0]
 
     # construct name of first annual file
-    if _xmlquery('DOUT_S') == 'TRUE':
-        hist_dir = os.path.join(_xmlquery('DOUT_S_ROOT'), 'ocn', 'hist')
+    if cime_xmlquery('DOUT_S') == 'TRUE':
+        hist_dir = os.path.join(cime_xmlquery('DOUT_S_ROOT'), 'ocn', 'hist')
     else:
-        hist_dir = _xmlquery('RUNDIR')
-    model_hist_fname = os.path.join(hist_dir, _xmlquery('CASE')+'.pop.h.'+yyyy+'.nc')
+        hist_dir = cime_xmlquery('RUNDIR')
+    model_hist_fname = os.path.join(hist_dir, cime_xmlquery('CASE')+'.pop.h.'+yyyy+'.nc')
 
-    cmd = ['ncra', '-O', '-n', '%d,4' % _yr_cnt(), '-o', hist_fname, model_hist_fname]
+    cmd = ['ncra', '-O', '-n', '%d,4' % cime_yr_cnt(), '-o', hist_fname, model_hist_fname]
     logger.debug('cmd = "%s"', ' '.join(cmd))
     subprocess.run(cmd, check=True)
 
@@ -336,10 +321,10 @@ def _comp_fcn_post_modelrun(ms_in):
     """post-modelrun step of evaluting the function being solved with Newton's method"""
 
     # determine name of end of run restart file from POP's rpointer file
-    rpointer_fname = os.path.join(_xmlquery('RUNDIR'), 'rpointer.ocn.restart')
+    rpointer_fname = os.path.join(cime_xmlquery('RUNDIR'), 'rpointer.ocn.restart')
     with open(rpointer_fname, mode='r') as fptr:
         rest_file_fname_rel = fptr.readline().strip()
-    fname = os.path.join(_xmlquery('RUNDIR'), rest_file_fname_rel)
+    fname = os.path.join(cime_xmlquery('RUNDIR'), rest_file_fname_rel)
 
     return ModelState(fname) - ms_in
 
@@ -448,7 +433,7 @@ def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fna
     logger.debug('entering')
     model_state = ModelState(res_fname)
     term_applied = False
-    delta_time = 365.0 * 86400.0 * _yr_cnt()
+    delta_time = 365.0 * 86400.0 * cime_yr_cnt()
     with Dataset(precond_fname, 'r') as fptr:
         fptr.set_auto_mask(False)
         for tracer_name_src in tracer_names_subset:
@@ -472,40 +457,6 @@ def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fna
                     term_applied = True
     if term_applied:
         model_state.dump(res_fname)
-
-def _xmlquery(varname):
-    """run CIME's _xmlquery for varname in the directory caseroot, return the value"""
-    caseroot = get_modelinfo('caseroot')
-    return subprocess.check_output(
-        ['./xmlquery', '--value', varname], cwd=caseroot).decode()
-
-def _xmlchange(varname, value):
-    """run CIME's _xmlchange in the directory caseroot, setting varname to value"""
-    # skip change command if it would not change the value
-    # this avoids clutter in the file CaseStatus
-    if value != _xmlquery(varname):
-        caseroot = get_modelinfo('caseroot')
-        subprocess.run(
-            ['./xmlchange', '%s=%s' % (varname, value)], cwd=caseroot, check=True)
-
-def _case_submit():
-    """submit a CIME case, return after submit completes"""
-    logger = logging.getLogger(__name__)
-
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    script_fname = os.path.join(cwd, 'generated_scripts', 'case_submit.sh')
-    with open(script_fname, mode='w') as fptr:
-        fptr.write('#!/bin/bash -l\n')
-        fptr.write('source %s\n' % get_modelinfo('cime_env_cmds_fname'))
-        fptr.write('cd %s\n' % get_modelinfo('caseroot'))
-        fptr.write('./case.submit\n')
-
-    # ensure script_fname is executable by the user, while preserving other permissions
-    fstat = os.stat(script_fname)
-    os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
-
-    logger.info('submitting case=%s', _xmlquery('CASE'))
-    subprocess.run(script_fname, shell=True, check=True)
 
 def _get_pop_nl_var(var_name):
     """
