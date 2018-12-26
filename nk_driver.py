@@ -8,7 +8,7 @@ import os
 import sys
 
 from gen_nk_driver_invoker_script import gen_nk_driver_invoker_script
-from model import ModelStaticVars
+from model_config import ModelConfig
 from newton_solver import NewtonSolver
 
 def parse_args():
@@ -51,7 +51,7 @@ def main(args):
     config['modelinfo']['nk_driver_invoker_fname'] = gen_nk_driver_invoker_script(
         config['modelinfo'])
 
-    ModelStaticVars(config['modelinfo'], logging.DEBUG if args.resume else logging.INFO)
+    ModelConfig(config['modelinfo'], logging.DEBUG if args.resume else logging.INFO)
 
     newton_solver = NewtonSolver(
         solverinfo=solverinfo, resume=args.resume, rewind=args.rewind)

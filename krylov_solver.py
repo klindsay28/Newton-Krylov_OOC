@@ -6,8 +6,9 @@ import numpy as np
 
 import util
 
-from model import ModelState, lin_comb, get_region_cnt
-from model import to_ndarray, to_region_scalar_ndarray
+from model import ModelState, lin_comb
+from model_config import get_region_cnt
+from region_scalars import to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
 
 class KrylovSolver:

@@ -9,7 +9,8 @@ import numpy as np
 import util
 
 from krylov_solver import KrylovSolver
-from model import get_modelinfo, ModelState, to_ndarray, to_region_scalar_ndarray
+from model import get_modelinfo, ModelState
+from region_scalars import to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
 
 class NewtonSolver:

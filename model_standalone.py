@@ -6,7 +6,8 @@ import configparser
 import logging
 import sys
 
-from model import ModelState, ModelStaticVars
+from model import ModelState
+from model_config import ModelConfig
 from nk_driver import parse_args
 
 args = parse_args()
@@ -17,7 +18,7 @@ logging_format = '%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s'
 logging.basicConfig(format=logging_format, stream=sys.stdout, level='DEBUG')
 logger = logging.getLogger(__name__)
 
-ModelStaticVars(config['modelinfo'])
+ModelConfig(config['modelinfo'])
 
 ms = ModelState('iterate_test_00.nc')
 ms.log('iterate_test_00')

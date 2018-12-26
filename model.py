@@ -1,154 +1,15 @@
 """class for representing the state space of a model, and operations on it"""
 
 import collections
-import importlib
 import logging
 import os
 
 import numpy as np
 from netCDF4 import Dataset
-import yaml
 
-# model static variables
-_model_static_vars = None
-
-# functions to commonly accessed vars in _model_static_vars
-def get_region_cnt():
-    """return number of regions specified by region_mask"""
-    return _model_static_vars.region_cnt
-
-def get_precond_matrix_def(matrix_name):
-    """return an entry from precond_matrix_defs"""
-    return _model_static_vars.precond_matrix_defs[matrix_name]
-
-def get_modelinfo(key):
-    """return value associated in modelinfo with key"""
-    return _model_static_vars.modelinfo[key]
-
-################################################################################
-
-class ModelStaticVars:
-    """class to hold static vars"""
-
-    def __init__(self, modelinfo, lvl=logging.DEBUG):
-        logger = logging.getLogger(__name__)
-        logger.debug('ModelStaticVars:entering')
-
-        # store modelinfo for later use
-        self.modelinfo = modelinfo
-
-        # import module with TracerModuleState and NewtonFcn
-        newton_fcn_mod = importlib.import_module(modelinfo['newton_fcn_modname'])
-
-        # store newton_fcn_mod's TracerModuleState class
-        # and an instance of class NewtonFcn
-        self.tracer_module_state = newton_fcn_mod.TracerModuleState
-        self.newton_fcn = newton_fcn_mod.NewtonFcn()
-
-        # load content from tracer_module_defs_fname
-        fname = modelinfo['tracer_module_defs_fname']
-        logger.log(lvl, 'loading content from %s', fname)
-        with open(fname, mode='r') as fptr:
-            file_contents = yaml.load(fptr)
-            self.tracer_module_defs = pad_defs(
-                file_contents['tracer_module_defs'], 'tracer module',
-                {'tracer_names':'list', 'shadow_tracers':'dict',
-                 'precond_matrices':'dict'}, lvl)
-            check_shadow_tracers(self.tracer_module_defs, lvl)
-            self.precond_matrix_defs = pad_defs(
-                file_contents['precond_matrix_defs'], 'precond matrix',
-                {'hist_to_precond_var_names':'list'}, lvl)
-            check_precond_matrix_defs(self.precond_matrix_defs)
-
-        # extract grid_weight from modelinfo config object
-        fname = modelinfo['grid_weight_fname']
-        varname = modelinfo['grid_weight_varname']
-        logger.log(lvl, 'reading %s from %s for grid_weight', varname, fname)
-        with Dataset(fname, mode='r') as fptr:
-            fptr.set_auto_mask(False)
-            grid_weight_no_region_dim = fptr.variables[varname][:]
-
-        # extract region_mask from modelinfo config object
-        fname = modelinfo['region_mask_fname']
-        varname = modelinfo['region_mask_varname']
-        if not fname == 'None' and not varname == 'None':
-            logger.log(lvl, 'reading %s from %s for region_mask', varname, fname)
-            with Dataset(fname, mode='r') as fptr:
-                fptr.set_auto_mask(False)
-                self.region_mask = fptr.variables[varname][:]
-                if self.region_mask.shape != grid_weight_no_region_dim.shape:
-                    msg = 'region_mask and grid_weight must have the same shape'
-                    raise RuntimeError(msg)
-        else:
-            self.region_mask = np.ones_like(grid_weight_no_region_dim, dtype=np.int32)
-
-        # enforce that region_mask and grid_weight and both 0 where one of them is
-        self.region_mask = np.where(grid_weight_no_region_dim == 0.0, 0, self.region_mask)
-        grid_weight_no_region_dim = np.where(
-            self.region_mask == 0, 0.0, grid_weight_no_region_dim)
-
-        self.region_cnt = self.region_mask.max()
-
-        # add region dimension to grid_weight and normalize
-        self.grid_weight = np.empty((self.region_cnt,) + grid_weight_no_region_dim.shape)
-        for region_ind in range(self.region_cnt):
-            self.grid_weight[region_ind, :] = np.where(
-                self.region_mask == region_ind+1, grid_weight_no_region_dim, 0.0)
-            # normalize grid_weight so that its sum is 1.0 over each region
-            self.grid_weight[region_ind, :] *= \
-                1.0 / np.sum(self.grid_weight[region_ind, :])
-
-        # store contents in module level var, to enable use elsewhere
-        global _model_static_vars # pylint: disable=W0603
-        _model_static_vars = self
-
-        logger.debug('returning')
-
-def pad_defs(def_dict, obj_desc, def_entries, lvl):
-    """
-    Place emtpy objects in dict of definitions where they do not exist.
-    This is to ease subsequent coding.
-    """
-    logger = logging.getLogger(__name__)
-    for def_dict_key, def_dict_value in def_dict.items():
-        for entry, entry_type in def_entries.items():
-            if entry not in def_dict_value:
-                logger.log(lvl, '%s %s has no entry %s', obj_desc, def_dict_key, entry)
-                def_dict_value[entry] = [] if entry_type == 'list' else {}
-    return def_dict
-
-def check_shadow_tracers(tracer_module_defs, lvl):
-    """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
-    # This check is done for all entries in tracer_module_defs,
-    # whether they are being used or not.
-    logger = logging.getLogger(__name__)
-    for tracer_module_name, tracer_module_def in tracer_module_defs.items():
-        # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
-        for shadow_tracer_name, real_tracer_name in \
-                tracer_module_def['shadow_tracers'].items():
-            if shadow_tracer_name not in tracer_module_def['tracer_names']:
-                msg = 'specified shadow tracer %s in tracer module %s not known' \
-                    % (shadow_tracer_name, tracer_module_name)
-                raise ValueError(msg)
-            if real_tracer_name not in tracer_module_def['tracer_names']:
-                msg = 'specified tracer %s in tracer module %s not known' \
-                    % (real_tracer_name, tracer_module_name)
-                raise ValueError(msg)
-            logger.log(lvl, 'tracer module %s has %s as a shadow for %s',
-                       tracer_module_name, shadow_tracer_name, real_tracer_name)
-
-def check_precond_matrix_defs(precond_matrix_defs):
-    """Perform basic vetting of precond_matrix_defs"""
-    # This check is done for all entries in def_dict,
-    # whether they are being used or not.
-    for precond_matrix_name, precond_matrix_def in precond_matrix_defs.items():
-        # verify that suffixes in hist_to_precond_var_names are recognized
-        for hist_var in precond_matrix_def['hist_to_precond_var_names']:
-            _, _, time_op = hist_var.partition(':')
-            if time_op not in ['avg', 'log_avg', 'copy', '']:
-                msg = 'unknown time_op=%s in %s from %s' \
-                    % (time_op, hist_var, precond_matrix_name)
-                raise ValueError(msg)
+import model_config
+from model_config import get_precond_matrix_def, get_modelinfo
+from region_scalars import RegionScalars, to_ndarray
 
 ################################################################################
 
@@ -161,9 +22,9 @@ class ModelState:
     def __init__(self, vals_fname=None):
         logger = logging.getLogger(__name__)
         logger.debug('ModelState:entering, vals_fname=%s', vals_fname)
-        if _model_static_vars is None:
-            msg = '_model_static_vars is None' \
-                  ', ModelStaticVars.__init__ must be called before ModelState.__init__'
+        if model_config.model_config_obj is None:
+            msg = 'model_config.model_config_obj is None, %s must be called before %s' \
+                  % ('ModelConfig.__init__', 'ModelState.__init__')
             raise RuntimeError(msg)
         self.tracer_module_names = get_modelinfo('tracer_module_names').split(',')
         self.tracer_module_cnt = len(self.tracer_module_names)
@@ -172,7 +33,7 @@ class ModelState:
             for tracer_module_ind, tracer_module_name in \
                     enumerate(self.tracer_module_names):
                 self._tracer_modules[tracer_module_ind] = \
-                    _model_static_vars.tracer_module_state(
+                    model_config.model_config_obj.tracer_module_state(
                         tracer_module_name, vals_fname=vals_fname)
         logger.debug('returning')
 
@@ -419,7 +280,7 @@ class ModelState:
             return ModelState(res_fname)
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
-        res = _model_static_vars.newton_fcn.comp_fcn(
+        res = model_config.model_config_obj.newton_fcn.comp_fcn(
             self, res_fname, solver_state, hist_fname)
         res.zero_extra_tracers().apply_region_mask().dump(res_fname)
 
@@ -473,7 +334,7 @@ class ModelState:
             return
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        _model_static_vars.newton_fcn.gen_precond_jacobian(
+        model_config.model_config_obj.newton_fcn.gen_precond_jacobian(
             self, hist_fname, precond_fname, solver_state)
 
         solver_state.log_step(fcn_complete_step)
@@ -514,7 +375,7 @@ class ModelState:
             return ModelState(res_fname)
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
-        res = _model_static_vars.newton_fcn.apply_precond_jacobian(
+        res = model_config.model_config_obj.newton_fcn.apply_precond_jacobian(
             self, precond_fname, res_fname, solver_state)
 
         solver_state.log_step(fcn_complete_step)
@@ -585,14 +446,13 @@ class TracerModuleStateBase:
     def __init__(self, tracer_module_name, dims=None, vals_fname=None):
         logger = logging.getLogger(__name__)
         logger.debug('TracerModuleStateBase:entering, vals_fname=%s', vals_fname)
-        if _model_static_vars is None:
-            msg = '_model_static_vars is None' \
-                  ', %s must be called before %s' \
-                  % ('ModelStaticVars.__init__', 'TracerModuleStateBase.__init__')
+        if model_config.model_config_obj is None:
+            msg = 'model_config.model_config_obj is None, %s must be called before %s' \
+                  % ('ModelConfig.__init__', 'TracerModuleStateBase.__init__')
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
         self._tracer_module_def = \
-            _model_static_vars.tracer_module_defs[tracer_module_name]
+            model_config.model_config_obj.tracer_module_defs[tracer_module_name]
         if dims is None != vals_fname is None:
             msg = 'exactly one of dims and vals_fname must be passed'
             raise ValueError(msg)
@@ -731,7 +591,8 @@ class TracerModuleStateBase:
         if isinstance(other, float):
             res._vals = self._vals * other # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
-            res._vals = self._vals * other.broadcast(1.0) # pylint: disable=W0212
+            res._vals = self._vals * other.broadcast( # pylint: disable=W0212
+                model_config.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals * other._vals # pylint: disable=W0212
         else:
@@ -753,7 +614,7 @@ class TracerModuleStateBase:
         if isinstance(other, float):
             self._vals *= other
         elif isinstance(other, RegionScalars):
-            self._vals *= other.broadcast(1.0)
+            self._vals *= other.broadcast(model_config.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
             self._vals *= other._vals # pylint: disable=W0212
         else:
@@ -769,7 +630,8 @@ class TracerModuleStateBase:
         if isinstance(other, float):
             res._vals = self._vals * (1.0 / other) # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
-            res._vals = self._vals * other.recip().broadcast(1.0) # pylint: disable=W0212
+            res._vals = self._vals * other.recip().broadcast( # pylint: disable=W0212
+                model_config.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals / other._vals # pylint: disable=W0212
         else:
@@ -785,7 +647,8 @@ class TracerModuleStateBase:
         if isinstance(other, float):
             res._vals = other / self._vals # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
-            res._vals = other.broadcast(1.0) / self._vals # pylint: disable=W0212
+            res._vals = other.broadcast( # pylint: disable=W0212
+                model_config.model_config_obj.region_mask) / self._vals
         else:
             return NotImplemented
         return res
@@ -798,7 +661,8 @@ class TracerModuleStateBase:
         if isinstance(other, float):
             self._vals *= (1.0 / other)
         elif isinstance(other, RegionScalars):
-            self._vals *= other.recip().broadcast(1.0)
+            self._vals *= other.recip().broadcast(
+                model_config.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
             self._vals /= other._vals # pylint: disable=W0212
         else:
@@ -813,11 +677,14 @@ class TracerModuleStateBase:
         # k,l,m : grid dimensions
         # sum over model grid dimensions, leaving region and tracer dimensions
         if ndim == 1:
-            tmp = np.einsum('ik,jk', _model_static_vars.grid_weight, self._vals)
+            tmp = np.einsum(
+                'ik,jk', model_config.model_config_obj.grid_weight, self._vals)
         elif ndim == 2:
-            tmp = np.einsum('ikl,jkl', _model_static_vars.grid_weight, self._vals)
+            tmp = np.einsum(
+                'ikl,jkl', model_config.model_config_obj.grid_weight, self._vals)
         else:
-            tmp = np.einsum('iklm,jklm', _model_static_vars.grid_weight, self._vals)
+            tmp = np.einsum(
+                'iklm,jklm', model_config.model_config_obj.grid_weight, self._vals)
         # sum over tracer dimension, and return RegionScalars object
         return RegionScalars(np.sum(tmp, axis=-1))
 
@@ -830,13 +697,16 @@ class TracerModuleStateBase:
         # sum over tracer and model grid dimensions, leaving region dimension
         if ndim == 1:
             tmp = np.einsum(
-                'ik,jk,jk', _model_static_vars.grid_weight, self._vals, other._vals) # pylint: disable=W0212
+                'ik,jk,jk', model_config.model_config_obj.grid_weight, self._vals,
+                other._vals) # pylint: disable=W0212
         elif ndim == 2:
             tmp = np.einsum(
-                'ikl,jkl,jkl', _model_static_vars.grid_weight, self._vals, other._vals) # pylint: disable=W0212
+                'ikl,jkl,jkl', model_config.model_config_obj.grid_weight, self._vals,
+                other._vals) # pylint: disable=W0212
         else:
             tmp = np.einsum(
-                'iklm,jklm,jklm', _model_static_vars.grid_weight, self._vals, other._vals) # pylint: disable=W0212
+                'iklm,jklm,jklm', model_config.model_config_obj.grid_weight, self._vals,
+                other._vals) # pylint: disable=W0212
         # return RegionScalars object
         return RegionScalars(tmp)
 
@@ -903,148 +773,10 @@ class TracerModuleStateBase:
         """set _vals to zero where region_mask == 0"""
         for tracer_ind in range(self.tracer_cnt()):
             self._vals[tracer_ind, :] = np.where(
-                _model_static_vars.region_mask != 0, self._vals[tracer_ind, :], 0.0)
+                model_config.model_config_obj.region_mask != 0,
+                self._vals[tracer_ind, :], 0.0)
 
 ################################################################################
-
-class RegionScalars:
-    """class to hold per-region scalars"""
-
-    def __init__(self, vals):
-        self._vals = np.array(vals)
-
-    def __mul__(self, other):
-        """
-        multiplication operator
-        called to evaluate res = self * other
-        """
-        if isinstance(other, float):
-            return RegionScalars(self._vals * other)
-        if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals * other._vals) # pylint: disable=W0212
-        return NotImplemented
-
-    def __rmul__(self, other):
-        """
-        reversed multiplication operator
-        called to evaluate res = other * self
-        """
-        return self * other
-
-    def __truediv__(self, other):
-        """
-        division operator
-        called to evaluate res = self / other
-        """
-        if isinstance(other, float):
-            return RegionScalars(self._vals / other)
-        if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals / other._vals) # pylint: disable=W0212
-        return NotImplemented
-
-    def __rtruediv__(self, other):
-        """
-        reversed division operator
-        called to evaluate res = other / self
-        """
-        if isinstance(other, float):
-            return RegionScalars(other / self._vals)
-        return NotImplemented
-
-    def vals(self):
-        """return vals from object"""
-        return self._vals
-
-    def recip(self):
-        """return RegionScalars object with reciprocal operator applied to vals in self"""
-        return RegionScalars(1.0 / self._vals)
-
-    def sqrt(self):
-        """return RegionScalars object with sqrt applied to vals in self"""
-        return RegionScalars(np.sqrt(self._vals))
-
-    def broadcast(self, fill_value):
-        """
-        broadcast vals from self to an array of same shape as region_mask
-        values in the results are:
-            fill_value    where region_mask is <= 0
-                            (e.g. complement of computational domain)
-            _vals[ind]    where region_mask == ind+1
-        """
-        res = np.full(shape=_model_static_vars.region_mask.shape, fill_value=fill_value)
-        for region_ind in range(get_region_cnt()):
-            res = np.where(
-                _model_static_vars.region_mask == region_ind+1,
-                self._vals[region_ind], res)
-        return res
-
-################################################################################
-
-def to_ndarray(array_in):
-    """
-    Create an ndarray, res, from an ndarray of RegionScalars.
-    res.ndim is 1 greater than array_in.ndim.
-    The implicit RegionScalars dimension is placed last in res.
-    """
-
-    if isinstance(array_in, RegionScalars):
-        return np.array(array_in.vals())
-
-    res = np.empty(array_in.shape+(get_region_cnt(),))
-
-    if array_in.ndim == 0:
-        res[:] = array_in[()].vals()
-    elif array_in.ndim == 1:
-        for ind0 in range(array_in.shape[0]):
-            res[ind0, :] = array_in[ind0].vals()
-    elif array_in.ndim == 2:
-        for ind0 in range(array_in.shape[0]):
-            for ind1 in range(array_in.shape[1]):
-                res[ind0, ind1, :] = array_in[ind0, ind1].vals()
-    elif array_in.ndim == 3:
-        for ind0 in range(array_in.shape[0]):
-            for ind1 in range(array_in.shape[1]):
-                for ind2 in range(array_in.shape[2]):
-                    res[ind0, ind1, ind2, :] = array_in[ind0, ind1, ind2].vals()
-    else:
-        msg = 'array_in.ndim=%d not handled' % array_in.ndim
-        raise ValueError(msg)
-
-    return res
-
-def to_region_scalar_ndarray(array_in):
-    """
-    Create an ndarray of RegionScalars, res, from an ndarray.
-    res.ndim is 1 less than array_in.ndim.
-    The last dimension of array_in corresponds to to implicit RegionScalars dimension in
-    res.
-    """
-
-    if array_in.shape[-1] != get_region_cnt():
-        msg = 'last dimension must have length get_region_cnt()'
-        raise ValueError(msg)
-
-    res = np.empty(array_in.shape[:-1], dtype=np.object)
-
-    if array_in.ndim == 1:
-        res[()] = RegionScalars(array_in[:])
-    elif array_in.ndim == 2:
-        for ind0 in range(array_in.shape[0]):
-            res[ind0] = RegionScalars(array_in[ind0, :])
-    elif array_in.ndim == 3:
-        for ind0 in range(array_in.shape[0]):
-            for ind1 in range(array_in.shape[1]):
-                res[ind0, ind1] = RegionScalars(array_in[ind0, ind1, :])
-    elif array_in.ndim == 4:
-        for ind0 in range(array_in.shape[0]):
-            for ind1 in range(array_in.shape[1]):
-                for ind2 in range(array_in.shape[2]):
-                    res[ind0, ind1, ind2] = RegionScalars(array_in[ind0, ind1, ind2, :])
-    else:
-        msg = 'array_in.ndim=%d not handled' % array_in.ndim
-        raise ValueError(msg)
-
-    return res
 
 def lin_comb(coeff, fname_fcn, quantity):
     """compute a linear combination of ModelState objects in files"""

@@ -5,7 +5,7 @@ import os
 import stat
 import subprocess
 
-from model import get_modelinfo
+from model_config import get_modelinfo
 
 def cime_xmlquery(varname):
     """run CIME's xmlquery for varname in the directory caseroot, return the value"""

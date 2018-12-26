@@ -19,8 +19,8 @@ import numpy as np
 from netCDF4 import Dataset
 
 from cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
-from model import TracerModuleStateBase, ModelState, ModelStaticVars
-from model import get_precond_matrix_def, get_modelinfo
+from model import TracerModuleStateBase, ModelState
+from model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from newton_fcn_base import NewtonFcnBase
 
 def _parse_args():
@@ -55,7 +55,7 @@ def main(args):
     # store cfg_fname in modelinfo, to ease access to its values elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
 
-    ModelStaticVars(config['modelinfo'])
+    ModelConfig(config['modelinfo'])
 
     msg = '%s not implemented for command line execution in %s ' % (args.cmd, __file__)
     if args.cmd == 'comp_fcn':

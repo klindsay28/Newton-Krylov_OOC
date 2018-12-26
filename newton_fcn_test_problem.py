@@ -16,7 +16,8 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelState, ModelStaticVars, get_modelinfo
+from model import TracerModuleStateBase, ModelState
+from model_config import ModelConfig, get_modelinfo
 from newton_fcn_base import NewtonFcnBase
 from solver import SolverState
 
@@ -53,7 +54,7 @@ def main(args):
     # store cfg_fname in modelinfo, to ease access to its value elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
 
-    ModelStaticVars(config['modelinfo'])
+    ModelConfig(config['modelinfo'])
 
     newton_fcn = NewtonFcn()
 

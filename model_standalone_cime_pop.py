@@ -6,7 +6,7 @@ import configparser
 import logging
 import sys
 
-from model import ModelStaticVars, get_modelinfo
+from model_config import ModelConfig
 from nk_driver import parse_args
 from solver import SolverState
 
@@ -18,7 +18,7 @@ logging_format = '%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s'
 logging.basicConfig(format=logging_format, stream=sys.stdout, level='DEBUG')
 logger = logging.getLogger(__name__)
 
-msv = ModelStaticVars(config['modelinfo'])
+msv = ModelConfig(config['modelinfo'])
 
 solver_state = SolverState('cime_pop', '.')
 
