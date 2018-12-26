@@ -6,7 +6,7 @@ import numpy as np
 
 import util
 
-from model import ModelState, lin_comb
+from model import lin_comb
 from model_config import get_region_cnt
 from region_scalars import to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
@@ -21,7 +21,7 @@ class KrylovSolver:
     https://www-users.cs.umn.edu/~saad/books.html.
 
     The solver is applied to A x = -fcn, where A is
-    ModelState.comp_jacobian_fcn_state_prod evaluated at iterate.
+    comp_jacobian_fcn_state_prod evaluated at iterate.
 
     Assumes x0 = 0.
     """
@@ -82,7 +82,7 @@ class KrylovSolver:
             if j_val > 0:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state('h_mat_ndarray'))
-            basis_j = ModelState(self._fname('basis'))
+            basis_j = type(iterate)(self._fname('basis'))
             w_raw = iterate.comp_jacobian_fcn_state_prod(
                 fcn, basis_j, self._fname('w_raw'), self._solver_state)
             w_j = w_raw.apply_precond_jacobian(
@@ -98,7 +98,9 @@ class KrylovSolver:
             iterate.log_vals('KrylovCoeff', coeff_ndarray)
 
             # construct approximate solution
-            res = lin_comb(to_region_scalar_ndarray(coeff_ndarray), self._fname, 'basis')
+            res = lin_comb(
+                type(iterate), to_region_scalar_ndarray(coeff_ndarray),
+                self._fname, 'basis')
             res.dump(self._fname('krylov_res', j_val))
 
             if self.converged():

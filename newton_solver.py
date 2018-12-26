@@ -83,7 +83,7 @@ class NewtonSolver:
 
         if self._solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(self._fname('increment'))
+            return type(self._iterate)(self._fname('increment'))
         logger.debug('"%s" not logged, computing increment', fcn_complete_step)
 
         krylov_dir = os.path.join(
@@ -126,8 +126,8 @@ class NewtonSolver:
 
         if self._solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(self._fname('prov_Armijo_%02d' % armijo_ind)), \
-                ModelState(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
+            return type(self._iterate)(self._fname('prov_Armijo_%02d' % armijo_ind)), \
+                type(self._iterate)(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
         logger.debug('"%s" not logged, computing next iterate', fcn_complete_step)
 
         while True:
@@ -209,8 +209,8 @@ class NewtonSolver:
             self._solver_state.log_step(step)
         else:
             fp_iter = self._solver_state.get_value_saved_state('fp_iter')
-            prov = ModelState(self._fname('prov_fp_%02d' % fp_iter))
-            prov_fcn = ModelState(self._fname('prov_fcn_fp_%02d' % fp_iter))
+            prov = type(self._iterate)(self._fname('prov_fp_%02d' % fp_iter))
+            prov_fcn = type(self._iterate)(self._fname('prov_fcn_fp_%02d' % fp_iter))
 
         while fp_iter < self._solverinfo.getint('post_newton_fp_iter'):
             step = 'prov updated for fp iteration %02d' % fp_iter
@@ -222,7 +222,7 @@ class NewtonSolver:
                 prov.dump(self._fname('prov_fp_%02d' % (fp_iter+1)))
                 self._solver_state.log_step(step)
             else:
-                prov = ModelState(self._fname('prov_fp_%02d' % (fp_iter+1)))
+                prov = type(self._iterate)(self._fname('prov_fp_%02d' % (fp_iter+1)))
             prov_fcn = prov.comp_fcn(
                 self._fname('prov_fcn_fp_%02d'% (fp_iter+1)), self._solver_state,
                 self._fname('prov_hist_fp_%02d'% (fp_iter+1)))

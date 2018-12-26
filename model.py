@@ -86,7 +86,7 @@ class ModelState:
 
     def copy(self):
         """return a copy of self"""
-        res = ModelState()
+        res = type(self)()
         res._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object) # pylint: disable=W0212
         for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
             res._tracer_modules[tracer_module_ind] = tracer_module.copy() # pylint: disable=W0212
@@ -97,7 +97,7 @@ class ModelState:
         unary negation operator
         called to evaluate res = -self
         """
-        res = ModelState()
+        res = type(self)()
         res._tracer_modules = -self._tracer_modules # pylint: disable=W0212
         return res
 
@@ -106,7 +106,7 @@ class ModelState:
         addition operator
         called to evaluate res = self + other
         """
-        res = ModelState()
+        res = type(self)()
         if isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
         else:
@@ -136,7 +136,7 @@ class ModelState:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = ModelState()
+        res = type(self)()
         if isinstance(other, ModelState):
             res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
         else:
@@ -159,7 +159,7 @@ class ModelState:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = ModelState()
+        res = type(self)()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
@@ -197,7 +197,7 @@ class ModelState:
         division operator
         called to evaluate res = self / other
         """
-        res = ModelState()
+        res = type(self)()
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
@@ -213,7 +213,7 @@ class ModelState:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = ModelState()
+        res = type(self)()
         if isinstance(other, float):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
@@ -262,7 +262,7 @@ class ModelState:
         """
         h_val = np.empty((self.tracer_module_cnt, basis_cnt), dtype=np.object)
         for i_val in range(0, basis_cnt):
-            basis_i = ModelState(fname_fcn(quantity, i_val))
+            basis_i = type(self)(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)
             self -= h_val[:, i_val] * basis_i
         return h_val
@@ -277,7 +277,7 @@ class ModelState:
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(res_fname)
+            return type(self)(res_fname)
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
         res = model_config.model_config_obj.newton_fcn.comp_fcn(
@@ -302,7 +302,7 @@ class ModelState:
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(res_fname)
+            return type(self)(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         sigma = 1.0e-4 * self.norm()
@@ -372,7 +372,7 @@ class ModelState:
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(res_fname)
+            return type(self)(res_fname)
         logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
 
         res = model_config.model_config_obj.newton_fcn.apply_precond_jacobian(
@@ -778,9 +778,9 @@ class TracerModuleStateBase:
 
 ################################################################################
 
-def lin_comb(coeff, fname_fcn, quantity):
+def lin_comb(res_type, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelState objects in files"""
-    res = coeff[:, 0] * ModelState(fname_fcn(quantity, 0))
+    res = coeff[:, 0] * res_type(fname_fcn(quantity, 0))
     for j_val in range(1, coeff.shape[-1]):
-        res += coeff[:, j_val] * ModelState(fname_fcn(quantity, j_val))
+        res += coeff[:, j_val] * res_type(fname_fcn(quantity, j_val))
     return res
