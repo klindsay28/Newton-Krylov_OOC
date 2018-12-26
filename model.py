@@ -13,18 +13,18 @@ from region_scalars import RegionScalars, to_ndarray
 
 ################################################################################
 
-class ModelState:
+class ModelStateBase:
     """class for representing the state space of a model"""
 
-    # give ModelState operators higher priority than those of numpy
+    # give ModelStateBase operators higher priority than those of numpy
     __array_priority__ = 100
 
     def __init__(self, vals_fname=None):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelState:entering, vals_fname=%s', vals_fname)
+        logger.debug('ModelStateBase:entering, vals_fname=%s', vals_fname)
         if model_config.model_config_obj is None:
             msg = 'model_config.model_config_obj is None, %s must be called before %s' \
-                  % ('ModelConfig.__init__', 'ModelState.__init__')
+                  % ('ModelConfig.__init__', 'ModelStateBase.__init__')
             raise RuntimeError(msg)
         self.tracer_module_names = get_modelinfo('tracer_module_names').split(',')
         self.tracer_module_cnt = len(self.tracer_module_names)
@@ -53,7 +53,7 @@ class ModelState:
         return self.tracer_names().index(tracer_name)
 
     def dump(self, vals_fname):
-        """dump ModelState object to a file"""
+        """dump ModelStateBase object to a file"""
         with Dataset(vals_fname, mode='w') as fptr:
             for action in ['define', 'write']:
                 for tracer_module in self._tracer_modules:
@@ -107,7 +107,7 @@ class ModelState:
         called to evaluate res = self + other
         """
         res = type(self)()
-        if isinstance(other, ModelState):
+        if isinstance(other, ModelStateBase):
             res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -125,7 +125,7 @@ class ModelState:
         inplace addition operator
         called to evaluate self += other
         """
-        if isinstance(other, ModelState):
+        if isinstance(other, ModelStateBase):
             self._tracer_modules += other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -137,7 +137,7 @@ class ModelState:
         called to evaluate res = self - other
         """
         res = type(self)()
-        if isinstance(other, ModelState):
+        if isinstance(other, ModelStateBase):
             res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -148,7 +148,7 @@ class ModelState:
         inplace subtraction operator
         called to evaluate self -= other
         """
-        if isinstance(other, ModelState):
+        if isinstance(other, ModelStateBase):
             self._tracer_modules -= other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -164,7 +164,7 @@ class ModelState:
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
-        elif isinstance(other, ModelState):
+        elif isinstance(other, ModelStateBase):
             res._tracer_modules = self._tracer_modules * other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -186,7 +186,7 @@ class ModelState:
             self._tracer_modules *= other
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             self._tracer_modules *= other
-        elif isinstance(other, ModelState):
+        elif isinstance(other, ModelStateBase):
             self._tracer_modules *= other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -202,7 +202,7 @@ class ModelState:
             res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
-        elif isinstance(other, ModelState):
+        elif isinstance(other, ModelStateBase):
             res._tracer_modules = self._tracer_modules / other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -231,7 +231,7 @@ class ModelState:
             self._tracer_modules *= (1.0 / other)
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
             self._tracer_modules *= (1.0 / other)
-        elif isinstance(other, ModelState):
+        elif isinstance(other, ModelStateBase):
             self._tracer_modules /= other._tracer_modules # pylint: disable=W0212
         else:
             return NotImplemented
@@ -307,7 +307,7 @@ class ModelState:
 
         sigma = 1.0e-4 * self.norm()
 
-        # perturbed ModelState
+        # perturbed ModelStateBase
         perturb_ms = self + sigma * direction
         perturb_fcn_fname = os.path.join(
             solver_state.get_workdir(), 'perturb_fcn_'+os.path.basename(res_fname))
@@ -779,7 +779,7 @@ class TracerModuleStateBase:
 ################################################################################
 
 def lin_comb(res_type, coeff, fname_fcn, quantity):
-    """compute a linear combination of ModelState objects in files"""
+    """compute a linear combination of ModelStateBase objects in files"""
     res = coeff[:, 0] * res_type(fname_fcn(quantity, 0))
     for j_val in range(1, coeff.shape[-1]):
         res += coeff[:, j_val] * res_type(fname_fcn(quantity, j_val))

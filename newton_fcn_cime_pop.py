@@ -19,7 +19,7 @@ import numpy as np
 from netCDF4 import Dataset
 
 from cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
-from model import TracerModuleStateBase, ModelState
+from model import TracerModuleStateBase, ModelStateBase
 from model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from newton_fcn_base import NewtonFcnBase
 
@@ -201,7 +201,7 @@ class NewtonFcn(NewtonFcnBase):
         fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(res_fname)
+            return ModelStateBase(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state)
@@ -326,7 +326,7 @@ def _comp_fcn_post_modelrun(ms_in):
         rest_file_fname_rel = fptr.readline().strip()
     fname = os.path.join(cime_xmlquery('RUNDIR'), rest_file_fname_rel)
 
-    return ModelState(fname) - ms_in
+    return ModelStateBase(fname) - ms_in
 
 def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
     """
@@ -372,7 +372,7 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
     fcn_complete_step = '_apply_precond_jacobian_solve_lin_eqns done for %s' % res_fname
     if solver_state.step_logged(fcn_complete_step):
         logger.debug('"%s" logged, returning', fcn_complete_step)
-        return ModelState(res_fname)
+        return ModelStateBase(res_fname)
     logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
     ms_in.dump(res_fname)
@@ -399,7 +399,7 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
         _apply_tracers_sflux_term(
             tracer_names_subset, tracer_names_all, precond_fname, res_fname)
 
-    ms_res = ModelState(res_fname)
+    ms_res = ModelStateBase(res_fname)
 
     solver_state.log_step(fcn_complete_step)
     logger.debug('returning')
@@ -431,7 +431,7 @@ def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fna
     """
     logger = logging.getLogger(__name__)
     logger.debug('entering')
-    model_state = ModelState(res_fname)
+    model_state = ModelStateBase(res_fname)
     term_applied = False
     delta_time = 365.0 * 86400.0 * cime_yr_cnt()
     with Dataset(precond_fname, 'r') as fptr:

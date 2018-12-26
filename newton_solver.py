@@ -9,7 +9,7 @@ import numpy as np
 import util
 
 from krylov_solver import KrylovSolver
-from model import get_modelinfo, ModelState
+from model import get_modelinfo, ModelStateBase
 from region_scalars import to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
 
@@ -32,10 +32,10 @@ class NewtonSolver:
 
         # get solver started the first time NewtonSolver is instantiated
         if not resume:
-            iterate = ModelState(get_modelinfo('init_iterate_fname'))
+            iterate = ModelStateBase(get_modelinfo('init_iterate_fname'))
             iterate.copy_real_tracers_to_shadow_tracers().dump(self._fname('iterate'))
 
-        self._iterate = ModelState(self._fname('iterate'))
+        self._iterate = ModelStateBase(self._fname('iterate'))
 
         # for iteration == 0, _fcn needs to be computed
         # for iteration >= 1, _fcn is available and stored when iteration is incremented
@@ -43,7 +43,7 @@ class NewtonSolver:
             self._fcn = self._iterate.comp_fcn(
                 self._fname('fcn'), self._solver_state, self._fname('hist'))
         else:
-            self._fcn = ModelState(self._fname('fcn'))
+            self._fcn = ModelStateBase(self._fname('fcn'))
 
         logger.debug('returning')
 

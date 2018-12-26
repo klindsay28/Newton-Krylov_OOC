@@ -6,7 +6,7 @@ import configparser
 import logging
 import sys
 
-from model import ModelState
+from model import ModelStateBase
 from model_config import ModelConfig
 from nk_driver import parse_args
 
@@ -20,29 +20,29 @@ logger = logging.getLogger(__name__)
 
 ModelConfig(config['modelinfo'])
 
-ms = ModelState('iterate_test_00.nc')
+ms = ModelStateBase('iterate_test_00.nc')
 ms.log('iterate_test_00')
 
-ms = ModelState('fcn_test_00.nc')
+ms = ModelStateBase('fcn_test_00.nc')
 ms.log('fcn_test_00')
 
-ms = ModelState('w_test_00.nc')
+ms = ModelStateBase('w_test_00.nc')
 ms.log('w_test_00')
 
-ms = ModelState('iterate_test_00_fp1.nc')
+ms = ModelStateBase('iterate_test_00_fp1.nc')
 ms.log('iterate_test_00_fp1')
 
-ms = ModelState('fcn_test_00_fp1.nc')
+ms = ModelStateBase('fcn_test_00_fp1.nc')
 ms.log('fcn_test_00_fp1')
 
-ms = ModelState('w_test_00_fp1.nc')
+ms = ModelStateBase('w_test_00_fp1.nc')
 ms.log('w_test_00_fp1')
 
-ms = ModelState('iterate_test_00_fp2.nc')
+ms = ModelStateBase('iterate_test_00_fp2.nc')
 ms.log('iterate_test_00_fp2')
 
-ms = ModelState('fcn_test_00_fp2.nc')
+ms = ModelStateBase('fcn_test_00_fp2.nc')
 ms.log('fcn_test_00_fp2')
 
-ms = ModelState('w_test_00_fp2.nc')
+ms = ModelStateBase('w_test_00_fp2.nc')
 ms.log('w_test_00_fp2')
