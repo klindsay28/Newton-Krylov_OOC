@@ -16,7 +16,7 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import TracerModuleStateBase, ModelStateBase
+from model import ModelStateBase, TracerModuleStateBase
 from model_config import ModelConfig, get_modelinfo
 from newton_fcn_base import NewtonFcnBase
 from solver import SolverState
@@ -60,7 +60,7 @@ def main(args):
 
     solver_state = SolverState('newton_fcn_test_problem', args.workdir)
 
-    ms_in = ModelStateBase(os.path.join(args.workdir, args.in_fname))
+    ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
     if args.cmd == 'comp_fcn':
         newton_fcn.comp_fcn(
             ms_in, os.path.join(args.workdir, args.res_fname), None,
@@ -78,6 +78,19 @@ def main(args):
         raise ValueError(msg)
 
     logger.info('done')
+
+################################################################################
+
+class ModelState(ModelStateBase):
+    """class for representing the state space of a model"""
+
+    # give ModelState operators higher priority than those of numpy
+    __array_priority__ = 100
+
+    def __init__(self, vals_fname=None):
+        logger = logging.getLogger(__name__)
+        logger.debug('ModelState:entering, vals_fname=%s', vals_fname)
+        super().__init__(TracerModuleState, vals_fname)
 
 ################################################################################
 
@@ -161,16 +174,20 @@ class NewtonFcn(NewtonFcnBase):
         self._tracer_module_names = None
         self._tracer_names = None
 
+    def model_state_obj(self, fname=None):
+        """return a ModelState object compatible with this function"""
+        return ModelState(fname)
+
     def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
         if solver_state is not None:
-            fcn_complete_step = 'comp_fcn internal done for %s' % res_fname
+            fcn_complete_step = 'comp_fcn done for %s' % res_fname
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
-                return ModelStateBase(res_fname)
+                return ModelState(res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         self._tracer_module_names = ms_in.tracer_module_names
@@ -196,7 +213,7 @@ class NewtonFcn(NewtonFcnBase):
         for tracer_ind, tracer_name in enumerate(self._tracer_names):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
 
-        ms_res.dump(res_fname)
+        self.comp_fcn_postprocess(ms_res, res_fname)
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
@@ -344,7 +361,7 @@ class NewtonFcn(NewtonFcnBase):
         fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelStateBase(res_fname)
+            return ModelState(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         ms_res = ms_in.copy()

@@ -9,7 +9,7 @@ import numpy as np
 import util
 
 from krylov_solver import KrylovSolver
-from model import get_modelinfo, ModelStateBase
+from model import get_modelinfo
 from region_scalars import to_ndarray, to_region_scalar_ndarray
 from solver import SolverState
 
@@ -18,7 +18,7 @@ class NewtonSolver:
     class for applying Newton's method to approximate the solution of system of equations
     """
 
-    def __init__(self, solverinfo, resume, rewind):
+    def __init__(self, newton_fcn_obj, solverinfo, resume, rewind):
         """initialize Newton solver"""
         logger = logging.getLogger(__name__)
         logger.debug('NewtonSolver:entering, resume=%r, rewind=%r', resume, rewind)
@@ -27,23 +27,26 @@ class NewtonSolver:
         workdir = solverinfo['workdir']
         util.mkdir_exist_okay(workdir)
 
+        self._newton_fcn_obj = newton_fcn_obj
         self._solverinfo = solverinfo
         self._solver_state = SolverState('Newton', workdir, resume, rewind)
 
         # get solver started the first time NewtonSolver is instantiated
         if not resume:
-            iterate = ModelStateBase(get_modelinfo('init_iterate_fname'))
+            iterate = self._newton_fcn_obj.model_state_obj(
+                get_modelinfo('init_iterate_fname'))
             iterate.copy_real_tracers_to_shadow_tracers().dump(self._fname('iterate'))
 
-        self._iterate = ModelStateBase(self._fname('iterate'))
+        self._iterate = self._newton_fcn_obj.model_state_obj(self._fname('iterate'))
 
         # for iteration == 0, _fcn needs to be computed
         # for iteration >= 1, _fcn is available and stored when iteration is incremented
         if self._solver_state.get_iteration() == 0:
-            self._fcn = self._iterate.comp_fcn(
-                self._fname('fcn'), self._solver_state, self._fname('hist'))
+            self._fcn = self._newton_fcn_obj.comp_fcn(
+                self._iterate, self._fname('fcn'), self._solver_state,
+                self._fname('hist'))
         else:
-            self._fcn = ModelStateBase(self._fname('fcn'))
+            self._fcn = self._newton_fcn_obj.model_state_obj(self._fname('fcn'))
 
         logger.debug('returning')
 
@@ -95,7 +98,8 @@ class NewtonSolver:
         if not resume:
             self.log()
         krylov_solver = KrylovSolver(
-            self._iterate, krylov_dir, resume, rewind, self._fname('hist'))
+            self._newton_fcn_obj, self._iterate, krylov_dir, resume, rewind,
+            self._fname('hist'))
         self._solver_state.log_step(step)
         increment = krylov_solver.solve(
             self._fname('increment'), self._iterate, self._fcn)
@@ -135,9 +139,9 @@ class NewtonSolver:
             armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
             prov.dump(self._fname('prov_Armijo_%02d' % armijo_ind))
-            prov_fcn = prov.comp_fcn(
-                self._fname('prov_fcn_Armijo_%02d' % armijo_ind), self._solver_state,
-                self._fname('prov_hist_Armijo_%02d' % armijo_ind))
+            prov_fcn = self._newton_fcn_obj.comp_fcn(
+                prov, self._fname('prov_fcn_Armijo_%02d' % armijo_ind),
+                self._solver_state, self._fname('prov_hist_Armijo_%02d' % armijo_ind))
 
             # at this point in the execution flow, only keep latest Armijo hist file
             if armijo_ind > 0:
@@ -197,8 +201,8 @@ class NewtonSolver:
             # tracers on).
             armijo_ind = self._solver_state.get_value_saved_state('armijo_ind')
             if prov.shadow_tracers_on():
-                prov_fcn = prov.comp_fcn(
-                    self._fname('prov_fcn_fp_%02d' % fp_iter), self._solver_state,
+                prov_fcn = self._newton_fcn_obj.comp_fcn(
+                    prov, self._fname('prov_fcn_fp_%02d' % fp_iter), self._solver_state,
                     self._fname('prov_hist_fp_%02d' % fp_iter))
                 os.remove(self._fname('prov_hist_Armijo_%02d' % armijo_ind))
             else:
@@ -223,8 +227,8 @@ class NewtonSolver:
                 self._solver_state.log_step(step)
             else:
                 prov = type(self._iterate)(self._fname('prov_fp_%02d' % (fp_iter+1)))
-            prov_fcn = prov.comp_fcn(
-                self._fname('prov_fcn_fp_%02d'% (fp_iter+1)), self._solver_state,
+            prov_fcn = self._newton_fcn_obj.comp_fcn(
+                prov, self._fname('prov_fcn_fp_%02d'% (fp_iter+1)), self._solver_state,
                 self._fname('prov_hist_fp_%02d'% (fp_iter+1)))
             fp_iter += 1
             self._solver_state.set_value_saved_state('fp_iter', fp_iter)

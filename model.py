@@ -2,7 +2,6 @@
 
 import collections
 import logging
-import os
 
 import numpy as np
 from netCDF4 import Dataset
@@ -19,22 +18,24 @@ class ModelStateBase:
     # give ModelStateBase operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, vals_fname=None):
+    def __init__(self, tracer_module_state_class, vals_fname=None):
         logger = logging.getLogger(__name__)
         logger.debug('ModelStateBase:entering, vals_fname=%s', vals_fname)
         if model_config.model_config_obj is None:
             msg = 'model_config.model_config_obj is None, %s must be called before %s' \
                   % ('ModelConfig.__init__', 'ModelStateBase.__init__')
             raise RuntimeError(msg)
+        if not issubclass(tracer_module_state_class, TracerModuleStateBase):
+            msg = 'tracer_module_state_class must be a subclass of TracerModuleStateBase'
+            raise ValueError(msg)
         self.tracer_module_names = get_modelinfo('tracer_module_names').split(',')
         self.tracer_module_cnt = len(self.tracer_module_names)
         if vals_fname is not None:
             self._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object)
             for tracer_module_ind, tracer_module_name in \
                     enumerate(self.tracer_module_names):
-                self._tracer_modules[tracer_module_ind] = \
-                    model_config.model_config_obj.tracer_module_state(
-                        tracer_module_name, vals_fname=vals_fname)
+                self._tracer_modules[tracer_module_ind] = tracer_module_state_class(
+                    tracer_module_name, vals_fname=vals_fname)
         logger.debug('returning')
 
     def tracer_names(self):
@@ -86,7 +87,7 @@ class ModelStateBase:
 
     def copy(self):
         """return a copy of self"""
-        res = type(self)()
+        res = type(self)() # pylint: disable=E1120
         res._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object) # pylint: disable=W0212
         for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
             res._tracer_modules[tracer_module_ind] = tracer_module.copy() # pylint: disable=W0212
@@ -97,7 +98,7 @@ class ModelStateBase:
         unary negation operator
         called to evaluate res = -self
         """
-        res = type(self)()
+        res = type(self)() # pylint: disable=E1120
         res._tracer_modules = -self._tracer_modules # pylint: disable=W0212
         return res
 
@@ -106,7 +107,7 @@ class ModelStateBase:
         addition operator
         called to evaluate res = self + other
         """
-        res = type(self)()
+        res = type(self)() # pylint: disable=E1120
         if isinstance(other, ModelStateBase):
             res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
         else:
@@ -136,7 +137,7 @@ class ModelStateBase:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = type(self)()
+        res = type(self)() # pylint: disable=E1120
         if isinstance(other, ModelStateBase):
             res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
         else:
@@ -159,7 +160,7 @@ class ModelStateBase:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = type(self)()
+        res = type(self)() # pylint: disable=E1120
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
@@ -197,7 +198,7 @@ class ModelStateBase:
         division operator
         called to evaluate res = self / other
         """
-        res = type(self)()
+        res = type(self)() # pylint: disable=E1120
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
@@ -213,7 +214,7 @@ class ModelStateBase:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = type(self)()
+        res = type(self)() # pylint: disable=E1120
         if isinstance(other, float):
             res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
         elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
@@ -267,80 +268,6 @@ class ModelStateBase:
             self -= h_val[:, i_val] * basis_i
         return h_val
 
-    def comp_fcn(self, res_fname, solver_state, hist_fname=None):
-        """Compute the function whose root is being found."""
-        logger = logging.getLogger(__name__)
-        logger.debug('entering, res_fname="%s"', res_fname)
-
-        cmd = 'comp_fcn'
-        fcn_complete_step = '%s done for %s' % (cmd, res_fname)
-
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return type(self)(res_fname)
-        logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
-
-        res = model_config.model_config_obj.newton_fcn.comp_fcn(
-            self, res_fname, solver_state, hist_fname)
-        res.zero_extra_tracers().apply_region_mask().dump(res_fname)
-
-        solver_state.log_step(fcn_complete_step)
-
-        logger.debug('returning')
-        return res
-
-    def comp_jacobian_fcn_state_prod(self, fcn, direction, res_fname, solver_state):
-        """
-        compute the product of the Jacobian of fcn at self with the model state direction
-
-        assumes direction is a unit vector
-        """
-        logger = logging.getLogger(__name__)
-        logger.debug('entering')
-
-        fcn_complete_step = 'comp_jacobian_fcn_state_prod done for %s' % (res_fname)
-
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return type(self)(res_fname)
-        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
-
-        sigma = 1.0e-4 * self.norm()
-
-        # perturbed ModelStateBase
-        perturb_ms = self + sigma * direction
-        perturb_fcn_fname = os.path.join(
-            solver_state.get_workdir(), 'perturb_fcn_'+os.path.basename(res_fname))
-        perturb_fcn = perturb_ms.comp_fcn(perturb_fcn_fname, solver_state)
-
-        # compute finite difference
-        res = ((perturb_fcn - fcn) / sigma).dump(res_fname)
-
-        solver_state.log_step(fcn_complete_step)
-
-        logger.debug('returning')
-        return res
-
-    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
-        """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        logger = logging.getLogger(__name__)
-        logger.debug('entering, hist_fname="%s"', hist_fname)
-
-        cmd = 'gen_precond_jacobian'
-        fcn_complete_step = '%s done for %s' % (cmd, hist_fname)
-
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning', fcn_complete_step)
-            return
-        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
-
-        model_config.model_config_obj.newton_fcn.gen_precond_jacobian(
-            self, hist_fname, precond_fname, solver_state)
-
-        solver_state.log_step(fcn_complete_step)
-
-        logger.debug('returning')
-
     def hist_vars_for_precond_list(self):
         """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
         res = []
@@ -360,27 +287,6 @@ class ModelStateBase:
         res = collections.OrderedDict()
         for tracer_module in self._tracer_modules:
             tracer_module.append_tracer_names_per_precond_matrix(res)
-        return res
-
-    def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
-        """Apply preconditioner of jacobian of comp_fcn to self."""
-        logger = logging.getLogger(__name__)
-        logger.debug('entering, res_fname="%s"', res_fname)
-
-        cmd = 'apply_precond_jacobian'
-        fcn_complete_step = '%s done for %s' % (cmd, res_fname)
-
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return type(self)(res_fname)
-        logger.debug('"%s" not logged, invoking %s', fcn_complete_step, cmd)
-
-        res = model_config.model_config_obj.newton_fcn.apply_precond_jacobian(
-            self, precond_fname, res_fname, solver_state)
-
-        solver_state.log_step(fcn_complete_step)
-
-        logger.debug('returning')
         return res
 
     def get_tracer_vals(self, tracer_name):
@@ -453,7 +359,7 @@ class TracerModuleStateBase:
         self._tracer_module_name = tracer_module_name
         self._tracer_module_def = \
             model_config.model_config_obj.tracer_module_defs[tracer_module_name]
-        if dims is None != vals_fname is None:
+        if (dims is None) == (vals_fname is None):
             msg = 'exactly one of dims and vals_fname must be passed'
             raise ValueError(msg)
         if dims is not None:

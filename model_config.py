@@ -1,6 +1,5 @@
 """class to hold model configuration info"""
 
-import importlib
 import logging
 
 import numpy as np
@@ -34,14 +33,6 @@ class ModelConfig:
 
         # store modelinfo for later use
         self.modelinfo = modelinfo
-
-        # import module with TracerModuleState and NewtonFcn
-        newton_fcn_mod = importlib.import_module(modelinfo['newton_fcn_modname'])
-
-        # store newton_fcn_mod's TracerModuleState class
-        # and an instance of class NewtonFcn
-        self.tracer_module_state = newton_fcn_mod.TracerModuleState
-        self.newton_fcn = newton_fcn_mod.NewtonFcn()
 
         # load content from tracer_module_defs_fname
         fname = modelinfo['tracer_module_defs_fname']

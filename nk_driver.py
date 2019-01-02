@@ -3,6 +3,7 @@
 
 import argparse
 import configparser
+import importlib
 import logging
 import os
 import sys
@@ -53,8 +54,12 @@ def main(args):
 
     ModelConfig(config['modelinfo'], logging.DEBUG if args.resume else logging.INFO)
 
+    # import module with NewtonFcn class
+    newton_fcn_mod = importlib.import_module(config['modelinfo']['newton_fcn_modname'])
+
     newton_solver = NewtonSolver(
-        solverinfo=solverinfo, resume=args.resume, rewind=args.rewind)
+        newton_fcn_obj=newton_fcn_mod.NewtonFcn(), solverinfo=solverinfo,
+        resume=args.resume, rewind=args.rewind)
 
     while True:
         if newton_solver.converged_flat().all():

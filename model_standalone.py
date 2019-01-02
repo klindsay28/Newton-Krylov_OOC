@@ -1,12 +1,12 @@
 """
-example of using model.py outside of nk_driver
+example of accessing/using newton_fcn_modname outside of nk_driver
 """
 
 import configparser
+import importlib
 import logging
 import sys
 
-from model import ModelStateBase
 from model_config import ModelConfig
 from nk_driver import parse_args
 
@@ -20,29 +20,33 @@ logger = logging.getLogger(__name__)
 
 ModelConfig(config['modelinfo'])
 
-ms = ModelStateBase('iterate_test_00.nc')
+# import module with NewtonFcn class
+newton_fcn_mod = importlib.import_module(config['modelinfo']['newton_fcn_modname'])
+newton_fcn_obj = newton_fcn_mod.NewtonFcn()
+
+ms = newton_fcn_obj.model_state_obj('iterate_test_00.nc')
 ms.log('iterate_test_00')
 
-ms = ModelStateBase('fcn_test_00.nc')
+ms = newton_fcn_obj.model_state_obj('fcn_test_00.nc')
 ms.log('fcn_test_00')
 
-ms = ModelStateBase('w_test_00.nc')
+ms = newton_fcn_obj.model_state_obj('w_test_00.nc')
 ms.log('w_test_00')
 
-ms = ModelStateBase('iterate_test_00_fp1.nc')
+ms = newton_fcn_obj.model_state_obj('iterate_test_00_fp1.nc')
 ms.log('iterate_test_00_fp1')
 
-ms = ModelStateBase('fcn_test_00_fp1.nc')
+ms = newton_fcn_obj.model_state_obj('fcn_test_00_fp1.nc')
 ms.log('fcn_test_00_fp1')
 
-ms = ModelStateBase('w_test_00_fp1.nc')
+ms = newton_fcn_obj.model_state_obj('w_test_00_fp1.nc')
 ms.log('w_test_00_fp1')
 
-ms = ModelStateBase('iterate_test_00_fp2.nc')
+ms = newton_fcn_obj.model_state_obj('iterate_test_00_fp2.nc')
 ms.log('iterate_test_00_fp2')
 
-ms = ModelStateBase('fcn_test_00_fp2.nc')
+ms = newton_fcn_obj.model_state_obj('fcn_test_00_fp2.nc')
 ms.log('fcn_test_00_fp2')
 
-ms = ModelStateBase('w_test_00_fp2.nc')
+ms = newton_fcn_obj.model_state_obj('w_test_00_fp2.nc')
 ms.log('w_test_00_fp2')

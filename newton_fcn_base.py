@@ -1,6 +1,7 @@
 """Base class of methods related to problem being solved with Newton's method"""
 
 import logging
+import os
 
 import numpy as np
 from netCDF4 import Dataset
@@ -8,10 +9,63 @@ from netCDF4 import Dataset
 class NewtonFcnBase():
     """Base class of methods related to problem being solved with Newton's method"""
 
+    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
+        """evalute function being solved with Newton's method"""
+        msg = '% should be implemented in classes derived from %s' \
+            % ('comp_fcn', 'NewtonFcnBase')
+        raise NotImplementedError(msg)
+
+    def comp_fcn_postprocess(self, res, res_fname):
+        """apply postprocessing that is common to all comp_fcn methods"""
+        return res.zero_extra_tracers().apply_region_mask().dump(res_fname)
+
+    def comp_jacobian_fcn_state_prod(
+            self, iterate, fcn, direction, res_fname, solver_state):
+        """
+        compute the product of the Jacobian of fcn at iterate with the model state
+        direction
+
+        assumes direction is a unit vector
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug('entering')
+
+        fcn_complete_step = 'comp_jacobian_fcn_state_prod done for %s' % (res_fname)
+
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return type(iterate)(res_fname)
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+        sigma = 1.0e-4 * iterate.norm()
+
+        # perturbed ModelStateBase
+        perturb_ms = iterate + sigma * direction
+        perturb_fcn_fname = os.path.join(
+            solver_state.get_workdir(), 'perturb_fcn_'+os.path.basename(res_fname))
+        perturb_fcn = self.comp_fcn(perturb_ms, perturb_fcn_fname, solver_state) # pylint: disable=E1111
+
+        # compute finite difference
+        res = ((perturb_fcn - fcn) / sigma).dump(res_fname)
+
+        solver_state.log_step(fcn_complete_step)
+
+        logger.debug('returning')
+        return res
+
     def gen_precond_jacobian(self, iterate, hist_fname, precond_fname, solver_state):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
         logger = logging.getLogger(__name__)
-        logger.debug('precond_fname="%s"', precond_fname)
+        logger.debug('hist_fname="%s", precond_fname="%s"', hist_fname, precond_fname)
+
+        cmd = 'gen_precond_jacobian_base'
+        fcn_complete_step = '%s done for %s' % (cmd, hist_fname)
+
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning', fcn_complete_step)
+            return
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
         hist_vars = iterate.hist_vars_for_precond_list()
 
         with Dataset(hist_fname, 'r') as fptr_in, Dataset(precond_fname, 'w') as fptr_out:
@@ -55,6 +109,8 @@ class NewtonFcnBase():
                 for att_name in ['missing_value', 'units', 'coordinates', 'positive']:
                     if hasattr(hist_var, att_name):
                         setattr(precond_var, att_name, getattr(hist_var, att_name))
+
+        solver_state.log_step(fcn_complete_step)
 
     def _def_precond_dims_and_coord_vars(self, hist_vars, fptr_in, fptr_out):
         """define netCDF4 dimensions needed for hist_vars from hist_fname"""
