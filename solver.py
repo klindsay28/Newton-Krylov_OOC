@@ -16,7 +16,9 @@ class SolverState:
     def __init__(self, name, workdir, resume=False, rewind=False):
         """initialize solver state"""
         logger = logging.getLogger(__name__)
-        logger.debug('SolverState:entering, name="%s"', name)
+        logger.debug(
+            'SolverState, name="%s", workdir="%s", resume="%r", rewind="%r"', name,
+            workdir, resume, rewind)
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
@@ -31,16 +33,15 @@ class SolverState:
             if rewind:
                 self._rewound_step_string = self._saved_state['step_log'].pop()
                 logger.info(
-                    'rewinding step %s for %s', self._rewound_step_string, self._name)
+                    'rewinding step "%s" for "%s"', self._rewound_step_string, self._name)
         else:
             if rewind:
                 msg = 'rewind cannot be True if resume is False, name=%s' % self._name
                 raise RuntimeError(msg)
             self._saved_state = {'iteration':0, 'step_log':[]}
             self.log_step('__init__')
-            logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
-
-        logger.debug('returning')
+            logger.info(
+                '"%s" iteration now %d', self._name, self._saved_state['iteration'])
 
     def get_workdir(self):
         """return value of workdir"""
@@ -53,24 +54,22 @@ class SolverState:
     def inc_iteration(self):
         """increment iteration, reset step_log"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, name="%s"', self._name)
+        logger.debug('name="%s"', self._name)
         self._saved_state['iteration'] += 1
         self.log_step('inc_iteration')
-        logger.info('%s iteration now %d', self._name, self._saved_state['iteration'])
-        logger.debug('returning')
+        logger.info('"%s" iteration now %d', self._name, self._saved_state['iteration'])
         return self._saved_state['iteration']
 
     def log_step(self, stepval):
         """add a step to step_log"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering, name="%s"', self._name)
+        logger.debug('name="%s"', self._name)
         if not self.step_logged(stepval):
             logger.debug('adding "%s" to step_log', stepval)
             self._saved_state['step_log'].append(self._step_log_string(stepval))
             self._write_saved_state()
         else:
             logger.debug('"%s" already in step_log', stepval)
-        logger.debug('returning')
 
     def step_logged(self, stepval):
         """has step been logged in the current iteration"""
@@ -103,10 +102,10 @@ class SolverState:
     def _log_saved_state(self):
         """write saved state of solver to log"""
         logger = logging.getLogger(__name__)
-        logger.debug('name=%s', self._name)
-        logger.debug('iteration=%d', self._saved_state['iteration'])
+        logger.debug('name="%s"', self._name)
+        logger.debug('iteration="%d"', self._saved_state['iteration'])
         for step_name in self._saved_state['step_log']:
-            logger.debug('%s logged', step_name)
+            logger.debug('"%s" logged', step_name)
 
     def _step_log_string(self, stepval):
         """string that gets appended to step_log corresponding to stepval"""

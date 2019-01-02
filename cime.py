@@ -38,7 +38,7 @@ def cime_case_submit():
     fstat = os.stat(script_fname)
     os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
-    logger.info('submitting case=%s', cime_xmlquery('CASE'))
+    logger.info('submitting case="%s"', cime_xmlquery('CASE'))
     subprocess.run(script_fname, shell=True, check=True)
 
 def cime_yr_cnt():

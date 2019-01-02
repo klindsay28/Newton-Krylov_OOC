@@ -21,7 +21,7 @@ class NewtonSolver:
     def __init__(self, newton_fcn_obj, solverinfo, resume, rewind):
         """initialize Newton solver"""
         logger = logging.getLogger(__name__)
-        logger.debug('NewtonSolver:entering, resume=%r, rewind=%r', resume, rewind)
+        logger.debug('NewtonSolver, resume="%r", rewind="%r"', resume, rewind)
 
         # ensure workdir exists
         workdir = solverinfo['workdir']
@@ -47,8 +47,6 @@ class NewtonSolver:
                 self._fname('hist'))
         else:
             self._fcn = self._newton_fcn_obj.model_state_obj(self._fname('fcn'))
-
-        logger.debug('returning')
 
     def _fname(self, quantity, iteration=None):
         """construct fname corresponding to particular quantity"""
@@ -105,7 +103,6 @@ class NewtonSolver:
             self._fname('increment'), self._iterate, self._fcn)
         self._solver_state.log_step(fcn_complete_step)
         increment.log('Newton increment %02d' % self._solver_state.get_iteration())
-        logger.debug('returning')
         return increment
 
     def _comp_next_iterate(self, increment):
@@ -132,7 +129,7 @@ class NewtonSolver:
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return type(self._iterate)(self._fname('prov_Armijo_%02d' % armijo_ind)), \
                 type(self._iterate)(self._fname('prov_fcn_Armijo_%02d' % armijo_ind))
-        logger.debug('"%s" not logged, computing next iterate', fcn_complete_step)
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         while True:
             # compute provisional candidate for next iterate
@@ -162,7 +159,6 @@ class NewtonSolver:
             if armijo_cond_flat.all():
                 logger.info("Armijo condition satisfied")
                 self._solver_state.log_step(fcn_complete_step)
-                logger.debug('returning')
                 return prov, prov_fcn
 
             logger.info("Armijo condition not satisfied")
@@ -248,5 +244,3 @@ class NewtonSolver:
                 self._solverinfo.getint('newton_max_iter'):
             msg = 'number of maximum Newton iterations exceeded'
             raise RuntimeError(msg)
-
-        logger.debug('returning')

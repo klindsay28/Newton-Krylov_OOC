@@ -49,7 +49,7 @@ def main(args):
         stream=sys.stdout, format=logging_format, level=solverinfo['logging_level'])
     logger = logging.getLogger(__name__)
 
-    logger.info('entering, cmd=%s', args.cmd)
+    logger.info('args.cmd="%s"', args.cmd)
 
     # store cfg_fname in modelinfo, to ease access to its value elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
@@ -89,7 +89,7 @@ class ModelState(ModelStateBase):
 
     def __init__(self, vals_fname=None):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelState:entering, vals_fname=%s', vals_fname)
+        logger.debug('ModelState, vals_fname="%s"', vals_fname)
         super().__init__(TracerModuleState, vals_fname)
 
 ################################################################################
@@ -103,7 +103,8 @@ class TracerModuleState(TracerModuleStateBase):
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug(
+            'tracer_module_name="%s", vals_fname="%s"', tracer_module_name, vals_fname)
         dims = {}
         with Dataset(vals_fname, mode='r') as fptr:
             fptr.set_auto_mask(False)
@@ -130,7 +131,6 @@ class TracerModuleState(TracerModuleStateBase):
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 varid = fptr.variables[tracer_name]
                 vals[tracer_ind, :] = varid[:]
-        logger.debug('returning')
         return vals, dims
 
     def dump(self, fptr, action):
@@ -181,10 +181,10 @@ class NewtonFcn(NewtonFcnBase):
     def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug('res_fname="%s", hist_fname="%s"', res_fname, hist_fname)
 
         if solver_state is not None:
-            fcn_complete_step = 'comp_fcn done for %s' % res_fname
+            fcn_complete_step = 'comp_fcn complete for %s' % res_fname
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
                 return ModelState(res_fname)
@@ -356,9 +356,9 @@ class NewtonFcn(NewtonFcnBase):
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
-        fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
+        fcn_complete_step = 'apply_precond_jacobian complete for %s' % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)

@@ -20,7 +20,7 @@ class ModelStateBase:
 
     def __init__(self, tracer_module_state_class, vals_fname=None):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelStateBase:entering, vals_fname=%s', vals_fname)
+        logger.debug('ModelStateBase, vals_fname="%s"', vals_fname)
         if model_config.model_config_obj is None:
             msg = 'model_config.model_config_obj is None, %s must be called before %s' \
                   % ('ModelConfig.__init__', 'ModelStateBase.__init__')
@@ -36,7 +36,6 @@ class ModelStateBase:
                     enumerate(self.tracer_module_names):
                 self._tracer_modules[tracer_module_ind] = tracer_module_state_class(
                     tracer_module_name, vals_fname=vals_fname)
-        logger.debug('returning')
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -55,6 +54,8 @@ class ModelStateBase:
 
     def dump(self, vals_fname):
         """dump ModelStateBase object to a file"""
+        logger = logging.getLogger(__name__)
+        logger.debug('vals_fname="%s"', vals_fname)
         with Dataset(vals_fname, mode='w') as fptr:
             for action in ['define', 'write']:
                 for tracer_module in self._tracer_modules:
@@ -351,7 +352,9 @@ class TracerModuleStateBase:
 
     def __init__(self, tracer_module_name, dims=None, vals_fname=None):
         logger = logging.getLogger(__name__)
-        logger.debug('TracerModuleStateBase:entering, vals_fname=%s', vals_fname)
+        logger.debug(
+            'TracerModuleStateBase, tracer_module_name="%s", vals_fname="%s"',
+            tracer_module_name, vals_fname)
         if model_config.model_config_obj is None:
             msg = 'model_config.model_config_obj is None, %s must be called before %s' \
                   % ('ModelConfig.__init__', 'TracerModuleStateBase.__init__')
@@ -366,7 +369,6 @@ class TracerModuleStateBase:
             self._dims = dims
         if vals_fname is not None:
             self._vals, self._dims = self._read_vals(tracer_module_name, vals_fname) # pylint: disable=E1111
-        logger.debug('returning')
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""

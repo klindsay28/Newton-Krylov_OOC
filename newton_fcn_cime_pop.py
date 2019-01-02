@@ -50,7 +50,7 @@ def main(args):
         stream=sys.stdout, format=logging_format, level=solverinfo['logging_level'])
     logger = logging.getLogger(__name__)
 
-    logger.info('entering, cmd=%s', args.cmd)
+    logger.info('args.cmd="%s"', args.cmd)
 
     # store cfg_fname in modelinfo, to ease access to its values elsewhere
     config['modelinfo']['cfg_fname'] = args.cfg_fname
@@ -78,7 +78,7 @@ class ModelState(ModelStateBase):
 
     def __init__(self, vals_fname=None):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelState:entering, vals_fname=%s', vals_fname)
+        logger.debug('ModelState, vals_fname="%s"', vals_fname)
         super().__init__(TracerModuleState, vals_fname)
 
 ################################################################################
@@ -92,7 +92,8 @@ class TracerModuleState(TracerModuleStateBase):
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug(
+            'tracer_module_name="%s", vals_fname="%s"', tracer_module_name, vals_fname)
         dims = {}
         suffix = '_CUR'
         with Dataset(vals_fname, mode='r') as fptr:
@@ -120,7 +121,6 @@ class TracerModuleState(TracerModuleStateBase):
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 varid = fptr.variables[tracer_name+suffix]
                 vals[tracer_ind, :] = varid[:]
-        logger.debug('returning')
         return vals, dims
 
     def dump(self, fptr, action):
@@ -167,9 +167,9 @@ class NewtonFcn(NewtonFcnBase):
     def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug('res_fname="%s", hist_fname="%s"', res_fname, hist_fname)
 
-        fcn_complete_step = 'comp_fcn done for %s' % res_fname
+        fcn_complete_step = 'comp_fcn complete for %s' % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
@@ -185,7 +185,6 @@ class NewtonFcn(NewtonFcnBase):
 
         solver_state.log_step(fcn_complete_step)
 
-        logger.debug('returning')
         return ms_res
 
     def gen_precond_jacobian(self, iterate, hist_fname, precond_fname, solver_state):
@@ -193,8 +192,7 @@ class NewtonFcn(NewtonFcnBase):
         logger = logging.getLogger(__name__)
         logger.debug('hist_fname="%s", precond_fname="%s"', hist_fname, precond_fname)
 
-        cmd = 'gen_precond_jacobian_derived'
-        fcn_complete_step = '%s done for %s' % (cmd, hist_fname)
+        fcn_complete_step = 'gen_precond_jacobian_derived complete for %s' % precond_fname
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning', fcn_complete_step)
@@ -235,9 +233,9 @@ class NewtonFcn(NewtonFcnBase):
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
-        fcn_complete_step = 'apply_precond_jacobian done for %s' % res_fname
+        fcn_complete_step = 'apply_precond_jacobian complete for %s' % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
@@ -254,7 +252,6 @@ class NewtonFcn(NewtonFcnBase):
 
         solver_state.log_step(fcn_complete_step)
 
-        logger.debug('returning')
         return ms_res.dump(res_fname)
 
 ################################################################################
@@ -262,9 +259,9 @@ class NewtonFcn(NewtonFcnBase):
 def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
     """pre-modelrun step of evaluting the function being solved with Newton's method"""
     logger = logging.getLogger(__name__)
-    logger.debug('entering')
+    logger.debug('res_fname="%s"', res_fname)
 
-    fcn_complete_step = '_comp_fcn_pre_modelrun done for %s' % res_fname
+    fcn_complete_step = '_comp_fcn_pre_modelrun complete for %s' % res_fname
     if solver_state.step_logged(fcn_complete_step):
         logger.debug('"%s" logged, returning', fcn_complete_step)
         return
@@ -375,9 +372,9 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
     Otherwise, just return.
     """
     logger = logging.getLogger(__name__)
-    logger.debug('entering')
+    logger.debug('res_fname="%s"', res_fname)
 
-    fcn_complete_step = '_apply_precond_jacobian_pre_solve_lin_eqns done for %s' \
+    fcn_complete_step = '_apply_precond_jacobian_pre_solve_lin_eqns complete for %s' \
         % res_fname
     if solver_state.step_logged(fcn_complete_step):
         logger.debug('"%s" logged, returning', fcn_complete_step)
@@ -399,18 +396,18 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
         raise SystemExit
 
     solver_state.log_step(fcn_complete_step)
-    logger.debug('returning')
 
 def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solver_state):
     """
     solve_lin_eqns step of apply_precond_jacobian
     """
     logger = logging.getLogger(__name__)
-    logger.debug('entering')
+    logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
-    fcn_complete_step = '_apply_precond_jacobian_solve_lin_eqns done for %s' % res_fname
+    fcn_complete_step = '_apply_precond_jacobian_solve_lin_eqns complete for %s' \
+        % res_fname
     if solver_state.step_logged(fcn_complete_step):
-        logger.debug('"%s" logged, returning', fcn_complete_step)
+        logger.debug('"%s" logged, returning result', fcn_complete_step)
         return ModelState(res_fname)
     logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
@@ -441,7 +438,7 @@ def _apply_precond_jacobian_solve_lin_eqns(ms_in, precond_fname, res_fname, solv
     ms_res = ModelState(res_fname)
 
     solver_state.log_step(fcn_complete_step)
-    logger.debug('returning')
+
     return ms_res
 
 def _matrix_block_decomp():
@@ -469,7 +466,9 @@ def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fna
     apply surface flux term of tracers in tracer_names_subset to subsequent tracer_names
     """
     logger = logging.getLogger(__name__)
-    logger.debug('entering')
+    logger.debug(
+        'tracer_names_subset="%s", precond_fname="%s", res_fname="%s"',
+        tracer_names_subset, precond_fname, res_fname)
     model_state = ModelState(res_fname)
     term_applied = False
     delta_time = 365.0 * 86400.0 * cime_yr_cnt()
@@ -482,6 +481,7 @@ def _apply_tracers_sflux_term(tracer_names_subset, tracer_names_all, precond_fna
                 partial_deriv_var_name = \
                     'd_SF_'+tracer_name_dst+'_d_'+tracer_name_src+'_avg'
                 if partial_deriv_var_name in fptr.variables:
+                    logger.info('applying "%s"', partial_deriv_var_name)
                     partial_deriv = fptr.variables[partial_deriv_var_name]
                     # get values, replacing _FillValue values with 0.0
                     if hasattr(partial_deriv, '_FillValue'):

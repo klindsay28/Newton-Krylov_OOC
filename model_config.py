@@ -29,7 +29,7 @@ class ModelConfig:
 
     def __init__(self, modelinfo, lvl=logging.DEBUG):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelConfig:entering')
+        logger.debug('ModelConfig')
 
         # store modelinfo for later use
         self.modelinfo = modelinfo
@@ -90,8 +90,6 @@ class ModelConfig:
         # store contents in module level var, to enable use elsewhere
         global model_config_obj # pylint: disable=W0603
         model_config_obj = self
-
-        logger.debug('returning')
 
 def pad_defs(def_dict, obj_desc, def_entries, lvl):
     """

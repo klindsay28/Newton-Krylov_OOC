@@ -30,7 +30,9 @@ class KrylovSolver:
     def __init__(self, newton_fcn_obj, iterate, workdir, resume, rewind, hist_fname):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
-        logger.debug('KrylovSolver:entering, resume=%r, rewind=%r', resume, rewind)
+        logger.debug(
+            'KrylovSolver, workdir="%s", resume="%r", rewind="%r", hist_fname="%s"',
+            workdir, resume, rewind, hist_fname)
 
         # ensure workdir exists
         util.mkdir_exist_okay(workdir)
@@ -41,8 +43,6 @@ class KrylovSolver:
 
         self._newton_fcn_obj.gen_precond_jacobian(
             iterate, hist_fname, self._fname('precond', 0), self._solver_state)
-
-        logger.debug('returning')
 
     def _fname(self, quantity, iteration=None):
         """construct fname corresponding to particular quantity"""
@@ -70,10 +70,10 @@ class KrylovSolver:
             self._solver_state.set_value_saved_state('beta_ndarray', to_ndarray(beta))
             self._solver_state.log_step(fcn_complete_step)
 
-    def solve(self, krylov_solve_res_fname, iterate, fcn):
+    def solve(self, res_fname, iterate, fcn):
         """apply Krylov method"""
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug('res_fname="%s"', res_fname)
 
         if self._solver_state.get_iteration() == 0:
             self._solve0(fcn)
@@ -112,8 +112,7 @@ class KrylovSolver:
             self._solver_state.inc_iteration()
             w_j.dump(self._fname('basis'))
 
-        logger.debug('returning')
-        return res.dump(krylov_solve_res_fname)
+        return res.dump(res_fname)
 
     def comp_krylov_basis_coeffs(self, h_mat_ndarray):
         """solve least-squares minimization problem for each tracer module"""

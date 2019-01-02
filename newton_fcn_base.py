@@ -28,9 +28,9 @@ class NewtonFcnBase():
         assumes direction is a unit vector
         """
         logger = logging.getLogger(__name__)
-        logger.debug('entering')
+        logger.debug('res_fname="%s"', res_fname)
 
-        fcn_complete_step = 'comp_jacobian_fcn_state_prod done for %s' % (res_fname)
+        fcn_complete_step = 'comp_jacobian_fcn_state_prod complete for %s' % res_fname
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
@@ -50,7 +50,6 @@ class NewtonFcnBase():
 
         solver_state.log_step(fcn_complete_step)
 
-        logger.debug('returning')
         return res
 
     def gen_precond_jacobian(self, iterate, hist_fname, precond_fname, solver_state):
@@ -58,8 +57,7 @@ class NewtonFcnBase():
         logger = logging.getLogger(__name__)
         logger.debug('hist_fname="%s", precond_fname="%s"', hist_fname, precond_fname)
 
-        cmd = 'gen_precond_jacobian_base'
-        fcn_complete_step = '%s done for %s' % (cmd, hist_fname)
+        fcn_complete_step = 'gen_precond_jacobian complete for %s' % precond_fname
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning', fcn_complete_step)
