@@ -11,6 +11,12 @@ begin
     hist_fname = systemfunc("ls "+hist_dir+case+".pop.h.[0-9][0-9][0-9][0-9].nc | head -n 1")
     print("creating "+grid+" grid files from "+hist_fname)
 
+    grid = "gx1v7"
+    case = "c.e21.C.T62_g17.NK.001"
+    hist_dir = "/glade/scratch/klindsay/archive/"+case+"/ocn/hist/"
+    hist_fname = systemfunc("ls "+hist_dir+case+".pop.h.[0-9][0-9][0-9][0-9].nc | head -n 1")
+    print("creating "+grid+" grid files from "+hist_fname)
+
     setfileoption("nc", "Format", "NetCDF4Classic")
     setfileoption("nc", "CompressionLevel", 1)
 
