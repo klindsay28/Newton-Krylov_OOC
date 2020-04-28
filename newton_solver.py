@@ -178,6 +178,11 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug('entering')
 
+        if self._solver_state.get_iteration() >= \
+                self._solverinfo.getint('newton_max_iter'):
+            msg = 'number of maximum Newton iterations exceeded'
+            raise RuntimeError(msg)
+
         step = 'fp iterations started'
         if not self._solver_state.step_logged(step):
 
@@ -239,8 +244,3 @@ class NewtonSolver:
         self._iterate.dump(self._fname('iterate'))
         self._fcn = prov_fcn
         self._fcn.dump(self._fname('fcn'))
-
-        if self._solver_state.get_iteration() >= \
-                self._solverinfo.getint('newton_max_iter'):
-            msg = 'number of maximum Newton iterations exceeded'
-            raise RuntimeError(msg)
