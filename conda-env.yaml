@@ -1,0 +1,17 @@
+name: Newton-Krylov_OOC
+channels:
+- conda-forge
+- defaults
+dependencies:
+# development
+- pip
+- python=3.6
+- pytest
+- pylint
+
+# requirements
+- netCDF4
+- numpy
+- pyyaml
+- scipy
+- nco

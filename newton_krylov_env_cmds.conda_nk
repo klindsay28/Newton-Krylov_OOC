@@ -1,3 +1,4 @@
 # shell commands that creates an environment that the Newton-Krylov scripts can run in
 # source this from a bash/sh shell
-# conda activate newton_krylov
+eval "$(conda shell.bash hook)"
+conda activate Newton-Krylov_OOC

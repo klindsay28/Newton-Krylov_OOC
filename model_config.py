@@ -38,7 +38,7 @@ class ModelConfig:
         fname = modelinfo['tracer_module_defs_fname']
         logger.log(lvl, 'loading content from %s', fname)
         with open(fname, mode='r') as fptr:
-            file_contents = yaml.load(fptr)
+            file_contents = yaml.safe_load(fptr)
             self.tracer_module_defs = pad_defs(
                 file_contents['tracer_module_defs'], 'tracer module',
                 {'tracer_names':'list', 'shadow_tracers':'dict',
