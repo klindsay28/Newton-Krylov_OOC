@@ -10,7 +10,7 @@ import sys
 
 import numpy as np
 from scipy.linalg import solve_banded, svd
-from scipy.sparse import diags
+from scipy.sparse import diags, eye
 from scipy.sparse.linalg import spsolve
 from scipy.integrate import solve_ivp
 
@@ -62,17 +62,21 @@ def main(args):
 
     ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
     if args.cmd == 'comp_fcn':
+        ms_in.log('state_in')
         newton_fcn.comp_fcn(
             ms_in, os.path.join(args.workdir, args.res_fname), None,
             os.path.join(args.workdir, args.hist_fname))
+        ModelState(os.path.join(args.workdir, args.res_fname)).log('fcn')
     elif args.cmd == 'gen_precond_jacobian':
         newton_fcn.gen_precond_jacobian(
             ms_in, os.path.join(args.workdir, args.hist_fname),
             os.path.join(args.workdir, args.precond_fname), solver_state)
     elif args.cmd == 'apply_precond_jacobian':
+        ms_in.log('state_in')
         newton_fcn.apply_precond_jacobian(
             ms_in, os.path.join(args.workdir, args.precond_fname),
             os.path.join(args.workdir, args.res_fname), solver_state)
+        ModelState(os.path.join(args.workdir, args.res_fname)).log('precond_res')
     else:
         msg = 'unknown cmd=%s' % args.cmd
         raise ValueError(msg)
@@ -169,6 +173,9 @@ class NewtonFcn(NewtonFcnBase):
         self.time_range = (0.0, 365.0)
         self.depth = Depth('grid_files/depth_axis_test.nc')
 
+        # light has e-folding decay of 25m
+        self.light_lim = np.exp((-1.0 / 25.0) * self.depth.axis.mid)
+
         # tracer_module_names and tracer_names will be stored in the following attributes,
         # enabling access to them from inside _comp_tend
         self._tracer_module_names = None
@@ -256,10 +263,10 @@ class NewtonFcn(NewtonFcnBase):
         tendency units are tr_units / day
         """
 
-        # light has e-folding decay of 25m, po4 half-saturation = 0.5
+        # po4 half-saturation = 0.5
         po4 = tracer_vals[0, :]
         po4_lim = np.where(po4 > 0.0, po4 / (po4 + 0.5), 0.0)
-        po4_uptake = np.exp((-1.0 / 25.0) * self.depth.axis.mid) * po4_lim
+        po4_uptake = self.light_lim * po4_lim
 
         self._comp_tend_phosphorus_core(
             time, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :])
@@ -269,7 +276,7 @@ class NewtonFcn(NewtonFcnBase):
         # restore po4_s to po4, at a rate of 1 / day
         # compensate equally from and dop and pop,
         # so that total shadow phosphorus is conserved
-        rest_term = 1.0 * (dtracer_vals_dt[0, 0] - dtracer_vals_dt[3, 0])
+        rest_term = 1.0 * (tracer_vals[0, 0] - tracer_vals[3, 0])
         dtracer_vals_dt[3, 0] += rest_term
         dtracer_vals_dt[4, 0] -= 0.67 * rest_term
         dtracer_vals_dt[5, 0] -= 0.33 * rest_term
@@ -339,6 +346,10 @@ class NewtonFcn(NewtonFcnBase):
             for tracer_name in self._tracer_names:
                 fptr.createVariable(tracer_name, 'f8', dimensions=('time', 'depth'))
 
+            fptr.createVariable('bldepth', 'f8', dimensions=('time'))
+            fptr.variables['bldepth'].long_name = 'boundary layer depth'
+            fptr.variables['bldepth'].units = 'm'
+
             fptr.createVariable('mixing_coeff', 'f8', dimensions=('time', 'depth_edges'))
             fptr.variables['mixing_coeff'].long_name = 'vertical mixing coefficient'
             fptr.variables['mixing_coeff'].units = 'm2 s-1'
@@ -351,6 +362,7 @@ class NewtonFcn(NewtonFcnBase):
                 fptr.variables[tracer_name][:] = tracer_vals[tracer_ind, :, :].transpose()
 
             for time_ind, time in enumerate(sol.t):
+                fptr.variables['bldepth'][time_ind] = self.depth.bldepth(time)
                 fptr.variables['mixing_coeff'][time_ind, :] = \
                     (1.0 / 86400.0) * self.depth.mixing_coeff(time)
 
@@ -426,11 +438,16 @@ class NewtonFcn(NewtonFcnBase):
              self._diag_m_2nz_phosphorus()],
             [0, 1, -1, nz, -nz, 2*nz, -2*nz], format='csr')
 
-        res = spsolve(matrix, rhs)
+        matrix_adj = matrix - 1.0e-8 * eye(3*nz)
+        res = spsolve(matrix_adj, rhs)
 
         _, sing_vals, r_sing_vects = svd(matrix.todense())
         min_ind = sing_vals.argmin()
-        res -= (res.mean()/r_sing_vects[min_ind, :].mean()) * r_sing_vects[min_ind, :]
+        dz3 = np.concatenate(
+            (self.depth.axis.delta, self.depth.axis.delta, self.depth.axis.delta))
+        numer = (res * dz3).sum()
+        denom = (r_sing_vects[min_ind, :] * dz3).sum()
+        res -= numer / denom * r_sing_vects[min_ind, :]
 
         ms_res.set_tracer_vals('po4_s', res[0:nz] - po4_s)
         ms_res.set_tracer_vals('dop_s', res[nz:2*nz] - dop_s)
@@ -537,13 +554,8 @@ class Depth():
         if time == self._time_val:
             return self._mixing_coeff_vals
 
-        bldepth_min = 50.0
-        bldepth_max = 150.0
-        bldepth_del = bldepth_max - bldepth_min
-        bldepth = bldepth_min \
-            + bldepth_del * (0.5 + 0.5 * np.cos((2 * np.pi) * ((time / 365.0) - 0.25)))
         # z_lin ranges from 0.0 to 1.0 over span of 50.0 m, is 0.5 at bldepth
-        z_lin = 0.5 + (self.axis.edges - bldepth) * (1.0 / 50.0)
+        z_lin = 0.5 + (self.axis.edges - self.bldepth(time)) * (1.0 / 50.0)
         z_lin = np.maximum(0.0, np.minimum(1.0, z_lin))
         res_log10_shallow = 0.0
         res_log10_deep = -5.0
@@ -552,6 +564,45 @@ class Depth():
         self._time_val = time
         self._mixing_coeff_vals = 86400.0 * 10.0 ** res_log10
         return self._mixing_coeff_vals
+
+    def bldepth(self, time):
+        """time varying boundary layer depth"""
+        bldepth_min = 50.0
+        bldepth_max = 150.0
+        bldepth_del_frac = 0.5 + 0.5 * np.cos((2 * np.pi) * ((time / 365.0) - 0.25))
+        return bldepth_min + (bldepth_max - bldepth_min) * bldepth_del_frac
+
+    def _z_lin_avg(self, k, bldepth):
+        """
+        average of max(0, min(1, 0.5 + (z - bldepth) * (1.0 / dz_trans)))
+        over interval containing self.axis.edges[k]
+        this function ranges from 0.0 to 1.0 over span of dz_trans m, is 0.5 at bldepth
+        """
+        dz_trans = 50.0
+        z_trans0 = bldepth - 0.5 * dz_trans
+        z_trans1 = bldepth + 0.5 * dz_trans
+        z0 = self.axis.mid[k-1] if k > 0 else self.axis.edges[0]
+        z1 = self.axis.mid[k] if k < self.axis.nlevs else self.axis.edges[-1]
+        if z1 <= z_trans0:
+            return 0.0
+        if z1 <= z_trans1:
+            if z0 <= z_trans0:
+                zm = 0.5 * (z1 + z_trans0)
+                val = 0.5 + (zm - bldepth) * (1.0 / dz_trans)
+                return val * (z1 - z_trans0) / (z1 - z0)
+            else:
+                zm = 0.5 * (z1 + z0)
+                return 0.5 + (zm - bldepth) * (1.0 / dz_trans)
+        # z1 > z_trans1
+        if z0 <= z_trans0:
+            zm = bldepth
+            val = 0.5 + (zm - bldepth) * (1.0 / dz_trans)
+            return (val * dz_trans + 1.0 * (z1 - z_trans1)) / (z1 - z0)
+        if z0 <= z_trans1:
+            zm = 0.5 * (z_trans1 + z0)
+            val = 0.5 + (zm - bldepth) * (1.0 / dz_trans)
+            return (val * (z_trans1 - z0) + 1.0 * (z1 - z_trans1)) / (z1 - z0)
+        return 1.0
 
 ################################################################################
 
