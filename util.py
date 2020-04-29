@@ -3,6 +3,7 @@
 import errno
 import os
 
+
 def mkdir_exist_okay(path):
     """
     Create a directory named path.

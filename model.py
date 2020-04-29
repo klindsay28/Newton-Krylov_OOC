@@ -12,6 +12,7 @@ from region_scalars import RegionScalars, to_ndarray
 
 ################################################################################
 
+
 class ModelStateBase:
     """class for representing the state space of a model"""
 
@@ -22,20 +23,26 @@ class ModelStateBase:
         logger = logging.getLogger(__name__)
         logger.debug('ModelStateBase, vals_fname="%s"', vals_fname)
         if model_config.model_config_obj is None:
-            msg = 'model_config.model_config_obj is None, %s must be called before %s' \
-                  % ('ModelConfig.__init__', 'ModelStateBase.__init__')
+            msg = (
+                "model_config.model_config_obj is None, %s must be called before %s"
+                % ("ModelConfig.__init__", "ModelStateBase.__init__")
+            )
             raise RuntimeError(msg)
         if not issubclass(tracer_module_state_class, TracerModuleStateBase):
-            msg = 'tracer_module_state_class must be a subclass of TracerModuleStateBase'
+            msg = (
+                "tracer_module_state_class must be a subclass of TracerModuleStateBase"
+            )
             raise ValueError(msg)
-        self.tracer_module_names = get_modelinfo('tracer_module_names').split(',')
+        self.tracer_module_names = get_modelinfo("tracer_module_names").split(",")
         self.tracer_module_cnt = len(self.tracer_module_names)
         if vals_fname is not None:
             self._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object)
-            for tracer_module_ind, tracer_module_name in \
-                    enumerate(self.tracer_module_names):
+            for tracer_module_ind, tracer_module_name in enumerate(
+                self.tracer_module_names
+            ):
                 self._tracer_modules[tracer_module_ind] = tracer_module_state_class(
-                    tracer_module_name, vals_fname=vals_fname)
+                    tracer_module_name, vals_fname=vals_fname
+                )
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -56,8 +63,8 @@ class ModelStateBase:
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
         logger.debug('vals_fname="%s"', vals_fname)
-        with Dataset(vals_fname, mode='w') as fptr:
-            for action in ['define', 'write']:
+        with Dataset(vals_fname, mode="w") as fptr:
+            for action in ["define", "write"]:
                 for tracer_module in self._tracer_modules:
                     tracer_module.dump(fptr, action)
         return self
@@ -71,7 +78,8 @@ class ModelStateBase:
                         tracer_module.log_vals(submsg, vals[msg_ind, tracer_module_ind])
                     else:
                         tracer_module.log_vals(
-                            submsg, vals[msg_ind, tracer_module_ind, :])
+                            submsg, vals[msg_ind, tracer_module_ind, :]
+                        )
             else:
                 if vals.ndim == 1:
                     tracer_module.log_vals(msg, vals[tracer_module_ind])
@@ -81,17 +89,21 @@ class ModelStateBase:
     def log(self, msg=None):
         """write info of the instance to the log"""
         if msg is None:
-            msg_full = ['mean', 'norm']
+            msg_full = ["mean", "norm"]
         else:
-            msg_full = [msg+',mean', msg+',norm']
+            msg_full = [msg + ",mean", msg + ",norm"]
         self.log_vals(msg_full, np.stack((self.mean(), self.norm())))
 
     def copy(self):
         """return a copy of self"""
-        res = type(self)() # pylint: disable=E1120
-        res._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object) # pylint: disable=W0212
+        res = type(self)()  # pylint: disable=E1120
+        res._tracer_modules = np.empty(
+            (self.tracer_module_cnt,), dtype=np.object
+        )  # pylint: disable=W0212
         for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
-            res._tracer_modules[tracer_module_ind] = tracer_module.copy() # pylint: disable=W0212
+            res._tracer_modules[
+                tracer_module_ind
+            ] = tracer_module.copy()  # pylint: disable=W0212
         return res
 
     def __neg__(self):
@@ -99,8 +111,8 @@ class ModelStateBase:
         unary negation operator
         called to evaluate res = -self
         """
-        res = type(self)() # pylint: disable=E1120
-        res._tracer_modules = -self._tracer_modules # pylint: disable=W0212
+        res = type(self)()  # pylint: disable=E1120
+        res._tracer_modules = -self._tracer_modules  # pylint: disable=W0212
         return res
 
     def __add__(self, other):
@@ -108,9 +120,11 @@ class ModelStateBase:
         addition operator
         called to evaluate res = self + other
         """
-        res = type(self)() # pylint: disable=E1120
+        res = type(self)()  # pylint: disable=E1120
         if isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules + other._tracer_modules # pylint: disable=W0212
+            res._tracer_modules = (
+                self._tracer_modules + other._tracer_modules
+            )  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -128,7 +142,7 @@ class ModelStateBase:
         called to evaluate self += other
         """
         if isinstance(other, ModelStateBase):
-            self._tracer_modules += other._tracer_modules # pylint: disable=W0212
+            self._tracer_modules += other._tracer_modules  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -138,9 +152,11 @@ class ModelStateBase:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = type(self)() # pylint: disable=E1120
+        res = type(self)()  # pylint: disable=E1120
         if isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules - other._tracer_modules # pylint: disable=W0212
+            res._tracer_modules = (
+                self._tracer_modules - other._tracer_modules
+            )  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -151,7 +167,7 @@ class ModelStateBase:
         called to evaluate self -= other
         """
         if isinstance(other, ModelStateBase):
-            self._tracer_modules -= other._tracer_modules # pylint: disable=W0212
+            self._tracer_modules -= other._tracer_modules  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -161,13 +177,17 @@ class ModelStateBase:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = type(self)() # pylint: disable=E1120
+        res = type(self)()  # pylint: disable=E1120
         if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            res._tracer_modules = self._tracer_modules * other # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules * other  # pylint: disable=W0212
+        elif (
+            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
+        ):
+            res._tracer_modules = self._tracer_modules * other  # pylint: disable=W0212
         elif isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules * other._tracer_modules # pylint: disable=W0212
+            res._tracer_modules = (
+                self._tracer_modules * other._tracer_modules
+            )  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -186,10 +206,12 @@ class ModelStateBase:
         """
         if isinstance(other, float):
             self._tracer_modules *= other
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
+        elif (
+            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
+        ):
             self._tracer_modules *= other
         elif isinstance(other, ModelStateBase):
-            self._tracer_modules *= other._tracer_modules # pylint: disable=W0212
+            self._tracer_modules *= other._tracer_modules  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -199,13 +221,21 @@ class ModelStateBase:
         division operator
         called to evaluate res = self / other
         """
-        res = type(self)() # pylint: disable=E1120
+        res = type(self)()  # pylint: disable=E1120
         if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            res._tracer_modules = self._tracer_modules * (1.0 / other) # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules * (
+                1.0 / other
+            )  # pylint: disable=W0212
+        elif (
+            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
+        ):
+            res._tracer_modules = self._tracer_modules * (
+                1.0 / other
+            )  # pylint: disable=W0212
         elif isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules / other._tracer_modules # pylint: disable=W0212
+            res._tracer_modules = (
+                self._tracer_modules / other._tracer_modules
+            )  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -215,11 +245,13 @@ class ModelStateBase:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = type(self)() # pylint: disable=E1120
+        res = type(self)()  # pylint: disable=E1120
         if isinstance(other, float):
-            res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            res._tracer_modules = other / self._tracer_modules # pylint: disable=W0212
+            res._tracer_modules = other / self._tracer_modules  # pylint: disable=W0212
+        elif (
+            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
+        ):
+            res._tracer_modules = other / self._tracer_modules  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -230,11 +262,13 @@ class ModelStateBase:
         called to evaluate self /= other
         """
         if isinstance(other, float):
-            self._tracer_modules *= (1.0 / other)
-        elif isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape:
-            self._tracer_modules *= (1.0 / other)
+            self._tracer_modules *= 1.0 / other
+        elif (
+            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
+        ):
+            self._tracer_modules *= 1.0 / other
         elif isinstance(other, ModelStateBase):
-            self._tracer_modules /= other._tracer_modules # pylint: disable=W0212
+            self._tracer_modules /= other._tracer_modules  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -250,7 +284,9 @@ class ModelStateBase:
         """compute weighted dot product of self with other"""
         res = np.empty(self._tracer_modules.shape, dtype=np.object)
         for ind, tracer_module in enumerate(self._tracer_modules):
-            res[ind] = tracer_module.dot_prod(other._tracer_modules[ind]) # pylint: disable=W0212
+            res[ind] = tracer_module.dot_prod(
+                other._tracer_modules[ind]
+            )  # pylint: disable=W0212
         return res
 
     def norm(self):
@@ -272,8 +308,8 @@ class ModelStateBase:
     def hist_vars_for_precond_list(self):
         """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
         res = []
-        for matrix_name in self.precond_matrix_list()+['base']:
-            res.extend(get_precond_matrix_def(matrix_name)['hist_to_precond_var_names'])
+        for matrix_name in self.precond_matrix_list() + ["base"]:
+            res.extend(get_precond_matrix_def(matrix_name)["hist_to_precond_var_names"])
         return res
 
     def precond_matrix_list(self):
@@ -297,7 +333,7 @@ class ModelStateBase:
                 return tracer_module.get_tracer_vals(tracer_name)
             except ValueError:
                 pass
-        msg = 'unknown tracer_name=%s' % tracer_name
+        msg = "unknown tracer_name=%s" % tracer_name
         raise ValueError(msg)
 
     def set_tracer_vals(self, tracer_name, vals):
@@ -339,7 +375,9 @@ class ModelStateBase:
             tracer_module.apply_region_mask()
         return self
 
+
 ################################################################################
+
 
 class TracerModuleStateBase:
     """
@@ -354,31 +392,40 @@ class TracerModuleStateBase:
         logger = logging.getLogger(__name__)
         logger.debug(
             'TracerModuleStateBase, tracer_module_name="%s", vals_fname="%s"',
-            tracer_module_name, vals_fname)
+            tracer_module_name,
+            vals_fname,
+        )
         if model_config.model_config_obj is None:
-            msg = 'model_config.model_config_obj is None, %s must be called before %s' \
-                  % ('ModelConfig.__init__', 'TracerModuleStateBase.__init__')
+            msg = (
+                "model_config.model_config_obj is None, %s must be called before %s"
+                % ("ModelConfig.__init__", "TracerModuleStateBase.__init__")
+            )
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
-        self._tracer_module_def = \
-            model_config.model_config_obj.tracer_module_defs[tracer_module_name]
+        self._tracer_module_def = model_config.model_config_obj.tracer_module_defs[
+            tracer_module_name
+        ]
         if (dims is None) == (vals_fname is None):
-            msg = 'exactly one of dims and vals_fname must be passed'
+            msg = "exactly one of dims and vals_fname must be passed"
             raise ValueError(msg)
         if dims is not None:
             self._dims = dims
         if vals_fname is not None:
-            self._vals, self._dims = self._read_vals(tracer_module_name, vals_fname) # pylint: disable=E1111
+            self._vals, self._dims = self._read_vals(
+                tracer_module_name, vals_fname
+            )  # pylint: disable=E1111
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
-        msg = '% should be implemented in classes derived from %s' \
-            % ('_read_vals', 'TracerModuleStateBase')
+        msg = "% should be implemented in classes derived from %s" % (
+            "_read_vals",
+            "TracerModuleStateBase",
+        )
         raise NotImplementedError(msg)
 
     def tracer_names(self):
         """return list of tracer names"""
-        return self._tracer_module_def['tracer_names']
+        return self._tracer_module_def["tracer_names"]
 
     def tracer_cnt(self):
         """return number of tracers"""
@@ -393,8 +440,10 @@ class TracerModuleStateBase:
         perform an action (define or write) of dumping a TracerModuleStateBase object
         to an open file
         """
-        msg = '% should be implemented in classes derived from %s' \
-            % ('dump', 'TracerModuleStateBase')
+        msg = "% should be implemented in classes derived from %s" % (
+            "dump",
+            "TracerModuleStateBase",
+        )
         raise NotImplementedError(msg)
 
     def log_vals(self, msg, vals):
@@ -403,9 +452,11 @@ class TracerModuleStateBase:
 
         # simplify subsequent logic by converting implicit RegionScalars dimension
         # to an additional ndarray dimension
-        if isinstance(vals, RegionScalars) \
-                or isinstance(vals, np.ndarray) \
-                and isinstance(vals.ravel()[0], RegionScalars):
+        if (
+            isinstance(vals, RegionScalars)
+            or isinstance(vals, np.ndarray)
+            and isinstance(vals.ravel()[0], RegionScalars)
+        ):
             self.log_vals(msg, to_ndarray(vals))
             return
 
@@ -415,24 +466,29 @@ class TracerModuleStateBase:
             return
 
         if vals.ndim == 0:
-            logger.info('%s[%s]=%e', msg, self._tracer_module_name, vals)
+            logger.info("%s[%s]=%e", msg, self._tracer_module_name, vals)
         elif vals.ndim == 1:
             for j in range(vals.shape[0]):
-                logger.info('%s[%s,%d]=%e', msg, self._tracer_module_name, j, vals[j])
+                logger.info("%s[%s,%d]=%e", msg, self._tracer_module_name, j, vals[j])
         elif vals.ndim == 2:
             for i in range(vals.shape[0]):
                 for j in range(vals.shape[1]):
                     logger.info(
-                        '%s[%s,%d,%d]=%e', msg, self._tracer_module_name, i, j,
-                        vals[i, j])
+                        "%s[%s,%d,%d]=%e",
+                        msg,
+                        self._tracer_module_name,
+                        i,
+                        j,
+                        vals[i, j],
+                    )
         else:
-            msg = 'vals.ndim=%d not handled' % vals.ndim
+            msg = "vals.ndim=%d not handled" % vals.ndim
             raise ValueError(msg)
 
     def copy(self):
         """return a copy of self"""
         res = type(self)(self._tracer_module_name, dims=self._dims)
-        res._vals = np.copy(self._vals) # pylint: disable=W0212
+        res._vals = np.copy(self._vals)  # pylint: disable=W0212
         return res
 
     def __neg__(self):
@@ -441,7 +497,7 @@ class TracerModuleStateBase:
         called to evaluate res = -self
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
-        res._vals = -self._vals # pylint: disable=W0212
+        res._vals = -self._vals  # pylint: disable=W0212
         return res
 
     def __add__(self, other):
@@ -451,7 +507,7 @@ class TracerModuleStateBase:
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals + other._vals # pylint: disable=W0212
+            res._vals = self._vals + other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -462,7 +518,7 @@ class TracerModuleStateBase:
         called to evaluate self += other
         """
         if isinstance(other, TracerModuleStateBase):
-            self._vals += other._vals # pylint: disable=W0212
+            self._vals += other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -474,7 +530,7 @@ class TracerModuleStateBase:
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals - other._vals # pylint: disable=W0212
+            res._vals = self._vals - other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -485,7 +541,7 @@ class TracerModuleStateBase:
         called to evaluate self -= other
         """
         if isinstance(other, TracerModuleStateBase):
-            self._vals -= other._vals # pylint: disable=W0212
+            self._vals -= other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -497,12 +553,13 @@ class TracerModuleStateBase:
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
-            res._vals = self._vals * other # pylint: disable=W0212
+            res._vals = self._vals * other  # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
-            res._vals = self._vals * other.broadcast( # pylint: disable=W0212
-                model_config.model_config_obj.region_mask)
+            res._vals = self._vals * other.broadcast(  # pylint: disable=W0212
+                model_config.model_config_obj.region_mask
+            )
         elif isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals * other._vals # pylint: disable=W0212
+            res._vals = self._vals * other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -524,7 +581,7 @@ class TracerModuleStateBase:
         elif isinstance(other, RegionScalars):
             self._vals *= other.broadcast(model_config.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
-            self._vals *= other._vals # pylint: disable=W0212
+            self._vals *= other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -536,12 +593,13 @@ class TracerModuleStateBase:
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
-            res._vals = self._vals * (1.0 / other) # pylint: disable=W0212
+            res._vals = self._vals * (1.0 / other)  # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
-            res._vals = self._vals * other.recip().broadcast( # pylint: disable=W0212
-                model_config.model_config_obj.region_mask)
+            res._vals = self._vals * other.recip().broadcast(  # pylint: disable=W0212
+                model_config.model_config_obj.region_mask
+            )
         elif isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals / other._vals # pylint: disable=W0212
+            res._vals = self._vals / other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return res
@@ -553,10 +611,14 @@ class TracerModuleStateBase:
         """
         res = type(self)(self._tracer_module_name, dims=self._dims)
         if isinstance(other, float):
-            res._vals = other / self._vals # pylint: disable=W0212
+            res._vals = other / self._vals  # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
-            res._vals = other.broadcast( # pylint: disable=W0212
-                model_config.model_config_obj.region_mask) / self._vals
+            res._vals = (
+                other.broadcast(  # pylint: disable=W0212
+                    model_config.model_config_obj.region_mask
+                )
+                / self._vals
+            )
         else:
             return NotImplemented
         return res
@@ -567,12 +629,13 @@ class TracerModuleStateBase:
         called to evaluate self /= other
         """
         if isinstance(other, float):
-            self._vals *= (1.0 / other)
+            self._vals *= 1.0 / other
         elif isinstance(other, RegionScalars):
             self._vals *= other.recip().broadcast(
-                model_config.model_config_obj.region_mask)
+                model_config.model_config_obj.region_mask
+            )
         elif isinstance(other, TracerModuleStateBase):
-            self._vals /= other._vals # pylint: disable=W0212
+            self._vals /= other._vals  # pylint: disable=W0212
         else:
             return NotImplemented
         return self
@@ -586,13 +649,16 @@ class TracerModuleStateBase:
         # sum over model grid dimensions, leaving region and tracer dimensions
         if ndim == 1:
             tmp = np.einsum(
-                'ik,jk', model_config.model_config_obj.grid_weight, self._vals)
+                "ik,jk", model_config.model_config_obj.grid_weight, self._vals
+            )
         elif ndim == 2:
             tmp = np.einsum(
-                'ikl,jkl', model_config.model_config_obj.grid_weight, self._vals)
+                "ikl,jkl", model_config.model_config_obj.grid_weight, self._vals
+            )
         else:
             tmp = np.einsum(
-                'iklm,jklm', model_config.model_config_obj.grid_weight, self._vals)
+                "iklm,jklm", model_config.model_config_obj.grid_weight, self._vals
+            )
         # sum over tracer dimension, and return RegionScalars object
         return RegionScalars(np.sum(tmp, axis=-1))
 
@@ -605,30 +671,40 @@ class TracerModuleStateBase:
         # sum over tracer and model grid dimensions, leaving region dimension
         if ndim == 1:
             tmp = np.einsum(
-                'ik,jk,jk', model_config.model_config_obj.grid_weight, self._vals,
-                other._vals) # pylint: disable=W0212
+                "ik,jk,jk",
+                model_config.model_config_obj.grid_weight,
+                self._vals,
+                other._vals,
+            )  # pylint: disable=W0212
         elif ndim == 2:
             tmp = np.einsum(
-                'ikl,jkl,jkl', model_config.model_config_obj.grid_weight, self._vals,
-                other._vals) # pylint: disable=W0212
+                "ikl,jkl,jkl",
+                model_config.model_config_obj.grid_weight,
+                self._vals,
+                other._vals,
+            )  # pylint: disable=W0212
         else:
             tmp = np.einsum(
-                'iklm,jklm,jklm', model_config.model_config_obj.grid_weight, self._vals,
-                other._vals) # pylint: disable=W0212
+                "iklm,jklm,jklm",
+                model_config.model_config_obj.grid_weight,
+                self._vals,
+                other._vals,
+            )  # pylint: disable=W0212
         # return RegionScalars object
         return RegionScalars(tmp)
 
     def precond_matrix_list(self):
         """Return list of precond matrices being used"""
-        return self._tracer_module_def['precond_matrices'].values()
+        return self._tracer_module_def["precond_matrices"].values()
 
     def append_tracer_names_per_precond_matrix(self, res):
         """Append tracer names for each precond matrix to res"""
         # process tracers in order of tracer_names
-        for tracer_name in self._tracer_module_def['tracer_names']:
-            if tracer_name in self._tracer_module_def['precond_matrices']:
-                precond_matrix_name = \
-                    self._tracer_module_def['precond_matrices'][tracer_name]
+        for tracer_name in self._tracer_module_def["tracer_names"]:
+            if tracer_name in self._tracer_module_def["precond_matrices"]:
+                precond_matrix_name = self._tracer_module_def["precond_matrices"][
+                    tracer_name
+                ]
                 if precond_matrix_name not in res:
                     res[precond_matrix_name] = [tracer_name]
                 else:
@@ -644,21 +720,23 @@ class TracerModuleStateBase:
 
     def shadow_tracers_on(self):
         """are any shadow tracers being run"""
-        return bool(self._tracer_module_def['shadow_tracers'])
+        return bool(self._tracer_module_def["shadow_tracers"])
 
     def copy_shadow_tracers_to_real_tracers(self):
         """copy shadow tracers to their real counterparts"""
-        shadow_tracers = self._tracer_module_def['shadow_tracers']
+        shadow_tracers = self._tracer_module_def["shadow_tracers"]
         for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
             self.set_tracer_vals(
-                real_tracer_name, self.get_tracer_vals(shadow_tracer_name))
+                real_tracer_name, self.get_tracer_vals(shadow_tracer_name)
+            )
 
     def copy_real_tracers_to_shadow_tracers(self):
         """overwrite shadow tracers with their real counterparts"""
-        shadow_tracers = self._tracer_module_def['shadow_tracers']
+        shadow_tracers = self._tracer_module_def["shadow_tracers"]
         for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
             self.set_tracer_vals(
-                shadow_tracer_name, self.get_tracer_vals(real_tracer_name))
+                shadow_tracer_name, self.get_tracer_vals(real_tracer_name)
+            )
 
     def extra_tracer_inds(self):
         """
@@ -668,7 +746,7 @@ class TracerModuleStateBase:
         tracers that are shadowed are automatically extra
         """
         res = []
-        for tracer_name in self._tracer_module_def['shadow_tracers'].values():
+        for tracer_name in self._tracer_module_def["shadow_tracers"].values():
             res.append(self.tracer_index(tracer_name))
         return res
 
@@ -682,9 +760,13 @@ class TracerModuleStateBase:
         for tracer_ind in range(self.tracer_cnt()):
             self._vals[tracer_ind, :] = np.where(
                 model_config.model_config_obj.region_mask != 0,
-                self._vals[tracer_ind, :], 0.0)
+                self._vals[tracer_ind, :],
+                0.0,
+            )
+
 
 ################################################################################
+
 
 def lin_comb(res_type, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelStateBase objects in files"""

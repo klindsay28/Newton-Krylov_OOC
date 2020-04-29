@@ -4,6 +4,7 @@ import numpy as np
 
 from model_config import get_region_cnt
 
+
 class RegionScalars:
     """class to hold per-region scalars"""
 
@@ -18,7 +19,7 @@ class RegionScalars:
         if isinstance(other, float):
             return RegionScalars(self._vals * other)
         if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals * other._vals) # pylint: disable=W0212
+            return RegionScalars(self._vals * other._vals)  # pylint: disable=W0212
         return NotImplemented
 
     def __rmul__(self, other):
@@ -36,7 +37,7 @@ class RegionScalars:
         if isinstance(other, float):
             return RegionScalars(self._vals / other)
         if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals / other._vals) # pylint: disable=W0212
+            return RegionScalars(self._vals / other._vals)  # pylint: disable=W0212
         return NotImplemented
 
     def __rtruediv__(self, other):
@@ -70,10 +71,12 @@ class RegionScalars:
         """
         res = np.full(shape=region_mask.shape, fill_value=fill_value)
         for region_ind in range(get_region_cnt()):
-            res = np.where(region_mask == region_ind+1, self._vals[region_ind], res)
+            res = np.where(region_mask == region_ind + 1, self._vals[region_ind], res)
         return res
 
+
 ################################################################################
+
 
 def to_ndarray(array_in):
     """
@@ -85,7 +88,7 @@ def to_ndarray(array_in):
     if isinstance(array_in, RegionScalars):
         return np.array(array_in.vals())
 
-    res = np.empty(array_in.shape+(get_region_cnt(),))
+    res = np.empty(array_in.shape + (get_region_cnt(),))
 
     if array_in.ndim == 0:
         res[:] = array_in[()].vals()
@@ -102,10 +105,11 @@ def to_ndarray(array_in):
                 for ind2 in range(array_in.shape[2]):
                     res[ind0, ind1, ind2, :] = array_in[ind0, ind1, ind2].vals()
     else:
-        msg = 'array_in.ndim=%d not handled' % array_in.ndim
+        msg = "array_in.ndim=%d not handled" % array_in.ndim
         raise ValueError(msg)
 
     return res
+
 
 def to_region_scalar_ndarray(array_in):
     """
@@ -116,7 +120,7 @@ def to_region_scalar_ndarray(array_in):
     """
 
     if array_in.shape[-1] != get_region_cnt():
-        msg = 'last dimension must have length get_region_cnt()'
+        msg = "last dimension must have length get_region_cnt()"
         raise ValueError(msg)
 
     res = np.empty(array_in.shape[:-1], dtype=np.object)
@@ -136,7 +140,7 @@ def to_region_scalar_ndarray(array_in):
                 for ind2 in range(array_in.shape[2]):
                     res[ind0, ind1, ind2] = RegionScalars(array_in[ind0, ind1, ind2, :])
     else:
-        msg = 'array_in.ndim=%d not handled' % array_in.ndim
+        msg = "array_in.ndim=%d not handled" % array_in.ndim
         raise ValueError(msg)
 
     return res
