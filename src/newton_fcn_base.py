@@ -48,9 +48,9 @@ class NewtonFcnBase:
         perturb_fcn_fname = os.path.join(
             solver_state.get_workdir(), "perturb_fcn_" + os.path.basename(res_fname)
         )
-        perturb_fcn = self.comp_fcn(
+        perturb_fcn = self.comp_fcn(  # pylint: disable=E1111
             perturb_ms, perturb_fcn_fname, solver_state
-        )  # pylint: disable=E1111
+        )
 
         # compute finite difference
         res = ((perturb_fcn - fcn) / sigma).dump(res_fname)

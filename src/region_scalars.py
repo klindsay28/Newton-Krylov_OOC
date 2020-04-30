@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from model_config import get_region_cnt
+from .model_config import get_region_cnt
 
 
 class RegionScalars:

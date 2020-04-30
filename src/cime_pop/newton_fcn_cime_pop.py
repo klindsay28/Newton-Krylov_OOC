@@ -18,10 +18,10 @@ import numpy as np
 
 from netCDF4 import Dataset
 
-from cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
-from model import ModelStateBase, TracerModuleStateBase
-from model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
-from newton_fcn_base import NewtonFcnBase
+from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
+from ..model import ModelStateBase, TracerModuleStateBase
+from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
+from ..newton_fcn_base import NewtonFcnBase
 
 
 def _parse_args():
@@ -49,7 +49,7 @@ def main(args):
     """cime pop hooks for Newton-Krylov solver"""
 
     config = configparser.ConfigParser()
-    config.read(args.cfg_fname)
+    config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
@@ -320,15 +320,14 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
 
     # generate post-modelrun script and point POSTRUN_SCRIPT to it
     # this will propagate cfg_fname and hist_fname across model run
-    cwd = os.path.dirname(os.path.realpath(__file__))
     post_modelrun_script_fname = os.path.join(
-        cwd, "generated_scripts", "post_modelrun.sh"
+        solver_state.get_workdir(), "post_modelrun.sh"
     )
     _gen_post_modelrun_script(post_modelrun_script_fname)
     cime_xmlchange("POSTRUN_SCRIPT", post_modelrun_script_fname)
 
     # submit the model run and exit
-    cime_case_submit()
+    cime_case_submit(solver_state.get_workdir())
 
     solver_state.log_step(fcn_complete_step)
 
@@ -342,13 +341,11 @@ def _gen_post_modelrun_script(script_fname):
     script_fname is called by CIME, and submits nk_driver_invoker_fname with the command
         batch_cmd_script (which can be an empty string)
     """
-    cwd = os.path.dirname(os.path.realpath(__file__))
     batch_cmd_script = (
         get_modelinfo("batch_cmd_script").replace("\n", " ").replace("\r", " ")
     )
     with open(script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash -l\n")
-        fptr.write("cd %s\n" % cwd)
         fptr.write(
             "%s %s --resume\n"
             % (batch_cmd_script, get_modelinfo("nk_driver_invoker_fname"))

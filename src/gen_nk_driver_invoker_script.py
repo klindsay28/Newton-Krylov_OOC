@@ -3,24 +3,28 @@
 
 import argparse
 import configparser
+import logging
 import os
 import stat
 
 
-def gen_nk_driver_invoker_script(modelinfo):
+def gen_nk_driver_invoker_script(workdir, toplevel_dir, modelinfo):
     """
     generate script for invoking nk_driver.py with optional arguments
     return the name of the generated script
     """
 
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    script_fname = os.path.join(cwd, "generated_scripts", "nk_driver.sh")
+    script_fname = os.path.join(workdir, "nk_driver.sh")
+    logger = logging.getLogger(__name__)
+    logger.debug("generating %s", script_fname)
 
     with open(script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
-        fptr.write("cd %s\n" % cwd)
         fptr.write("source %s\n" % modelinfo["newton_krylov_env_cmds_fname"])
-        fptr.write('./nk_driver.py --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"])
+        fptr.write("cd %s\n" % toplevel_dir)
+        fptr.write(
+            'python -m src.nk_driver --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"]
+        )
 
     # ensure script_fname is executable by the user, while preserving other permissions
     fstat = os.stat(script_fname)
@@ -45,12 +49,16 @@ def main(args):
     """driver for Newton-Krylov solver"""
 
     config = configparser.ConfigParser()
-    config.read(args.cfg_fname)
+    config.read_file(open(args.cfg_fname))
 
     # store cfg_fname in modelinfo, to follow what is done in other scripts
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
 
-    gen_nk_driver_invoker_script(config["modelinfo"])
+    gen_nk_driver_invoker_script(
+        config["solverinfo"]["workdir"],
+        config["DEFAULT"]["toplevel_dir"],
+        config["modelinfo"],
+    )
 
 
 if __name__ == "__main__":

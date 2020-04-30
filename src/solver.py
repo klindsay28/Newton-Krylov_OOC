@@ -6,7 +6,7 @@ import os
 
 import numpy as np
 
-import util
+from .util import mkdir_exist_okay
 
 
 class SolverState:
@@ -26,7 +26,7 @@ class SolverState:
         )
 
         # ensure workdir exists
-        util.mkdir_exist_okay(workdir)
+        mkdir_exist_okay(workdir)
 
         self._name = name
         self._workdir = workdir

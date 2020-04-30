@@ -7,13 +7,13 @@ import importlib
 import logging
 import sys
 
-from model_config import ModelConfig
-from nk_driver import parse_args
-from solver import SolverState
+from ..model_config import ModelConfig
+from ..nk_driver import parse_args
+from ..solver import SolverState
 
 args = parse_args()
 config = configparser.ConfigParser()
-config.read(args.cfg_fname)
+config.read_file(open(args.cfg_fname))
 
 logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
 logging.basicConfig(format=logging_format, stream=sys.stdout, level="DEBUG")

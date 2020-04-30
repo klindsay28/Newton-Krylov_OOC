@@ -16,10 +16,10 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-from model import ModelStateBase, TracerModuleStateBase
-from model_config import ModelConfig, get_modelinfo
-from newton_fcn_base import NewtonFcnBase
-from solver import SolverState
+from ..model import ModelStateBase, TracerModuleStateBase
+from ..model_config import ModelConfig, get_modelinfo
+from ..newton_fcn_base import NewtonFcnBase
+from ..solver import SolverState
 
 
 def _parse_args():
@@ -49,7 +49,7 @@ def main(args):
     """test problem for Newton-Krylov solver"""
 
     config = configparser.ConfigParser()
-    config.read(args.cfg_fname)
+    config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
@@ -203,7 +203,7 @@ class NewtonFcn(NewtonFcnBase):
 
     def __init__(self):
         self.time_range = (0.0, 365.0)
-        self.depth = Depth("grid_files/depth_axis_test.nc")
+        self.depth = Depth(get_modelinfo("depth_fname"))
 
         # light has e-folding decay of 25m
         self.light_lim = np.exp((-1.0 / 25.0) * self.depth.axis.mid)
@@ -654,34 +654,38 @@ class Depth:
 
     def _z_lin_avg(self, k, bldepth):
         """
-        average of max(0, min(1, 0.5 + (z - bldepth) * (1.0 / dz_trans)))
+        average of max(0, min(1, 0.5 + (z - bldepth) * (1.0 / trans_range)))
         over interval containing self.axis.edges[k]
-        this function ranges from 0.0 to 1.0 over span of dz_trans m, is 0.5 at bldepth
+        this function ranges from 0.0 to 1.0 over span of trans_range m, is 0.5 at bldepth
         """
-        dz_trans = 50.0
-        z_trans0 = bldepth - 0.5 * dz_trans
-        z_trans1 = bldepth + 0.5 * dz_trans
-        z0 = self.axis.mid[k - 1] if k > 0 else self.axis.edges[0]
-        z1 = self.axis.mid[k] if k < self.axis.nlevs else self.axis.edges[-1]
-        if z1 <= z_trans0:
+        trans_range = 50.0
+        depth_trans_lo = bldepth - 0.5 * trans_range
+        depth_trans_hi = bldepth + 0.5 * trans_range
+        depth_lo = self.axis.mid[k - 1] if k > 0 else self.axis.edges[0]
+        depth_hi = self.axis.mid[k] if k < self.axis.nlevs else self.axis.edges[-1]
+        if depth_hi <= depth_trans_lo:
             return 0.0
-        if z1 <= z_trans1:
-            if z0 <= z_trans0:
-                zm = 0.5 * (z1 + z_trans0)
-                val = 0.5 + (zm - bldepth) * (1.0 / dz_trans)
-                return val * (z1 - z_trans0) / (z1 - z0)
-            else:
-                zm = 0.5 * (z1 + z0)
-                return 0.5 + (zm - bldepth) * (1.0 / dz_trans)
-        # z1 > z_trans1
-        if z0 <= z_trans0:
-            zm = bldepth
-            val = 0.5 + (zm - bldepth) * (1.0 / dz_trans)
-            return (val * dz_trans + 1.0 * (z1 - z_trans1)) / (z1 - z0)
-        if z0 <= z_trans1:
-            zm = 0.5 * (z_trans1 + z0)
-            val = 0.5 + (zm - bldepth) * (1.0 / dz_trans)
-            return (val * (z_trans1 - z0) + 1.0 * (z1 - z_trans1)) / (z1 - z0)
+        if depth_hi <= depth_trans_hi:
+            if depth_lo <= depth_trans_lo:
+                depth_mid = 0.5 * (depth_hi + depth_trans_lo)
+                val = 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
+                return val * (depth_hi - depth_trans_lo) / (depth_hi - depth_lo)
+            # depth_lo > depth_trans_lo
+            depth_mid = 0.5 * (depth_hi + depth_lo)
+            return 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
+        # depth_hi > depth_trans_hi
+        if depth_lo <= depth_trans_lo:
+            depth_mid = bldepth
+            val = 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
+            return (val * trans_range + 1.0 * (depth_hi - depth_trans_hi)) / (
+                depth_hi - depth_lo
+            )
+        if depth_lo <= depth_trans_hi:
+            depth_mid = 0.5 * (depth_trans_hi + depth_lo)
+            val = 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
+            return (
+                val * (depth_trans_hi - depth_lo) + 1.0 * (depth_hi - depth_trans_hi)
+            ) / (depth_hi - depth_lo)
         return 1.0
 
 

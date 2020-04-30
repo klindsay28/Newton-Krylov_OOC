@@ -20,3 +20,19 @@ The solver has a resume option.
 When specified, the solver reads in a previously saved solver-state and skips previously completed steps.
 When function evaluation invokes a long running batch job, the solver exits after the job is submitted, and the batch job is augmented to invoke the solver with the resume option specified.
 This implementation avoids making it necessary for the solver to remain resident in memory.
+
+## Directory Hierarchy
+```
+.
+    README.md
+    ...
+    docs/
+    models/
+        test_problem/
+            grid_files/
+        cime_pop
+            grid_files/
+    src/
+        test_problem/
+        cime_pop/
+```

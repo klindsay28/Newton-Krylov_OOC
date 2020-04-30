@@ -8,9 +8,9 @@ import logging
 import os
 import sys
 
-from gen_nk_driver_invoker_script import gen_nk_driver_invoker_script
-from model_config import ModelConfig
-from newton_solver import NewtonSolver
+from .gen_nk_driver_invoker_script import gen_nk_driver_invoker_script
+from .model_config import ModelConfig
+from .newton_solver import NewtonSolver
 
 
 def parse_args():
@@ -40,7 +40,7 @@ def main(args):
     """driver for Newton-Krylov solver"""
 
     config = configparser.ConfigParser()
-    config.read(args.cfg_fname)
+    config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
@@ -62,12 +62,15 @@ def main(args):
     # to ease access to their values elsewhere
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
     config["modelinfo"]["nk_driver_invoker_fname"] = gen_nk_driver_invoker_script(
-        config["modelinfo"]
+        config["solverinfo"]["workdir"],
+        config["DEFAULT"]["toplevel_dir"],
+        config["modelinfo"],
     )
 
     ModelConfig(config["modelinfo"], logging.DEBUG if args.resume else logging.INFO)
 
     # import module with NewtonFcn class
+    logger.debug('newton_fcn_modname="%s"', config["modelinfo"]["newton_fcn_modname"])
     newton_fcn_mod = importlib.import_module(config["modelinfo"]["newton_fcn_modname"])
 
     newton_solver = NewtonSolver(

@@ -5,7 +5,7 @@ import os
 import stat
 import subprocess
 
-from model_config import get_modelinfo
+from .model_config import get_modelinfo
 
 
 def cime_xmlquery(varname):
@@ -27,12 +27,11 @@ def cime_xmlchange(varname, value):
         )
 
 
-def cime_case_submit():
+def cime_case_submit(workdir):
     """submit a CIME case, return after submit completes"""
     logger = logging.getLogger(__name__)
 
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    script_fname = os.path.join(cwd, "generated_scripts", "case_submit.sh")
+    script_fname = os.path.join(workdir, "case_submit.sh")
     with open(script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash -l\n")
         fptr.write("source %s\n" % get_modelinfo("cime_env_cmds_fname"))

@@ -6,12 +6,11 @@ import shutil
 
 import numpy as np
 
-import util
-
-from krylov_solver import KrylovSolver
-from model import get_modelinfo
-from region_scalars import to_ndarray, to_region_scalar_ndarray
-from solver import SolverState
+from .krylov_solver import KrylovSolver
+from .model import get_modelinfo
+from .region_scalars import to_ndarray, to_region_scalar_ndarray
+from .solver import SolverState
+from .util import mkdir_exist_okay
 
 
 class NewtonSolver:
@@ -26,7 +25,7 @@ class NewtonSolver:
 
         # ensure workdir exists
         workdir = solverinfo["workdir"]
-        util.mkdir_exist_okay(workdir)
+        mkdir_exist_okay(workdir)
 
         self._newton_fcn_obj = newton_fcn_obj
         self._solverinfo = solverinfo

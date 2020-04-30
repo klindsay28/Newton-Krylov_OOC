@@ -6,9 +6,10 @@ import logging
 import numpy as np
 from netCDF4 import Dataset
 
-import model_config
-from model_config import get_precond_matrix_def, get_modelinfo
-from region_scalars import RegionScalars, to_ndarray
+from . import model_config
+
+from .model_config import get_precond_matrix_def, get_modelinfo
+from .region_scalars import RegionScalars, to_ndarray
 
 ################################################################################
 
@@ -25,7 +26,7 @@ class ModelStateBase:
         if model_config.model_config_obj is None:
             msg = (
                 "model_config.model_config_obj is None, %s must be called before %s"
-                % ("ModelConfig.__init__", "ModelStateBase.__init__")
+                % ("ModelConfig.__init__", "ModelStateBase.__init__",)
             )
             raise RuntimeError(msg)
         if not issubclass(tracer_module_state_class, TracerModuleStateBase):
@@ -398,7 +399,7 @@ class TracerModuleStateBase:
         if model_config.model_config_obj is None:
             msg = (
                 "model_config.model_config_obj is None, %s must be called before %s"
-                % ("ModelConfig.__init__", "TracerModuleStateBase.__init__")
+                % ("ModelConfig.__init__", "TracerModuleStateBase.__init__",)
             )
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name
@@ -411,9 +412,9 @@ class TracerModuleStateBase:
         if dims is not None:
             self._dims = dims
         if vals_fname is not None:
-            self._vals, self._dims = self._read_vals(
+            self._vals, self._dims = self._read_vals(  # pylint: disable=E1111
                 tracer_module_name, vals_fname
-            )  # pylint: disable=E1111
+            )
 
     def _read_vals(self, tracer_module_name, vals_fname):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
@@ -614,9 +615,9 @@ class TracerModuleStateBase:
             res._vals = other / self._vals  # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
             res._vals = (
-                other.broadcast(  # pylint: disable=W0212
+                other.broadcast(
                     model_config.model_config_obj.region_mask
-                )
+                )  # pylint: disable=W0212
                 / self._vals
             )
         else:

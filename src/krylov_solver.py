@@ -5,12 +5,11 @@ import os
 
 import numpy as np
 
-import util
-
-from model import lin_comb
-from model_config import get_region_cnt
-from region_scalars import to_ndarray, to_region_scalar_ndarray
-from solver import SolverState
+from .model import lin_comb
+from .model_config import get_region_cnt
+from .region_scalars import to_ndarray, to_region_scalar_ndarray
+from .solver import SolverState
+from .util import mkdir_exist_okay
 
 
 class KrylovSolver:
@@ -40,7 +39,7 @@ class KrylovSolver:
         )
 
         # ensure workdir exists
-        util.mkdir_exist_okay(workdir)
+        mkdir_exist_okay(workdir)
 
         self._newton_fcn_obj = newton_fcn_obj
         self._workdir = workdir
