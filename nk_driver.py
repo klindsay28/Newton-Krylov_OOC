@@ -8,9 +8,9 @@ import logging
 import os
 import sys
 
-from .gen_nk_driver_invoker_script import gen_nk_driver_invoker_script
-from .model_config import ModelConfig
-from .newton_solver import NewtonSolver
+from src.model_config import ModelConfig
+from src.newton_solver import NewtonSolver
+from src.gen_invoker_script import invoker_script_fname
 
 
 def parse_args():
@@ -39,7 +39,7 @@ def parse_args():
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(os.environ)
     config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 
@@ -58,13 +58,11 @@ def main(args):
         logger.warning("KILL file detected, exiting")
         raise SystemExit
 
-    # store cfg_fname and nk_driver_invoker_fname in modelinfo,
+    # store cfg_fname and invoker_script_fname in modelinfo,
     # to ease access to their values elsewhere
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
-    config["modelinfo"]["nk_driver_invoker_fname"] = gen_nk_driver_invoker_script(
+    config["modelinfo"]["invoker_script_fname"] = invoker_script_fname(
         config["solverinfo"]["workdir"],
-        config["DEFAULT"]["toplevel_dir"],
-        config["modelinfo"],
     )
 
     ModelConfig(config["modelinfo"], logging.DEBUG if args.resume else logging.INFO)

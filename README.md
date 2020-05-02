@@ -25,10 +25,12 @@ This implementation avoids making it necessary for the solver to remain resident
 ```
 .
     README.md
+    nk_driver.py
     ...
     docs/
     models/
         test_problem/
+            src/
             grid_files/
         cime_pop
             grid_files/

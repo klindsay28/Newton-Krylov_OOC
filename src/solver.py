@@ -6,7 +6,7 @@ import os
 
 import numpy as np
 
-from .util import mkdir_exist_okay
+from .gen_invoker_script import mkdir_exist_okay
 
 
 class SolverState:

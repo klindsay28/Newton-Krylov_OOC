@@ -48,7 +48,7 @@ def _parse_args():
 def main(args):
     """cime pop hooks for Newton-Krylov solver"""
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(os.environ)
     config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 
@@ -338,8 +338,8 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
 def _gen_post_modelrun_script(script_fname):
     """
     generate script that will be called by cime after the model run
-    script_fname is called by CIME, and submits nk_driver_invoker_fname with the command
-        batch_cmd_script (which can be an empty string)
+    script_fname is called by CIME, and submits invoker_script_fname
+        with the command batch_cmd_script (which can be an empty string)
     """
     batch_cmd_script = (
         get_modelinfo("batch_cmd_script").replace("\n", " ").replace("\r", " ")
@@ -348,7 +348,7 @@ def _gen_post_modelrun_script(script_fname):
         fptr.write("#!/bin/bash -l\n")
         fptr.write(
             "%s %s --resume\n"
-            % (batch_cmd_script, get_modelinfo("nk_driver_invoker_fname"))
+            % (batch_cmd_script, get_modelinfo("invoker_script_fname"))
         )
 
     # ensure script_fname is executable by the user, while preserving other permissions
@@ -444,7 +444,7 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
         )
         cmd = "%s %s --resume" % (
             batch_cmd.format(**opt_str_subs),
-            get_modelinfo("nk_driver_invoker_fname"),
+            get_modelinfo("invoker_script_fname"),
         )
         subprocess.run(cmd, check=True, shell=True)
         solver_state.log_step(fcn_complete_step)

@@ -16,6 +16,9 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
+# placeholder import to verify such an import is possible
+from test_problem.src.foo import bar  # pylint: disable=W0611
+
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
@@ -48,7 +51,7 @@ def _parse_args():
 def main(args):
     """test problem for Newton-Krylov solver"""
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(os.environ)
     config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 
@@ -264,7 +267,7 @@ class NewtonFcn(NewtonFcnBase):
             solver_state.log_step(fcn_complete_step)
             logger.debug("invoking resume script and exiting")
             # use Popen instead of run because we don't want to wait
-            subprocess.Popen([get_modelinfo("nk_driver_invoker_fname"), "--resume"])
+            subprocess.Popen([get_modelinfo("invoker_script_fname"), "--resume"])
             raise SystemExit
 
         return ms_res

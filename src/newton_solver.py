@@ -6,11 +6,11 @@ import shutil
 
 import numpy as np
 
+from .gen_invoker_script import mkdir_exist_okay
 from .krylov_solver import KrylovSolver
 from .model import get_modelinfo
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver import SolverState
-from .util import mkdir_exist_okay
 
 
 class NewtonSolver:
