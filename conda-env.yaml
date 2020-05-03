@@ -9,6 +9,7 @@ dependencies:
 - pytest
 - pylint
 - black
+- sphinx
 
 # requirements
 - netCDF4
