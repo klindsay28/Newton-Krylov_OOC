@@ -36,10 +36,12 @@ def _parse_args():
         help="command to run",
     )
     parser.add_argument(
-        "--cfg_fname", help="name of configuration file", default="newton_krylov.cfg"
+        "--fname_dir",
+        help="directory that relative fname arguments are relative to",
+        default=".",
     )
     parser.add_argument(
-        "--workdir", help="directory that filename are relative to", default="."
+        "--cfg_fname", help="name of configuration file", default="newton_krylov.cfg"
     )
     parser.add_argument("--hist_fname", help="name of history file", default=None)
     parser.add_argument("--precond_fname", help="name of precond file", default=None)
@@ -48,11 +50,18 @@ def _parse_args():
     return parser.parse_args()
 
 
+def _resolve_fname(fname_dir, fname):
+    """prepend fname_dir to fname, if fname is a relative path"""
+    if os.path.isabs(fname):
+        return fname
+    return os.path.join(fname_dir, fname)
+
+
 def main(args):
     """test problem for Newton-Krylov solver"""
 
     config = configparser.ConfigParser(os.environ)
-    config.read_file(open(args.cfg_fname))
+    config.read_file(open(_resolve_fname(args.fname_dir, args.cfg_fname)))
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
@@ -70,34 +79,34 @@ def main(args):
 
     newton_fcn = NewtonFcn()
 
-    solver_state = SolverState("newton_fcn_test_problem", args.workdir)
+    solver_state = SolverState("newton_fcn_test_problem", args.fname_dir)
 
-    ms_in = ModelState(os.path.join(args.workdir, args.in_fname))
+    ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))
     if args.cmd == "comp_fcn":
         ms_in.log("state_in")
         newton_fcn.comp_fcn(
             ms_in,
-            os.path.join(args.workdir, args.res_fname),
+            _resolve_fname(args.fname_dir, args.res_fname),
             None,
-            os.path.join(args.workdir, args.hist_fname),
+            _resolve_fname(args.fname_dir, args.hist_fname),
         )
-        ModelState(os.path.join(args.workdir, args.res_fname)).log("fcn")
+        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("fcn")
     elif args.cmd == "gen_precond_jacobian":
         newton_fcn.gen_precond_jacobian(
             ms_in,
-            os.path.join(args.workdir, args.hist_fname),
-            os.path.join(args.workdir, args.precond_fname),
+            _resolve_fname(args.fname_dir, args.hist_fname),
+            _resolve_fname(args.fname_dir, args.precond_fname),
             solver_state,
         )
     elif args.cmd == "apply_precond_jacobian":
         ms_in.log("state_in")
         newton_fcn.apply_precond_jacobian(
             ms_in,
-            os.path.join(args.workdir, args.precond_fname),
-            os.path.join(args.workdir, args.res_fname),
+            _resolve_fname(args.fname_dir, args.precond_fname),
+            _resolve_fname(args.fname_dir, args.res_fname),
             solver_state,
         )
-        ModelState(os.path.join(args.workdir, args.res_fname)).log("precond_res")
+        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("precond_res")
     else:
         msg = "unknown cmd=%s" % args.cmd
         raise ValueError(msg)
@@ -307,10 +316,7 @@ class NewtonFcn(NewtonFcnBase):
         tendency units are tr_units / day
         """
 
-        # po4 half-saturation = 0.5
-        po4 = tracer_vals[0, :]
-        po4_lim = np.where(po4 > 0.0, po4 / (po4 + 0.5), 0.0)
-        po4_uptake = self.light_lim * po4_lim
+        po4_uptake = self._po4_uptake(time, tracer_vals[0, :])
 
         self._comp_tend_phosphorus_core(
             time, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :]
@@ -326,6 +332,14 @@ class NewtonFcn(NewtonFcnBase):
         dtracer_vals_dt[3, 0] += rest_term
         dtracer_vals_dt[4, 0] -= 0.67 * rest_term
         dtracer_vals_dt[5, 0] -= 0.33 * rest_term
+
+    def _po4_uptake(self, time, po4):
+        """return po4_uptake, [mmol m-3 d-1]"""
+
+        # po4 half-saturation = 0.5
+        # maximum uptake rate = 1 d-1
+        po4_lim = np.where(po4 > 0.0, po4 / (po4 + 0.5), 0.0)
+        return self.light_lim * po4_lim
 
     def _comp_tend_phosphorus_core(
         self, time, po4_uptake, tracer_vals, dtracer_vals_dt
@@ -398,17 +412,39 @@ class NewtonFcn(NewtonFcnBase):
             self._def_hist_coord_vars(fptr)
 
             for tracer_name in self._tracer_names:
-                fptr.createVariable(tracer_name, "f8", dimensions=("time", "depth"))
+                var = fptr.createVariable(
+                    tracer_name, "f8", dimensions=("time", "depth")
+                )
+                units = "years" if tracer_name == "iage_test" else "mmol m-3"
+                setattr(var, "units", units)
+                setattr(var, "cell_methods", "time: point")
 
-            fptr.createVariable("bldepth", "f8", dimensions=("time"))
-            fptr.variables["bldepth"].long_name = "boundary layer depth"
-            fptr.variables["bldepth"].units = "m"
+            hist_vars_metadata = {
+                "bldepth": {
+                    "dimensions": ("time"),
+                    "attrs": {"long_name": "boundary layer depth", "units": "m",},
+                },
+                "mixing_coeff": {
+                    "dimensions": ("time", "depth_edges"),
+                    "attrs": {
+                        "long_name": "vertical mixing coefficient",
+                        "units": "m2 s-1",
+                    },
+                },
+            }
+            if "phosphorus" in self._tracer_module_names:
+                hist_vars_metadata["po4_uptake"] = {
+                    "dimensions": ("time", "depth"),
+                    "attrs": {"long_name": "uptake of po4", "units": "mmol m-3 s-1",},
+                }
 
-            fptr.createVariable(
-                "mixing_coeff", "f8", dimensions=("time", "depth_edges")
-            )
-            fptr.variables["mixing_coeff"].long_name = "vertical mixing coefficient"
-            fptr.variables["mixing_coeff"].units = "m2 s-1"
+            for varname, metadata in hist_vars_metadata.items():
+                var = fptr.createVariable(
+                    varname, "f8", dimensions=metadata["dimensions"]
+                )
+                for attr_name, attr_value in metadata["attrs"].items():
+                    setattr(var, attr_name, attr_value)
+                setattr(var, "cell_methods", "time: point")
 
             self._write_hist_coord_vars(fptr, sol)
 
@@ -420,11 +456,21 @@ class NewtonFcn(NewtonFcnBase):
                     tracer_ind, :, :
                 ].transpose()
 
+            days_per_sec = 1.0 / 86400.0
+
             for time_ind, time in enumerate(sol.t):
                 fptr.variables["bldepth"][time_ind] = self.depth.bldepth(time)
-                fptr.variables["mixing_coeff"][time_ind, :] = (
-                    1.0 / 86400.0
-                ) * self.depth.mixing_coeff(time)
+                fptr.variables["mixing_coeff"][
+                    time_ind, :
+                ] = days_per_sec * self.depth.mixing_coeff(time)
+
+            if "phosphorus" in self._tracer_module_names:
+                po4_ind = self._tracer_names.index("po4")
+                for time_ind, time in enumerate(sol.t):
+                    fptr.variables["po4_uptake"][time_ind, :] = (
+                        days_per_sec
+                        * self._po4_uptake(time, tracer_vals[po4_ind, :, time_ind])
+                    )
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
