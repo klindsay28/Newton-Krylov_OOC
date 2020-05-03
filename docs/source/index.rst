@@ -1,10 +1,12 @@
-.. Newton-Krylov_OOC documentation master file, created by
-   sphinx-quickstart on Sat May  2 17:42:19 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+===============================
+Newton-Krylov_OOC Documentation
+===============================
 
-Welcome to Newton-Krylov_OOC's documentation!
-=============================================
+Newton-Krylov_OOC is an Out-of-Core Newton-Krylov Solver.
+
+It is `available via github <https://github.com/klindsay28/Newton-Krylov_OOC>`_.
+
+Documentation is under development.
 
 .. toctree::
    :maxdepth: 2
