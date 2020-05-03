@@ -10,6 +10,7 @@ dependencies:
 - pylint
 - black
 - sphinx
+- sphinx_rtd_theme
 
 # requirements
 - netCDF4
