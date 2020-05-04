@@ -1,14 +1,13 @@
 tracer_module_defs:
-    iage:
-        tracer_names: [IAGE]
-        precond_matrices:
-            IAGE: iage_like
+    iage:  # module name
+        IAGE:
+            precond_matrix: iage_like
 
-    abio_dic_dic14:
-        tracer_names: [ABIO_DIC, ABIO_DIC14]
-        precond_matrices:
-            ABIO_DIC: abio_dic
-            ABIO_DIC14: abio_dic14
+    abio_dic_dic14:  # module name
+        ABIO_DIC:
+            precond_matrix: abio_dic
+        ABIO_DIC14:
+            precond_matrix: abio_dic14
 
 precond_matrix_defs:
     base:

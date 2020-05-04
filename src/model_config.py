@@ -43,24 +43,15 @@ class ModelConfig:
         logger.log(lvl, "loading content from %s", fname)
         with open(fname, mode="r") as fptr:
             file_contents = yaml.safe_load(fptr)
-            self.tracer_module_defs = pad_defs(
-                file_contents["tracer_module_defs"],
-                "tracer module",
-                {
-                    "tracer_names": "list",
-                    "shadow_tracers": "dict",
-                    "precond_matrices": "dict",
-                },
-                lvl,
-            )
-            check_shadow_tracers(self.tracer_module_defs, lvl)
-            self.precond_matrix_defs = pad_defs(
-                file_contents["precond_matrix_defs"],
-                "precond matrix",
-                {"hist_to_precond_var_names": "list"},
-                lvl,
-            )
-            check_precond_matrix_defs(self.precond_matrix_defs)
+        self.tracer_module_defs = file_contents["tracer_module_defs"]
+        check_shadow_tracers(self.tracer_module_defs, lvl)
+        self.precond_matrix_defs = pad_defs(
+            file_contents["precond_matrix_defs"],
+            "precond matrix",
+            {"hist_to_precond_var_names": "list"},
+            lvl,
+        )
+        check_precond_matrix_defs(self.precond_matrix_defs)
 
         # extract grid_weight from modelinfo config object
         fname = modelinfo["grid_weight_fname"]
@@ -112,6 +103,31 @@ class ModelConfig:
         model_config_obj = self
 
 
+def check_shadow_tracers(tracer_module_defs, lvl):
+    """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
+    # This check is done for all entries in tracer_module_defs,
+    # whether they are being used or not.
+    logger = logging.getLogger(__name__)
+    for tracer_module_name, tracer_module_def in tracer_module_defs.items():
+        # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
+        for tracer_name, tracer_metadata in tracer_module_def.items():
+            if "shadows" in tracer_metadata:
+                if tracer_metadata["shadows"] not in tracer_module_def:
+                    msg = "shadows value %s for %s in tracer module %s not known" % (
+                        tracer_metadata["shadows"],
+                        tracer_name,
+                        tracer_module_name,
+                    )
+                    raise ValueError(msg)
+                logger.log(
+                    lvl,
+                    "tracer module %s has %s as a shadow for %s",
+                    tracer_module_name,
+                    tracer_name,
+                    tracer_metadata["shadows"],
+                )
+
+
 def pad_defs(def_dict, obj_desc, def_entries, lvl):
     """
     Place emtpy objects in dict of definitions where they do not exist.
@@ -124,37 +140,6 @@ def pad_defs(def_dict, obj_desc, def_entries, lvl):
                 logger.log(lvl, "%s %s has no entry %s", obj_desc, def_dict_key, entry)
                 def_dict_value[entry] = [] if entry_type == "list" else {}
     return def_dict
-
-
-def check_shadow_tracers(tracer_module_defs, lvl):
-    """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
-    # This check is done for all entries in tracer_module_defs,
-    # whether they are being used or not.
-    logger = logging.getLogger(__name__)
-    for tracer_module_name, tracer_module_def in tracer_module_defs.items():
-        # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
-        for shadow_tracer_name, real_tracer_name in tracer_module_def[
-            "shadow_tracers"
-        ].items():
-            if shadow_tracer_name not in tracer_module_def["tracer_names"]:
-                msg = "specified shadow tracer %s in tracer module %s not known" % (
-                    shadow_tracer_name,
-                    tracer_module_name,
-                )
-                raise ValueError(msg)
-            if real_tracer_name not in tracer_module_def["tracer_names"]:
-                msg = "specified tracer %s in tracer module %s not known" % (
-                    real_tracer_name,
-                    tracer_module_name,
-                )
-                raise ValueError(msg)
-            logger.log(
-                lvl,
-                "tracer module %s has %s as a shadow for %s",
-                tracer_module_name,
-                shadow_tracer_name,
-                real_tracer_name,
-            )
 
 
 def check_precond_matrix_defs(precond_matrix_defs):

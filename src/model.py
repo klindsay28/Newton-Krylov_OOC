@@ -426,11 +426,11 @@ class TracerModuleStateBase:
 
     def tracer_names(self):
         """return list of tracer names"""
-        return self._tracer_module_def["tracer_names"]
+        return list(self._tracer_module_def.keys())
 
     def tracer_cnt(self):
         """return number of tracers"""
-        return len(self.tracer_names())
+        return len(self._tracer_module_def)
 
     def tracer_index(self, tracer_name):
         """return the index of a tracer"""
@@ -696,16 +696,20 @@ class TracerModuleStateBase:
 
     def precond_matrix_list(self):
         """Return list of precond matrices being used"""
-        return self._tracer_module_def["precond_matrices"].values()
+        res = []
+        for tracer_metadata in self._tracer_module_def.values():
+            if "precond_matrix" in tracer_metadata:
+                precond_matrix_name = tracer_metadata["precond_matrix"]
+                if precond_matrix_name not in res:
+                    res.append(precond_matrix_name)
+        return res
 
     def append_tracer_names_per_precond_matrix(self, res):
         """Append tracer names for each precond matrix to res"""
         # process tracers in order of tracer_names
-        for tracer_name in self._tracer_module_def["tracer_names"]:
-            if tracer_name in self._tracer_module_def["precond_matrices"]:
-                precond_matrix_name = self._tracer_module_def["precond_matrices"][
-                    tracer_name
-                ]
+        for tracer_name, tracer_metadata in self._tracer_module_def.items():
+            if "precond_matrix" in tracer_metadata:
+                precond_matrix_name = tracer_metadata["precond_matrix"]
                 if precond_matrix_name not in res:
                     res[precond_matrix_name] = [tracer_name]
                 else:
@@ -721,23 +725,26 @@ class TracerModuleStateBase:
 
     def shadow_tracers_on(self):
         """are any shadow tracers being run"""
-        return bool(self._tracer_module_def["shadow_tracers"])
+        for tracer_metadata in self._tracer_module_def.values():
+            if "shadows" in tracer_metadata:
+                return True
+        return False
 
     def copy_shadow_tracers_to_real_tracers(self):
         """copy shadow tracers to their real counterparts"""
-        shadow_tracers = self._tracer_module_def["shadow_tracers"]
-        for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
-            self.set_tracer_vals(
-                real_tracer_name, self.get_tracer_vals(shadow_tracer_name)
-            )
+        for tracer_name, tracer_metadata in self._tracer_module_def.items():
+            if "shadows" in tracer_metadata:
+                self.set_tracer_vals(
+                    tracer_metadata["shadows"], self.get_tracer_vals(tracer_name)
+                )
 
     def copy_real_tracers_to_shadow_tracers(self):
         """overwrite shadow tracers with their real counterparts"""
-        shadow_tracers = self._tracer_module_def["shadow_tracers"]
-        for shadow_tracer_name, real_tracer_name in shadow_tracers.items():
-            self.set_tracer_vals(
-                shadow_tracer_name, self.get_tracer_vals(real_tracer_name)
-            )
+        for tracer_name, tracer_metadata in self._tracer_module_def.items():
+            if "shadows" in tracer_metadata:
+                self.set_tracer_vals(
+                    tracer_name, self.get_tracer_vals(tracer_metadata["shadows"])
+                )
 
     def extra_tracer_inds(self):
         """
@@ -747,8 +754,9 @@ class TracerModuleStateBase:
         tracers that are shadowed are automatically extra
         """
         res = []
-        for tracer_name in self._tracer_module_def["shadow_tracers"].values():
-            res.append(self.tracer_index(tracer_name))
+        for tracer_metadata in self._tracer_module_def.values():
+            if "shadows" in tracer_metadata:
+                res.append(self.tracer_index(tracer_metadata["shadows"]))
         return res
 
     def zero_extra_tracers(self):

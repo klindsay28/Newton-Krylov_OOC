@@ -1,9 +1,23 @@
 tracer_module_defs:
-    iage_test:
-        tracer_names: [iage_test]
-    phosphorus:
-        tracer_names: [po4, dop, pop, po4_s, dop_s, pop_s]
-        shadow_tracers: {dop_s: dop, po4_s: po4, pop_s: pop}
+    iage_test:  # module name
+        iage_test:
+            attrs: {long_name: "ideal age", units: "years"}
+    phosphorus:  # module name
+        po4:
+            attrs: {long_name: "phosphate", units: "mmol m-3"}
+        dop:
+            attrs: {long_name: "dissolved organic phosphorus", units: "mmol m-3"}
+        pop:
+            attrs: {long_name: "particulate organic phosphorus", units: "mmol m-3"}
+        po4_s:
+            attrs: {long_name: "shadow phosphate", units: "mmol m-3"}
+            shadows: po4
+        dop_s:
+            attrs: {long_name: "shadow dissolved organic phosphorus", units: "mmol m-3"}
+            shadows: dop
+        pop_s:
+            attrs: {long_name: "shadow particulate organic phosphorus", units: "mmol m-3"}
+            shadows: pop
 
 precond_matrix_defs:
     base:
