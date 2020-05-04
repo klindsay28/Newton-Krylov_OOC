@@ -6,4 +6,5 @@ User's Guide
     :maxdepth: 2
     :caption: Contents:
 
-    getting-started.rst
+    getting-setup.rst
+    running-test_problem.rst
