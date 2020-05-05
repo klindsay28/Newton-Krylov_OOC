@@ -25,6 +25,9 @@ from ..newton_fcn_base import NewtonFcnBase
 from ..solver import SolverState
 
 
+_args_cmd = None
+
+
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(
@@ -32,7 +35,12 @@ def _parse_args():
     )
     parser.add_argument(
         "cmd",
-        choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian"],
+        choices=[
+            "gen_ic",
+            "comp_fcn",
+            "gen_precond_jacobian",
+            "apply_precond_jacobian",
+        ],
         help="command to run",
     )
     parser.add_argument(
@@ -52,13 +60,16 @@ def _parse_args():
 
 def _resolve_fname(fname_dir, fname):
     """prepend fname_dir to fname, if fname is a relative path"""
-    if os.path.isabs(fname):
+    if fname is None or os.path.isabs(fname):
         return fname
     return os.path.join(fname_dir, fname)
 
 
 def main(args):
     """test problem for Newton-Krylov solver"""
+
+    global _args_cmd
+    _args_cmd = args.cmd
 
     config = configparser.ConfigParser(os.environ)
     config.read_file(open(_resolve_fname(args.fname_dir, args.cfg_fname)))
@@ -81,8 +92,17 @@ def main(args):
 
     solver_state = SolverState("newton_fcn_test_problem", args.fname_dir)
 
+    if args.cmd == "gen_ic":
+        if args.in_fname is not None:
+            msg = "in_fname may not be specified if cmd=gen_ic"
+            raise ValueError(msg)
+        # fake value to trigger call to _read_vals
+        args.in_fname = "/not-used"
+
     ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))
-    if args.cmd == "comp_fcn":
+    if args.cmd == "gen_ic":
+        ms_in.dump(_resolve_fname(args.fname_dir, args.res_fname)).log("gen_ic")
+    elif args.cmd == "comp_fcn":
         ms_in.log("state_in")
         newton_fcn.comp_fcn(
             ms_in,
@@ -142,8 +162,35 @@ class TracerModuleState(TracerModuleStateBase):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
         logger = logging.getLogger(__name__)
         logger.debug(
-            'tracer_module_name="%s", vals_fname="%s"', tracer_module_name, vals_fname
+            '_args_cmd="%s", tracer_module_name="%s", vals_fname="%s"',
+            _args_cmd,
+            tracer_module_name,
+            vals_fname,
         )
+        if _args_cmd == "gen_ic":
+            depth = Depth(get_modelinfo("depth_fname"))
+            vals = np.empty((len(self._tracer_module_def), depth.axis.nlevs))
+            for tracer_ind, tracer_metadata in enumerate(
+                self._tracer_module_def.values()
+            ):
+                if "ic_vals" in tracer_metadata:
+                    vals[tracer_ind, :] = np.interp(
+                        depth.axis.mid,
+                        tracer_metadata["ic_val_depths"],
+                        tracer_metadata["ic_vals"],
+                    )
+                elif "shadows" in tracer_metadata:
+                    shadowed_tracer = tracer_metadata["shadows"]
+                    shadow_tracer_metadata = self._tracer_module_def[shadowed_tracer]
+                    vals[tracer_ind, :] = np.interp(
+                        depth.axis.mid,
+                        shadow_tracer_metadata["ic_val_depths"],
+                        shadow_tracer_metadata["ic_vals"],
+                    )
+                else:
+                    msg = "gen_ic failure for %s" % self.tracer_names()[tracer_ind]
+                    raise ValueError(msg)
+            return vals, {"depth": depth.axis.nlevs}
         dims = {}
         with Dataset(vals_fname, mode="r") as fptr:
             fptr.set_auto_mask(False)

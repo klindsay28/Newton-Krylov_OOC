@@ -2,13 +2,21 @@ tracer_module_defs:
     iage_test:  # module name
         iage_test:
             attrs: {long_name: "ideal age", units: "years"}
+            ic_vals: [0.0, 1.0]
+            ic_val_depths: [100.0, 150.0]
     phosphorus:  # module name
         po4:
             attrs: {long_name: "phosphate", units: "mmol m-3"}
+            ic_vals: [0.0, 3.0]
+            ic_val_depths: [100.0, 150.0]
         dop:
             attrs: {long_name: "dissolved organic phosphorus", units: "mmol m-3"}
+            ic_vals: [2.0, 0.0]
+            ic_val_depths: [100.0, 150.0]
         pop:
             attrs: {long_name: "particulate organic phosphorus", units: "mmol m-3"}
+            ic_vals: [1.0, 0.0]
+            ic_val_depths: [100.0, 150.0]
         po4_s:
             attrs: {long_name: "shadow phosphate", units: "mmol m-3"}
             shadows: po4

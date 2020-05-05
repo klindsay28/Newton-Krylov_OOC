@@ -24,8 +24,9 @@ mkdir $fname_dir
 fp_ind=0
 fp_cnt=3
 
-cp $test_problem_dir/iterate_test_00.nc \
-    $fname_dir/iterate_test_00_fp${fp_ind}.nc
+python -m $newton_fcn_module gen_ic --fname_dir $fname_dir \
+    --cfg_fname $test_problem_dir/newton_krylov.cfg \
+    --res_fname iterate_test_00_fp${fp_ind}.nc
 
 while [ $fp_ind -lt $fp_cnt ]; do
     python -m $newton_fcn_module comp_fcn --fname_dir $fname_dir \
