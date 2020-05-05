@@ -310,7 +310,7 @@ class NewtonFcn(NewtonFcnBase):
         )
 
         if hist_fname is not None:
-            self._write_hist(sol, hist_fname)
+            self._write_hist(sol, hist_fname, ms_in)
 
         ms_res = ms_in.copy()
         res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
@@ -452,19 +452,22 @@ class NewtonFcn(NewtonFcnBase):
         fptr.variables["depth"][:] = self.depth.axis.mid
         fptr.variables["depth_edges"][:] = self.depth.axis.edges
 
-    def _write_hist(self, sol, hist_fname):
+    def _write_hist(self, sol, hist_fname, ms_in):
         """write tracer values generated in comp_fcn to hist_fname"""
         with Dataset(hist_fname, mode="w") as fptr:
             self._def_hist_dims(fptr)
             self._def_hist_coord_vars(fptr)
 
-            for tracer_name in self._tracer_names:
-                var = fptr.createVariable(
-                    tracer_name, "f8", dimensions=("time", "depth")
-                )
-                units = "years" if tracer_name == "iage_test" else "mmol m-3"
-                setattr(var, "units", units)
-                setattr(var, "cell_methods", "time: point")
+            for tracer_module in ms_in._tracer_modules:
+                tracer_module_def = tracer_module._tracer_module_def
+                for tracer_name, tracer_metadata in tracer_module_def.items():
+                    var = fptr.createVariable(
+                        tracer_name, "f8", dimensions=("time", "depth")
+                    )
+                    if "attrs" in tracer_metadata:
+                        for attr_name, attr_value in tracer_metadata["attrs"].items():
+                            setattr(var, attr_name, attr_value)
+                    setattr(var, "cell_methods", "time: point")
 
             hist_vars_metadata = {
                 "bldepth": {
