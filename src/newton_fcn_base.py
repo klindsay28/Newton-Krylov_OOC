@@ -66,10 +66,11 @@ class NewtonFcnBase:
 
         fcn_complete_step = "gen_precond_jacobian complete for %s" % precond_fname
 
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning', fcn_complete_step)
-            return
-        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+        if solver_state is not None:
+            if solver_state.step_logged(fcn_complete_step):
+                logger.debug('"%s" logged, returning', fcn_complete_step)
+                return
+            logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         hist_vars = iterate.hist_vars_for_precond_list()
 
@@ -132,7 +133,8 @@ class NewtonFcnBase:
                     if hasattr(hist_var, att_name):
                         setattr(precond_var, att_name, getattr(hist_var, att_name))
 
-        solver_state.log_step(fcn_complete_step)
+        if solver_state is not None:
+            solver_state.log_step(fcn_complete_step)
 
     def _def_precond_dims_and_coord_vars(self, hist_vars, fptr_in, fptr_out):
         """define netCDF4 dimensions needed for hist_vars from hist_fname"""

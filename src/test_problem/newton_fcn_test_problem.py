@@ -90,8 +90,6 @@ def main(args):
 
     newton_fcn = NewtonFcn()
 
-    solver_state = SolverState("newton_fcn_test_problem", args.fname_dir)
-
     if args.cmd == "gen_ic":
         if args.in_fname is not None:
             msg = "in_fname may not be specified if cmd=gen_ic"
@@ -107,8 +105,8 @@ def main(args):
         newton_fcn.comp_fcn(
             ms_in,
             _resolve_fname(args.fname_dir, args.res_fname),
-            None,
-            _resolve_fname(args.fname_dir, args.hist_fname),
+            solver_state=None,
+            hist_fname=_resolve_fname(args.fname_dir, args.hist_fname),
         )
         ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("fcn")
     elif args.cmd == "gen_precond_jacobian":
@@ -116,7 +114,7 @@ def main(args):
             ms_in,
             _resolve_fname(args.fname_dir, args.hist_fname),
             _resolve_fname(args.fname_dir, args.precond_fname),
-            solver_state,
+            solver_state=None,
         )
     elif args.cmd == "apply_precond_jacobian":
         ms_in.log("state_in")
@@ -124,7 +122,7 @@ def main(args):
             ms_in,
             _resolve_fname(args.fname_dir, args.precond_fname),
             _resolve_fname(args.fname_dir, args.res_fname),
-            solver_state,
+            solver_state=None,
         )
         ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("precond_res")
     else:
@@ -527,11 +525,12 @@ class NewtonFcn(NewtonFcnBase):
         logger = logging.getLogger(__name__)
         logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
-        fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(res_fname)
-        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+        if solver_state is not None:
+            fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
+            if solver_state.step_logged(fcn_complete_step):
+                logger.debug('"%s" logged, returning result', fcn_complete_step)
+                return ModelState(res_fname)
+            logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         ms_res = ms_in.copy()
 
@@ -546,7 +545,8 @@ class NewtonFcn(NewtonFcnBase):
             if tracer_module_name == "phosphorus":
                 self._apply_precond_jacobian_phosphorus(ms_in, mca, ms_res)
 
-        solver_state.log_step(fcn_complete_step)
+        if solver_state is not None:
+            solver_state.log_step(fcn_complete_step)
 
         return ms_res.dump(res_fname)
 
