@@ -109,7 +109,9 @@ def check_shadow_tracers(tracer_module_defs, lvl):
     # whether they are being used or not.
     logger = logging.getLogger(__name__)
     for tracer_module_name, tracer_module_def in tracer_module_defs.items():
-        # Verify that shadow_tracer_name and real_tracer_name are known tracer names.
+        shadowed_tracers = []
+        # Verify that shadows is a known tracer names.
+        # Verify that no tracer is shadowe multiple times.
         for tracer_name, tracer_metadata in tracer_module_def.items():
             if "shadows" in tracer_metadata:
                 if tracer_metadata["shadows"] not in tracer_module_def:
@@ -126,6 +128,13 @@ def check_shadow_tracers(tracer_module_defs, lvl):
                     tracer_name,
                     tracer_metadata["shadows"],
                 )
+                if tracer_metadata["shadows"] in shadowed_tracers:
+                    msg = "%s shadowed multiple times in tracer module %s" % (
+                        tracer_metadata["shadows"],
+                        tracer_module_name,
+                    )
+                    raise ValueError(msg)
+                shadowed_tracers.append(tracer_metadata["shadows"])
 
 
 def pad_defs(def_dict, obj_desc, def_entries, lvl):
