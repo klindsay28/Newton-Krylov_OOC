@@ -60,6 +60,16 @@ class ModelStateBase:
         """return the index of a tracer"""
         return self.tracer_names().index(tracer_name)
 
+    def tracer_metadata(self, tracer_name):
+        """return tracer's metadata"""
+        for tracer_module in self._tracer_modules:
+            try:
+                return tracer_module.tracer_metadata(tracer_name)
+            except KeyError:
+                pass
+        msg = "unknown tracer_name=%s" % tracer_name
+        raise ValueError(msg)
+
     def dump(self, vals_fname):
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
@@ -435,6 +445,10 @@ class TracerModuleStateBase:
     def tracer_index(self, tracer_name):
         """return the index of a tracer"""
         return self.tracer_names().index(tracer_name)
+
+    def tracer_metadata(self, tracer_name):
+        """return tracer's metadata"""
+        return self._tracer_module_def[tracer_name]
 
     def dump(self, fptr, action):
         """

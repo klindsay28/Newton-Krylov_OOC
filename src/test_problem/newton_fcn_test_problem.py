@@ -19,10 +19,11 @@ from netCDF4 import Dataset
 # placeholder import to verify such an import is possible
 from test_problem.src.foo import bar  # pylint: disable=W0611
 
+from .test_problem_hist import write_hist
+
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
-from ..solver import SolverState
 
 
 _args_cmd = None
@@ -308,7 +309,7 @@ class NewtonFcn(NewtonFcnBase):
         )
 
         if hist_fname is not None:
-            self._write_hist(sol, hist_fname, ms_in)
+            write_hist(ms_in, self.depth, sol, hist_fname, self._po4_uptake)
 
         ms_res = ms_in.copy()
         res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
@@ -423,102 +424,6 @@ class NewtonFcn(NewtonFcnBase):
         tracer_flux_neg = np.zeros(1 + self.depth.axis.nlevs)
         tracer_flux_neg[1:-1] = -tracer_vals[:-1]  # assume velocity is 1 m / day
         return np.ediff1d(tracer_flux_neg) * self.depth.axis.delta_r
-
-    def _def_hist_dims(self, fptr):
-        """define netCDF4 dimensions relevant to test_problem"""
-        fptr.createDimension("time", None)
-        fptr.createDimension("depth", self.depth.axis.nlevs)
-        fptr.createDimension("depth_edges", 1 + self.depth.axis.nlevs)
-
-    def _def_hist_coord_vars(self, fptr):
-        """define netCDF4 coordinate vars relevant to test_problem"""
-        fptr.createVariable("time", "f8", dimensions=("time",))
-        fptr.variables["time"].long_name = "time"
-        fptr.variables["time"].units = "days since 0001-01-01"
-
-        fptr.createVariable("depth", "f8", dimensions=("depth",))
-        fptr.variables["depth"].long_name = "depth"
-        fptr.variables["depth"].units = "m"
-
-        fptr.createVariable("depth_edges", "f8", dimensions=("depth_edges",))
-        fptr.variables["depth_edges"].long_name = "depth_edges"
-        fptr.variables["depth_edges"].units = "m"
-
-    def _write_hist_coord_vars(self, fptr, sol):
-        """write netCDF4 coordinate vars relevant to test_problem"""
-        fptr.variables["time"][:] = sol.t
-        fptr.variables["depth"][:] = self.depth.axis.mid
-        fptr.variables["depth_edges"][:] = self.depth.axis.edges
-
-    def _write_hist(self, sol, hist_fname, ms_in):
-        """write tracer values generated in comp_fcn to hist_fname"""
-        with Dataset(hist_fname, mode="w") as fptr:
-            self._def_hist_dims(fptr)
-            self._def_hist_coord_vars(fptr)
-
-            for tracer_module in ms_in._tracer_modules:
-                tracer_module_def = tracer_module._tracer_module_def
-                for tracer_name, tracer_metadata in tracer_module_def.items():
-                    var = fptr.createVariable(
-                        tracer_name, "f8", dimensions=("time", "depth")
-                    )
-                    if "attrs" in tracer_metadata:
-                        for attr_name, attr_value in tracer_metadata["attrs"].items():
-                            setattr(var, attr_name, attr_value)
-                    setattr(var, "cell_methods", "time: point")
-
-            hist_vars_metadata = {
-                "bldepth": {
-                    "dimensions": ("time"),
-                    "attrs": {"long_name": "boundary layer depth", "units": "m",},
-                },
-                "mixing_coeff": {
-                    "dimensions": ("time", "depth_edges"),
-                    "attrs": {
-                        "long_name": "vertical mixing coefficient",
-                        "units": "m2 s-1",
-                    },
-                },
-            }
-            if "phosphorus" in self._tracer_module_names:
-                hist_vars_metadata["po4_uptake"] = {
-                    "dimensions": ("time", "depth"),
-                    "attrs": {"long_name": "uptake of po4", "units": "mmol m-3 s-1",},
-                }
-
-            for varname, metadata in hist_vars_metadata.items():
-                var = fptr.createVariable(
-                    varname, "f8", dimensions=metadata["dimensions"]
-                )
-                for attr_name, attr_value in metadata["attrs"].items():
-                    setattr(var, attr_name, attr_value)
-                setattr(var, "cell_methods", "time: point")
-
-            self._write_hist_coord_vars(fptr, sol)
-
-            tracer_vals = sol.y.reshape(
-                (len(self._tracer_names), self.depth.axis.nlevs, -1)
-            )
-            for tracer_ind, tracer_name in enumerate(self._tracer_names):
-                fptr.variables[tracer_name][:] = tracer_vals[
-                    tracer_ind, :, :
-                ].transpose()
-
-            days_per_sec = 1.0 / 86400.0
-
-            for time_ind, time in enumerate(sol.t):
-                fptr.variables["bldepth"][time_ind] = self.depth.bldepth(time)
-                fptr.variables["mixing_coeff"][
-                    time_ind, :
-                ] = days_per_sec * self.depth.mixing_coeff(time)
-
-            if "phosphorus" in self._tracer_module_names:
-                po4_ind = self._tracer_names.index("po4")
-                for time_ind, time in enumerate(sol.t):
-                    fptr.variables["po4_uptake"][time_ind, :] = (
-                        days_per_sec
-                        * self._po4_uptake(time, tracer_vals[po4_ind, :, time_ind])
-                    )
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
