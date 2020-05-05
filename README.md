@@ -1,5 +1,7 @@
 # Out-of-Core Newton-Krylov Solver
 
+[![Documentation Status](https://readthedocs.org/projects/newton-krylov-ooc/badge/?version=latest)](https://newton-krylov-ooc.readthedocs.io/en/latest/?badge=latest)
+
 ## Documentation
 
 https://newton-krylov-ooc.readthedocs.io/
