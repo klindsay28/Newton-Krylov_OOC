@@ -21,6 +21,7 @@ from netCDF4 import Dataset
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
+from ..nco_wrap import ann_files_to_mean_file, mon_files_to_mean_file
 from ..newton_fcn_base import NewtonFcnBase
 
 
@@ -358,7 +359,6 @@ def _gen_post_modelrun_script(script_fname):
 
 def _gen_hist(hist_fname):
     """generate history file corresponding to just completed model run"""
-    logger = logging.getLogger(__name__)
 
     if hist_fname is None:
         return
@@ -366,7 +366,7 @@ def _gen_hist(hist_fname):
     # initial implementation only works for annual mean output
     # confirm that this is the case
     tavg_freq_opt_0 = _get_pop_nl_var("tavg_freq_opt").split()[0].split("'")[1]
-    if tavg_freq_opt_0 != "nyear":
+    if tavg_freq_opt_0 not in ["nyear", "nmonth"]:
         msg = "tavg_freq_opt_0 = %s not implemented" % tavg_freq_opt_0
         raise NotImplementedError(msg)
 
@@ -387,21 +387,18 @@ def _gen_hist(hist_fname):
         hist_dir = os.path.join(cime_xmlquery("DOUT_S_ROOT"), "ocn", "hist")
     else:
         hist_dir = cime_xmlquery("RUNDIR")
-    model_hist_fname = os.path.join(
-        hist_dir, cime_xmlquery("CASE") + ".pop.h." + yyyy + ".nc"
-    )
 
-    cmd = [
-        "ncra",
-        "-O",
-        "-n",
-        "%d,4" % cime_yr_cnt(),
-        "-o",
-        hist_fname,
-        model_hist_fname,
-    ]
-    logger.debug('cmd = "%s"', " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    if tavg_freq_opt_0 == "nyear":
+        model_hist_fname0 = os.path.join(
+            hist_dir, cime_xmlquery("CASE") + ".pop.h." + yyyy + ".nc"
+        )
+        ann_files_to_mean_file(model_hist_fname0, cime_yr_cnt(), hist_fname)
+
+    if tavg_freq_opt_0 == "nmonth":
+        model_hist_fname0 = os.path.join(
+            hist_dir, cime_xmlquery("CASE") + ".pop.h." + yyyy + "-01.nc"
+        )
+        mon_files_to_mean_file(model_hist_fname0, cime_yr_cnt(), hist_fname)
 
 
 def _comp_fcn_post_modelrun(ms_in):
