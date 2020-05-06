@@ -8,46 +8,49 @@ from .model_config import get_modelinfo, get_region_cnt
 def stats_file_create(fname):
     """create the file for solver stats"""
 
-    with Dataset(fname, mode="w") as fptr:
-        tracer_module_names = get_modelinfo("tracer_module_names").split(",")
+    tracer_module_names = get_modelinfo("tracer_module_names").split(",")
 
+    with Dataset(fname, mode="w") as fptr:
         # define dimensions
         fptr.createDimension("iteration", None)
-        fptr.createDimension("tracer_module", len(tracer_module_names))
         fptr.createDimension("region", get_region_cnt())
 
         # define coordinate variables
         fptr.createVariable("iteration", "i", dimensions=("iteration",))
-        fptr.createVariable("tracer_module_names", str, dimensions=("tracer_module",))
 
         # define stats variables
-        dimensions = ("iteration", "tracer_module", "region")
+        dimensions = ("iteration", "region")
         attrs_dict = {
-            "iterate_mean": {"long_name": "mean of iterate"},
-            "iterate_norm": {"long_name": "norm of iterate"},
-            "fcn_mean": {"long_name": "mean of fcn applied to iterate"},
-            "fcn_norm": {"long_name": "norm of fcn applied to iterate"},
-            "increment_mean": {"long_name": "mean of Newton increment"},
-            "increment_norm": {"long_name": "norm of Newton increment"},
-            "Armijo_Factor": {"long_name": "Armijo factor applied to increment"},
+            "%s_iterate_mean": {"long_name": "mean of %s iterate"},
+            "%s_iterate_norm": {"long_name": "norm of %s iterate"},
+            "%s_fcn_mean": {"long_name": "mean of fcn applied to %s iterate"},
+            "%s_fcn_norm": {"long_name": "norm of fcn applied to %s iterate"},
+            "%s_increment_mean": {"long_name": "mean of %s Newton increment"},
+            "%s_increment_norm": {"long_name": "norm of %s Newton increment"},
+            "%s_Armijo_Factor": {
+                "long_name": "Armijo factor applied to %s Newton increment"
+            },
         }
-        for varname, attrs in attrs_dict.items():
-            var = fptr.createVariable(varname, "f8", dimensions)
-            for attr_name, attr_value in attrs.items():
-                setattr(var, attr_name, attr_value)
-
-        # write coordinate variables
-        for ind, name in enumerate(tracer_module_names):
-            fptr.variables["tracer_module_names"][ind] = name
+        for tracer_module_name in tracer_module_names:
+            for varname, attrs in attrs_dict.items():
+                var = fptr.createVariable(
+                    varname % tracer_module_name, "f8", dimensions
+                )
+                for attr_name, attr_value in attrs.items():
+                    setattr(var, attr_name, attr_value % tracer_module_name)
 
 
 def stats_file_append_vals(fname, iteration, varname, vals):
     """
     append vals to varname with specified iteration index
     vals is a numpy array of RegionScalars objects
+    the numpy array axis corresponds to tracer modules
     """
+
+    tracer_module_names = get_modelinfo("tracer_module_names").split(",")
 
     with Dataset(fname, mode="a") as fptr:
         fptr.variables["iteration"][iteration] = iteration
-        for ind in range(vals.size):
-            fptr.variables[varname][iteration, ind, :] = vals[ind].vals()
+        for ind, tracer_module_name in enumerate(tracer_module_names):
+            full_varname = tracer_module_name + "_" + varname
+            fptr.variables[full_varname][iteration, :] = vals[ind].vals()
