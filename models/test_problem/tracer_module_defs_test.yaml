@@ -1,6 +1,6 @@
 tracer_module_defs:
-    iage_test:  # module name
-        iage_test:
+    iage:  # module name
+        iage:
             attrs: {long_name: "ideal age", units: "years"}
             ic_vals: [0.0, 1.0]
             ic_val_depths: [100.0, 150.0]
