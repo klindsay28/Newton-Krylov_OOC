@@ -8,9 +8,10 @@ import numpy as np
 
 from .gen_invoker_script import mkdir_exist_okay
 from .krylov_solver import KrylovSolver
-from .model import get_modelinfo
+from .model_config import get_modelinfo
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver import SolverState
+from .stats_file import stats_file_create, stats_file_append_vals
 
 
 class NewtonSolver:
@@ -37,6 +38,7 @@ class NewtonSolver:
                 get_modelinfo("init_iterate_fname")
             )
             iterate.copy_real_tracers_to_shadow_tracers().dump(self._fname("iterate"))
+            stats_file_create(solverinfo["newton_solver_stats_fname"])
 
         self._iterate = self._newton_fcn_obj.model_state_obj(self._fname("iterate"))
 
@@ -60,17 +62,27 @@ class NewtonSolver:
             self._solverinfo["workdir"], "%s_%02d.nc" % (quantity, iteration)
         )
 
-    def log(self, iterate=None, fcn=None, msg=None):
+    def log(self, iterate=None, fcn=None, msg=None, append_to_stats_file=False):
         """write the state of the instance to the log"""
         iteration = self._solver_state.get_iteration()
         if msg is None:
             iteration_p_msg = "iteration=%02d" % iteration
         else:
             iteration_p_msg = "iteration=%02d,%s" % (iteration, msg)
+
+        stats_info = {
+            "append_vals": append_to_stats_file,
+            "fname": self._solverinfo["newton_solver_stats_fname"],
+            "iteration": iteration,
+        }
+
         log_obj = self._iterate if iterate is None else iterate
-        log_obj.log("%s,iterate" % iteration_p_msg)
+        stats_info["varname_root"] = "iterate"
+        log_obj.log("%s,iterate" % iteration_p_msg, stats_info=stats_info)
+
         log_obj = self._fcn if fcn is None else fcn
-        log_obj.log("%s,fcn" % iteration_p_msg)
+        stats_info["varname_root"] = "fcn"
+        log_obj.log("%s,fcn" % iteration_p_msg, stats_info=stats_info)
 
     def converged_flat(self):
         """is residual small"""
@@ -100,7 +112,7 @@ class NewtonSolver:
         rewind = self._solver_state.step_was_rewound(step)
         resume = rewind or self._solver_state.step_logged(step)
         if not resume:
-            self.log()
+            self.log(append_to_stats_file=True)
         krylov_solver = KrylovSolver(
             self._newton_fcn_obj,
             self._iterate,
@@ -114,7 +126,14 @@ class NewtonSolver:
             self._fname("increment"), self._iterate, self._fcn
         )
         self._solver_state.log_step(fcn_complete_step)
-        increment.log("Newton increment %02d" % self._solver_state.get_iteration())
+        iteration = self._solver_state.get_iteration()
+        stats_info = {
+            "append_vals": True,
+            "fname": self._solverinfo["newton_solver_stats_fname"],
+            "iteration": iteration,
+            "varname_root": "increment",
+        }
+        increment.log("Newton increment %02d" % iteration, stats_info=stats_info)
         return increment
 
     def _comp_next_iterate(self, increment):
@@ -182,6 +201,15 @@ class NewtonSolver:
             if armijo_cond_flat.all():
                 logger.info("Armijo condition satisfied")
                 self._solver_state.log_step(fcn_complete_step)
+
+                # write ArmijoFactor to the stats file
+                stats_file_append_vals(
+                    self._solverinfo["newton_solver_stats_fname"],
+                    self._solver_state.get_iteration(),
+                    "Armijo_Factor",
+                    armijo_factor,
+                )
+
                 return prov, prov_fcn
 
             logger.info("Armijo condition not satisfied")
@@ -206,6 +234,7 @@ class NewtonSolver:
         if self._solver_state.get_iteration() >= self._solverinfo.getint(
             "newton_max_iter"
         ):
+            self.log(append_to_stats_file=True)
             msg = "number of maximum Newton iterations exceeded"
             raise RuntimeError(msg)
 

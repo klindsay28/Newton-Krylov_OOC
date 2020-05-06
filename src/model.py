@@ -10,6 +10,7 @@ from . import model_config
 
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .region_scalars import RegionScalars, to_ndarray
+from .stats_file import stats_file_append_vals
 
 ################################################################################
 
@@ -97,13 +98,29 @@ class ModelStateBase:
                 else:
                     tracer_module.log_vals(msg, vals[tracer_module_ind, :])
 
-    def log(self, msg=None):
+    def log(self, msg=None, stats_info=None):
         """write info of the instance to the log"""
         if msg is None:
             msg_full = ["mean", "norm"]
         else:
             msg_full = [msg + ",mean", msg + ",norm"]
-        self.log_vals(msg_full, np.stack((self.mean(), self.norm())))
+        mean_vals = self.mean()
+        norm_vals = self.norm()
+        self.log_vals(msg_full, np.stack((mean_vals, norm_vals)))
+
+        if stats_info is not None and stats_info["append_vals"]:
+            stats_file_append_vals(
+                stats_info["fname"],
+                stats_info["iteration"],
+                stats_info["varname_root"] + "_mean",
+                mean_vals,
+            )
+            stats_file_append_vals(
+                stats_info["fname"],
+                stats_info["iteration"],
+                stats_info["varname_root"] + "_norm",
+                norm_vals,
+            )
 
     def copy(self):
         """return a copy of self"""
