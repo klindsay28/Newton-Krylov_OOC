@@ -6,4 +6,4 @@ Newton-Krylov_OOC Description
     :maxdepth: 2
     :caption: Contents:
 
-    motivation.rst
+    background.rst

@@ -1,5 +1,5 @@
 ==========
-Motivation
+Background
 ==========
 
 The application that motivated the development of Newton-Krylov_OOC is spinning up
