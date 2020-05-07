@@ -36,6 +36,6 @@ impractical for the target model configuration.
    memory for the duration of multiple model runs.
 
 
-#. Solving One Problem at a Time
+#. Solving One Problem at a Time:
 
 .. bibliography:: ../references.bib

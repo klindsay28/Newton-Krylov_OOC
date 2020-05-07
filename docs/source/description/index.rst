@@ -1,3 +1,5 @@
+.. _description:
+
 =============================
 Newton-Krylov_OOC Description
 =============================
