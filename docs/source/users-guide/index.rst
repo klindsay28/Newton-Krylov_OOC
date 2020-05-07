@@ -1,6 +1,6 @@
-============
-User's Guide
-============
+==============================
+Newton-Krylov_OOC User's Guide
+==============================
 
 .. toctree::
     :maxdepth: 2
