@@ -12,6 +12,7 @@ Documentation is under development.
     :maxdepth: 2
     :caption: Contents:
 
+    description/index.rst
     users-guide/index.rst
 
 

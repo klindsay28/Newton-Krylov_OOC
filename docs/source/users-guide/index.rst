@@ -7,4 +7,4 @@ User's Guide
     :caption: Contents:
 
     getting-setup.rst
-    running-test_problem.rst
+    test_problem-model.rst

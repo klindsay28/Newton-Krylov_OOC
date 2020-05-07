@@ -9,10 +9,13 @@ dependencies:
 - pytest
 - pylint
 - black
+
+# documentation
 - sphinx
 - sphinx_rtd_theme
+- sphinxcontrib-bibtex
 
-# requirements
+# solver requirements
 - netCDF4
 - numpy
 - pyyaml
