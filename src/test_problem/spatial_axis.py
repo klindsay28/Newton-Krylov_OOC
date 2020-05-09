@@ -11,20 +11,64 @@ class SpatialAxis:
     def __init__(self, axisname, fname):
         """
         initialize class object
-        for file input, assume edges have name axis_name+"_edges"
+
+        edges are the fundamental quantity defining a SpatialAxis
+        all other quantities are derived from edges
+
+        for file input, assume edges variable is named axis_name+"_edges"
+        other fields in the input file are ignored
         """
 
         self.name = axisname
-        with Dataset(fname) as fptr:
+        with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
-            edges = fptr.variables[axisname + "_edges"]
-            self.units = edges.units
-            self.edges = edges[:]
-        self.mid = 0.5 * (self.edges[:-1] + self.edges[1:])
-        self.delta = np.ediff1d(self.edges)
+            self.units = fptr.variables[axisname + "_edges"].units
+            self.edges = fptr.variables[axisname + "_edges"][:]
+        self.nlevs = len(self.edges) - 1
+        self.bounds = np.empty((self.nlevs, 2))
+        self.bounds[:, 0] = self.edges[:-1]
+        self.bounds[:, 1] = self.edges[1:]
+        self.mid = self.bounds.mean(axis=1)
+        self.delta = self.bounds[:, 1] - self.bounds[:, 0]
         self.delta_r = 1.0 / self.delta
         self.delta_mid_r = 1.0 / np.ediff1d(self.mid)
-        self.nlevs = len(self.mid)
+
+    def dump(self, fname):
+        """write axis information to a netCDF4 file"""
+
+        bounds_name = self.name + "_bounds"
+        edges_name = self.name + "_edges"
+        delta_name = self.name + "_delta"
+
+        with Dataset(fname, mode="w") as fptr:
+            # define dimensions
+            fptr.createDimension(self.name, self.nlevs)
+            fptr.createDimension("nbnds", 2)
+            fptr.createDimension(edges_name, 1 + self.nlevs)
+
+            # define variables
+
+            fptr.createVariable(self.name, "f8", dimensions=(self.name,))
+            fptr.variables[self.name].long_name = self.name + " layer midpoints"
+            fptr.variables[self.name].units = self.units
+            fptr.variables[self.name].bounds = bounds_name
+
+            fptr.createVariable(bounds_name, "f8", dimensions=(self.name, "nbnds"))
+            fptr.variables[bounds_name].long_name = self.name + " layer bounds"
+
+            fptr.createVariable(edges_name, "f8", dimensions=(edges_name,))
+            fptr.variables[edges_name].long_name = self.name + " layer edges"
+            fptr.variables[edges_name].units = self.units
+
+            fptr.createVariable(delta_name, "f8", dimensions=(self.name,))
+            fptr.variables[delta_name].long_name = self.name + " layer thickness"
+            fptr.variables[delta_name].units = self.units
+
+            # write variables
+            fptr.variables[self.name][:] = self.mid
+            fptr.variables[bounds_name][:] = self.bounds
+            fptr.variables[edges_name][:] = self.edges
+            fptr.variables[delta_name][:] = self.delta
 
     def grad_vals_mid(self, vals):
         """

@@ -546,7 +546,7 @@ def _apply_tracers_sflux_term(
     model_state = ModelState(res_fname)
     term_applied = False
     delta_time = 365.0 * 86400.0 * cime_yr_cnt()
-    with Dataset(precond_fname, "r") as fptr:
+    with Dataset(precond_fname, mode="r") as fptr:
         fptr.set_auto_mask(False)
         for tracer_name_src in tracer_names_subset:
             for tracer_name_dst_ind in range(

@@ -105,6 +105,7 @@ def _def_hist_dims(fptr, depth):
     """define netCDF4 dimensions relevant to test_problem"""
     fptr.createDimension("time", None)
     fptr.createDimension("depth", depth.nlevs)
+    fptr.createDimension("nbnds", 2)
     fptr.createDimension("depth_edges", 1 + depth.nlevs)
 
 
@@ -115,11 +116,15 @@ def _def_hist_coord_vars(fptr, depth_units):
     fptr.variables["time"].units = "days since 0001-01-01"
 
     fptr.createVariable("depth", "f8", dimensions=("depth",))
-    fptr.variables["depth"].long_name = "depth"
+    fptr.variables["depth"].long_name = "depth layer midpoints"
     fptr.variables["depth"].units = depth_units
+    fptr.variables["depth"].bounds = "depth_bounds"
+
+    fptr.createVariable("depth_bounds", "f8", dimensions=("depth", "nbnds"))
+    fptr.variables["depth_bounds"].long_name = "depth layer bounds"
 
     fptr.createVariable("depth_edges", "f8", dimensions=("depth_edges",))
-    fptr.variables["depth_edges"].long_name = "depth_edges"
+    fptr.variables["depth_edges"].long_name = "depth layer edges"
     fptr.variables["depth_edges"].units = depth_units
 
 
@@ -127,6 +132,7 @@ def _write_hist_coord_vars(fptr, time, depth):
     """write netCDF4 coordinate vars relevant to test_problem"""
     fptr.variables["time"][:] = time
     fptr.variables["depth"][:] = depth.mid
+    fptr.variables["depth_bounds"][:] = depth.bounds
     fptr.variables["depth_edges"][:] = depth.edges
 
 

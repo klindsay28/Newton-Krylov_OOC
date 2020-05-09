@@ -74,7 +74,7 @@ class NewtonFcnBase:
 
         hist_vars = iterate.hist_vars_for_precond_list()
 
-        with Dataset(hist_fname, "r") as fptr_in, Dataset(
+        with Dataset(hist_fname, mode="r") as fptr_in, Dataset(
             precond_fname, "w"
         ) as fptr_out:
             # define output vars

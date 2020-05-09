@@ -512,7 +512,7 @@ class NewtonFcn(NewtonFcnBase):
 
         ms_res = ms_in.copy()
 
-        with Dataset(precond_fname, "r") as fptr:
+        with Dataset(precond_fname, mode="r") as fptr:
             # hist and precond files have mixing_coeff in m2 s-1
             # convert back to model units of m2 d-1
             mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][:]
