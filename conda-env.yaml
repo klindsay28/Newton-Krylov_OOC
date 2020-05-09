@@ -19,5 +19,8 @@ dependencies:
 - netCDF4
 - numpy
 - pyyaml
-- scipy
 - nco
+
+# test_problem requirements
+- scipy
+- cf_units
