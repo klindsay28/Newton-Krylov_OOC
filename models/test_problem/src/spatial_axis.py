@@ -8,7 +8,7 @@ from netCDF4 import Dataset
 class SpatialAxis:
     """class for spatial axis related quantities"""
 
-    def __init__(self, axisname, fname):
+    def __init__(self, axisname, fname=None, defn_dict=None):
         """
         initialize class object
 
@@ -19,11 +19,21 @@ class SpatialAxis:
         other fields in the input file are ignored
         """
 
+        if (fname is None) == (defn_dict is None):
+            msg = "exactly one of fname and defn_dict must be passed"
+            raise ValueError(msg)
+
         self.name = axisname
-        with Dataset(fname, mode="r") as fptr:
-            fptr.set_auto_mask(False)
-            self.units = fptr.variables[axisname + "_edges"].units
-            self.edges = fptr.variables[axisname + "_edges"][:]
+
+        if fname is not None:
+            with Dataset(fname, mode="r") as fptr:
+                fptr.set_auto_mask(False)
+                self.units = fptr.variables[axisname + "_edges"].units
+                self.edges = fptr.variables[axisname + "_edges"][:]
+        else:
+            self.units = defn_dict["units"]
+            self.edges = self._gen_edges(defn_dict)
+
         self.nlevs = len(self.edges) - 1
         self.bounds = np.empty((self.nlevs, 2))
         self.bounds[:, 0] = self.edges[:-1]
@@ -32,6 +42,27 @@ class SpatialAxis:
         self.delta = self.bounds[:, 1] - self.bounds[:, 0]
         self.delta_r = 1.0 / self.delta
         self.delta_mid_r = 1.0 / np.ediff1d(self.mid)
+
+    def _gen_edges(self, defn_dict):
+        """generate edges from specs in defn_dict"""
+
+        nlevs = defn_dict["nlevs"]
+
+        # polynomial stretching function
+        # xs(-1)=-1, xs'(-1)=0, xs''(-1)=0
+        # xs(1)=1, xs'(1)=0, xs''(1)=0
+        x = np.linspace(-1.0, 1.0, nlevs)
+        xs = 0.125 * x * (15 + x * x * (3 * x * x - 10))
+
+        delta_avg = (defn_dict["edge_end"] - defn_dict["edge_start"]) / nlevs
+
+        delta = delta_avg + (delta_avg - defn_dict["delta_start"]) * xs
+
+        edges = np.empty(1 + nlevs)
+        edges[0] = defn_dict["edge_start"]
+        edges[1:] = defn_dict["edge_start"] + delta.cumsum()
+
+        return edges
 
     def dump(self, fname):
         """write axis information to a netCDF4 file"""
