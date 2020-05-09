@@ -4,14 +4,14 @@ from cf_units import Unit
 from netCDF4 import Dataset
 
 
-def write_hist(ms_in, sol, hist_fname, newton_fcn_obj):
+def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
     """write tracer values generated in comp_fcn to hist_fname"""
     with Dataset(hist_fname, mode="w") as fptr:
         tracer_names = ms_in.tracer_names()
         depth_units = newton_fcn_obj.depth.units
 
-        _def_hist_dims(fptr, newton_fcn_obj.depth)
-        _def_hist_coord_vars(fptr, depth_units)
+        _def_dims(fptr, newton_fcn_obj.depth)
+        _def_coord_vars(fptr, depth_units)
 
         for tracer_name in tracer_names:
             varname = tracer_name
@@ -68,7 +68,7 @@ def write_hist(ms_in, sol, hist_fname, newton_fcn_obj):
                 setattr(var, attr_name, attr_value)
             setattr(var, "cell_methods", "time: point")
 
-        _write_hist_coord_vars(fptr, sol.t, newton_fcn_obj.depth)
+        _write_coord_vars(fptr, sol.t, newton_fcn_obj.depth)
 
         tracer_vals = sol.y.reshape((len(tracer_names), newton_fcn_obj.depth.nlevs, -1))
         for tracer_ind, tracer_name in enumerate(tracer_names):
@@ -101,7 +101,7 @@ def write_hist(ms_in, sol, hist_fname, newton_fcn_obj):
                 ] = newton_fcn_obj.depth.int_vals_mid(po4_uptake)
 
 
-def _def_hist_dims(fptr, depth):
+def _def_dims(fptr, depth):
     """define netCDF4 dimensions relevant to test_problem"""
     fptr.createDimension("time", None)
     fptr.createDimension("depth", depth.nlevs)
@@ -109,7 +109,7 @@ def _def_hist_dims(fptr, depth):
     fptr.createDimension("depth_edges", 1 + depth.nlevs)
 
 
-def _def_hist_coord_vars(fptr, depth_units):
+def _def_coord_vars(fptr, depth_units):
     """define netCDF4 coordinate vars relevant to test_problem"""
     fptr.createVariable("time", "f8", dimensions=("time",))
     fptr.variables["time"].long_name = "time"
@@ -128,7 +128,7 @@ def _def_hist_coord_vars(fptr, depth_units):
     fptr.variables["depth_edges"].units = depth_units
 
 
-def _write_hist_coord_vars(fptr, time, depth):
+def _write_coord_vars(fptr, time, depth):
     """write netCDF4 coordinate vars relevant to test_problem"""
     fptr.variables["time"][:] = time
     fptr.variables["depth"][:] = depth.mid

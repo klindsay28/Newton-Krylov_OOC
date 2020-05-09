@@ -16,11 +16,8 @@ from scipy.integrate import solve_ivp
 
 from netCDF4 import Dataset
 
-# placeholder import to verify such an import is possible
-from test_problem.src.foo import bar  # pylint: disable=W0611
-
-from .spatial_axis import SpatialAxis
-from .test_problem_hist import write_hist
+from test_problem.src.spatial_axis import SpatialAxis
+from test_problem.src.hist import hist_write
 
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
@@ -313,7 +310,7 @@ class NewtonFcn(NewtonFcnBase):
         )
 
         if hist_fname is not None:
-            write_hist(ms_in, sol, hist_fname, self)
+            hist_write(ms_in, sol, hist_fname, self)
 
         ms_res = ms_in.copy()
         res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
@@ -513,7 +510,7 @@ class NewtonFcn(NewtonFcnBase):
         ms_res = ms_in.copy()
 
         with Dataset(precond_fname, mode="r") as fptr:
-            # hist and precond files have mixing_coeff in m2 s-1
+            # hist, and thus precond, files have mixing_coeff in m2 s-1
             # convert back to model units of m2 d-1
             mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][:]
 
