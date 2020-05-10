@@ -31,7 +31,8 @@ _args_cmd = None
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="test problem for Newton-Krylov solver"
+        description="test problem for Newton-Krylov solver",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "cmd",
@@ -49,13 +50,26 @@ def _parse_args():
         default=".",
     )
     parser.add_argument(
-        "--cfg_fname", help="name of configuration file", default="newton_krylov.cfg"
+        "--model",
+        help="name of model that solver is being applied to",
+        default="test_problem",
+    )
+    parser.add_argument(
+        "--cfg_fname",
+        help="name of configuration file",
+        default="models/{model}/newton_krylov.cfg",
     )
     parser.add_argument("--hist_fname", help="name of history file", default=None)
     parser.add_argument("--precond_fname", help="name of precond file", default=None)
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
-    return parser.parse_args()
+
+    parsed_args = parser.parse_args()
+
+    # replace {model} with specified model
+    parsed_args.cfg_fname = parsed_args.cfg_fname.replace("{model}", parsed_args.model)
+
+    return parsed_args
 
 
 def _resolve_fname(fname_dir, fname):
@@ -74,7 +88,7 @@ def main(args):
     defaults = os.environ
     defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
     config = configparser.ConfigParser(defaults)
-    config.read_file(open(_resolve_fname(args.fname_dir, args.cfg_fname)))
+    config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"

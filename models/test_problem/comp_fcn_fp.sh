@@ -25,22 +25,22 @@ fp_ind=0
 fp_cnt=3
 
 python -m $newton_fcn_module gen_ic --fname_dir $fname_dir \
-    --cfg_fname $test_problem_dir/newton_krylov.cfg \
+    --model test_problem \
     --res_fname iterate_test_00_fp${fp_ind}.nc
 
 while [ $fp_ind -lt $fp_cnt ]; do
     python -m $newton_fcn_module comp_fcn --fname_dir $fname_dir \
-        --cfg_fname $test_problem_dir/newton_krylov.cfg \
+        --model test_problem \
         --hist_fname hist_00_fp${fp_ind}.nc \
         --in_fname iterate_test_00_fp${fp_ind}.nc \
         --res_fname fcn_test_00_fp${fp_ind}.nc
     python -m $newton_fcn_module gen_precond_jacobian --fname_dir $fname_dir \
-        --cfg_fname $test_problem_dir/newton_krylov.cfg \
+        --model test_problem \
         --hist_fname hist_00_fp${fp_ind}.nc \
         --in_fname iterate_test_00_fp${fp_ind}.nc \
         --precond_fname precond_00_fp${fp_ind}.nc
     python -m $newton_fcn_module apply_precond_jacobian --fname_dir $fname_dir \
-        --cfg_fname $test_problem_dir/newton_krylov.cfg \
+        --model test_problem \
         --in_fname fcn_test_00_fp${fp_ind}.nc \
         --precond_fname precond_00_fp${fp_ind}.nc \
         --res_fname w_test_00_fp${fp_ind}.nc

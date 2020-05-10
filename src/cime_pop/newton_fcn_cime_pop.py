@@ -29,7 +29,8 @@ from ..newton_fcn_base import NewtonFcnBase
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="cime pop hooks for Newton-Krylov solver"
+        description="cime pop hooks for Newton-Krylov solver",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "cmd",
@@ -37,14 +38,25 @@ def _parse_args():
         help="command to run",
     )
     parser.add_argument(
+        "--model",
+        help="name of model that solver is being applied to",
+        default="cime_pop",
+    )
+    parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default="newton_krylov_cime_pop.cfg",
+        default="models/{model}/newton_krylov.cfg",
     )
     parser.add_argument("--hist_fname", help="name of history file", default=None)
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
-    return parser.parse_args()
+
+    parsed_args = parser.parse_args()
+
+    # replace {model} with specified model
+    parsed_args.cfg_fname = parsed_args.cfg_fname.replace("{model}", parsed_args.model)
+
+    return parsed_args
 
 
 def main(args):

@@ -62,13 +62,27 @@ def gen_invoker_script(workdir, repo_root, modelinfo):
 def parse_args():
     """parse command line arguments"""
 
-    parser = argparse.ArgumentParser(description="Newton's method example")
-
+    parser = argparse.ArgumentParser(
+        description="generate script for invoking nk_driver.py",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
-        "--cfg_fname", help="name of configuration file", default="newton_krylov.cfg"
+        "--model",
+        help="name of model that solver is being applied to",
+        default="test_problem",
+    )
+    parser.add_argument(
+        "--cfg_fname",
+        help="name of configuration file",
+        default="models/{model}/newton_krylov.cfg",
     )
 
-    return parser.parse_args()
+    parsed_args = parser.parse_args()
+
+    # replace {model} with specified model
+    parsed_args.cfg_fname = parsed_args.cfg_fname.replace("{model}", parsed_args.model)
+
+    return parsed_args
 
 
 def main(args):
