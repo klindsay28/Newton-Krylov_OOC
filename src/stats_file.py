@@ -4,6 +4,8 @@ from netCDF4 import Dataset
 
 from .model_config import get_modelinfo, get_region_cnt
 
+fill_value = -1.0e30
+
 
 def stats_file_create(fname):
     """create the file for solver stats"""
@@ -34,7 +36,10 @@ def stats_file_create(fname):
         for tracer_module_name in tracer_module_names:
             for varname, attrs in attrs_dict.items():
                 var = fptr.createVariable(
-                    varname % tracer_module_name, "f8", dimensions
+                    varname % tracer_module_name,
+                    "f8",
+                    dimensions,
+                    fill_value=fill_value,
                 )
                 for attr_name, attr_value in attrs.items():
                     setattr(var, attr_name, attr_value % tracer_module_name)
@@ -50,7 +55,17 @@ def stats_file_append_vals(fname, iteration, varname, vals):
     tracer_module_names = get_modelinfo("tracer_module_names").split(",")
 
     with Dataset(fname, mode="a") as fptr:
-        fptr.variables["iteration"][iteration] = iteration
+        # If this is the first value being written for this iteration,
+        # then set iteration, and set all other variables to fill_value.
+        # Without doing the fill, some installs of ncview abort when viewing
+        # the stats file.
+        if iteration == len(fptr.variables["iteration"]):
+            for full_varname in fptr.variables:
+                if full_varname == "iteration":
+                    fptr.variables[full_varname][iteration] = iteration
+                else:
+                    fptr.variables[full_varname][iteration, :] = fill_value
+
         for ind, tracer_module_name in enumerate(tracer_module_names):
             full_varname = tracer_module_name + "_" + varname
             fptr.variables[full_varname][iteration, :] = vals[ind].vals()

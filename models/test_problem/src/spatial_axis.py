@@ -10,13 +10,23 @@ class SpatialAxis:
 
     def __init__(self, axisname, fname=None, defn_dict=None):
         """
-        initialize class object
+        Initialize SpatialAxis object, from a file or a dict defining the axis.
 
-        edges are the fundamental quantity defining a SpatialAxis
-        all other quantities are derived from edges
+        The fundamental quantities defining a SpatialAxis are it layer edges.
+        All other quantities are derived from these edges.
 
-        for file input, assume edges variable is named axis_name+"_edges"
+        Options for specifying edges are
+        1) read them from a file, specified by fname,
+        2) generate them from grid specs in dict, specified by defn_dect.
+
+        file: assume edges variable in fname is named axis_name+"_edges"
         other fields in the input file are ignored
+
+        dict: defn_dict is required to have the following keys
+            nlevs (int): number of layers
+            edge_start (float): first edge value
+            edge_end (float): last edge value
+            delta_start (float): difference between second and first edge values
         """
 
         if (fname is None) == (defn_dict is None):
@@ -44,7 +54,7 @@ class SpatialAxis:
         self.delta_mid_r = 1.0 / np.ediff1d(self.mid)
 
     def _gen_edges(self, defn_dict):
-        """generate edges from specs in defn_dict"""
+        """generate edges from grid specs in defn_dict"""
 
         nlevs = defn_dict["nlevs"]
 
