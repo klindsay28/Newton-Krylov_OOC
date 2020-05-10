@@ -7,6 +7,8 @@ import errno
 import os
 import stat
 
+import git
+
 
 def mkdir_exist_okay(path):
     """
@@ -29,7 +31,7 @@ def invoker_script_fname(workdir):
     return os.path.join(workdir, "nk_driver.sh")
 
 
-def gen_invoker_script(workdir, toplevel_dir, modelinfo):
+def gen_invoker_script(workdir, repo_root, modelinfo):
     """
     generate script for invoking nk_driver.py with optional arguments
     return the name of the generated script
@@ -47,7 +49,7 @@ def gen_invoker_script(workdir, toplevel_dir, modelinfo):
         fptr.write("else\n")
         fptr.write("    export PYTHONPATH=models:$PYTHONPATH\n")
         fptr.write("fi\n")
-        fptr.write("cd %s\n" % toplevel_dir)
+        fptr.write("cd %s\n" % repo_root)
         fptr.write('./nk_driver.py --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"])
 
     # ensure script_fname is executable by the user, while preserving other permissions
@@ -72,7 +74,9 @@ def parse_args():
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = configparser.ConfigParser(os.environ)
+    defaults = os.environ
+    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
+    config = configparser.ConfigParser(defaults)
     config.read_file(open(args.cfg_fname))
 
     # store cfg_fname in modelinfo, to follow what is done in other scripts
@@ -80,7 +84,7 @@ def main(args):
 
     gen_invoker_script(
         config["solverinfo"]["workdir"],
-        config["DEFAULT"]["toplevel_dir"],
+        config["DEFAULT"]["repo_root"],
         config["modelinfo"],
     )
 

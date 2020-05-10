@@ -8,6 +8,8 @@ import logging
 import os
 import sys
 
+import git
+
 from src.model_config import ModelConfig
 from src.newton_solver import NewtonSolver
 from src.gen_invoker_script import invoker_script_fname
@@ -39,7 +41,9 @@ def parse_args():
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = configparser.ConfigParser(os.environ)
+    defaults = os.environ
+    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
+    config = configparser.ConfigParser(defaults)
     config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 

@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 
+import git
 import numpy as np
 from scipy.linalg import solve_banded, svd
 from scipy.sparse import diags, eye
@@ -70,7 +71,9 @@ def main(args):
     global _args_cmd
     _args_cmd = args.cmd
 
-    config = configparser.ConfigParser(os.environ)
+    defaults = os.environ
+    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
+    config = configparser.ConfigParser(defaults)
     config.read_file(open(_resolve_fname(args.fname_dir, args.cfg_fname)))
     solverinfo = config["solverinfo"]
 

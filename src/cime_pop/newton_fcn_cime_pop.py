@@ -14,6 +14,7 @@ import stat
 import subprocess
 import sys
 
+import git
 import numpy as np
 
 from netCDF4 import Dataset
@@ -49,7 +50,9 @@ def _parse_args():
 def main(args):
     """cime pop hooks for Newton-Krylov solver"""
 
-    config = configparser.ConfigParser(os.environ)
+    defaults = os.environ
+    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
+    config = configparser.ConfigParser(defaults)
     config.read_file(open(args.cfg_fname))
     solverinfo = config["solverinfo"]
 

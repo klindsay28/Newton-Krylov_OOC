@@ -3,12 +3,12 @@
 set -x
 set -e
 
-toplevel_dir=`git rev-parse --show-toplevel`
+repo_root=`git rev-parse --show-toplevel`
 
-cd $toplevel_dir
+cd $repo_root
 newton_fcn_module=src.test_problem.newton_fcn_test_problem
 
-test_problem_dir=$toplevel_dir/models/test_problem
+test_problem_dir=$repo_root/models/test_problem
 fname_dir=$test_problem_dir/comp_fcn_fp_work
 
 if [ -z ${PYTHONPATH+x} ]; then
