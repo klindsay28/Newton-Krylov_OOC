@@ -29,6 +29,17 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
                     setattr(var, attr_name, attr_value)
             setattr(var, "cell_methods", "time: point")
 
+            varname = tracer_name + "_time_anom"
+            var = fptr.createVariable(varname, "f8", dimensions=("time", "depth"))
+            tracer_metadata = ms_in.tracer_metadata(tracer_name)
+            if "attrs" in tracer_metadata:
+                for attr_name, attr_value in tracer_metadata["attrs"].items():
+                    if attr_name == "long_name":
+                        setattr(var, attr_name, attr_value + ", anomaly in time")
+                    else:
+                        setattr(var, attr_name, attr_value)
+            setattr(var, "cell_methods", "time: point")
+
             varname = tracer_name + "_zint"
             var = fptr.createVariable(varname, "f8", dimensions=("time",))
             tracer_metadata = ms_in.tracer_metadata(tracer_name)
@@ -90,7 +101,12 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
             tracer_vals_time_depth = tracer_vals[tracer_ind, :, :].transpose()
 
             varname = tracer_name
-            fptr.variables[tracer_name][:] = tracer_vals_time_depth
+            fptr.variables[varname][:] = tracer_vals_time_depth
+
+            varname = tracer_name + "_time_anom"
+            fptr.variables[varname][
+                :
+            ] = tracer_vals_time_depth - tracer_vals_time_depth[0:-1, :].mean(axis=0)
 
             varname = tracer_name + "_zint"
             fptr.variables[varname][:] = newton_fcn_obj.depth.int_vals_mid(
