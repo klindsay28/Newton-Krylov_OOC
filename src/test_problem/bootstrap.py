@@ -45,10 +45,10 @@ def _parse_args():
         "--edge_start", type=float, help="start of edges", default=0.0,
     )
     parser.add_argument(
-        "--edge_end", type=float, help="end of edges", default=400.0,
+        "--edge_end", type=float, help="end of edges", default=640.0,
     )
     parser.add_argument(
-        "--delta_start", type=float, help="thickness of first layer", default=5.0,
+        "--delta_start", type=float, help="thickness of first layer", default=8.0,
     )
     parser.add_argument(
         "--fp_cnt",
