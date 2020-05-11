@@ -2,18 +2,15 @@
 """set up files needed to run NK solver for test_problem"""
 
 import argparse
-import configparser
 import logging
 import os
 import sys
-
-import git
 
 from test_problem.src.spatial_axis import SpatialAxis
 
 from ..model_config import ModelConfig
 from .newton_fcn_test_problem import ModelState, NewtonFcn
-from ..utils import mkdir_exist_okay
+from ..utils import mkdir_exist_okay, read_cfg_file
 
 
 def _parse_args():
@@ -68,10 +65,7 @@ def _parse_args():
 def main(args):
     """set up files needed to run NK solver for test_problem"""
 
-    defaults = os.environ
-    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
-    config = configparser.ConfigParser(defaults)
-    config.read_file(open(args.cfg_fname))
+    config = read_cfg_file(args.cfg_fname)
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"

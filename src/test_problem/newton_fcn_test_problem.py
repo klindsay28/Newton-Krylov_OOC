@@ -2,13 +2,11 @@
 """test problem for Newton-Krylov solver"""
 
 import argparse
-import configparser
 import logging
 import os
 import subprocess
 import sys
 
-import git
 import numpy as np
 from scipy.linalg import solve_banded, svd
 from scipy.sparse import diags, eye
@@ -23,6 +21,7 @@ from test_problem.src.hist import hist_write
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
+from ..utils import read_cfg_file
 
 
 def _parse_args():
@@ -74,10 +73,7 @@ def _resolve_fname(fname_dir, fname):
 def main(args):
     """test problem for Newton-Krylov solver"""
 
-    defaults = os.environ
-    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
-    config = configparser.ConfigParser(defaults)
-    config.read_file(open(args.cfg_fname))
+    config = read_cfg_file(args.cfg_fname)
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"

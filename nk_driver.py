@@ -2,16 +2,14 @@
 """driver for Newton-Krylov solver"""
 
 import argparse
-import configparser
 import importlib
 import logging
 import os
 import sys
 
-import git
-
 from src.model_config import ModelConfig
 from src.newton_solver import NewtonSolver
+from src.utils import read_cfg_file
 
 
 def parse_args():
@@ -55,10 +53,7 @@ def parse_args():
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    defaults = os.environ
-    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
-    config = configparser.ConfigParser(defaults)
-    config.read_file(open(args.cfg_fname))
+    config = read_cfg_file(args.cfg_fname)
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"

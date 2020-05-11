@@ -2,13 +2,10 @@
 """generate script for invoking nk_driver.py"""
 
 import argparse
-import configparser
 import os
 import stat
 
-import git
-
-from utils import mkdir_exist_okay
+from utils import mkdir_exist_okay, read_cfg_file
 
 
 def gen_invoker_script(modelinfo, repo_root):
@@ -65,10 +62,7 @@ def parse_args():
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    defaults = os.environ
-    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
-    config = configparser.ConfigParser(defaults)
-    config.read_file(open(args.cfg_fname))
+    config = read_cfg_file(args.cfg_fname)
 
     # store cfg_fname in modelinfo, to follow what is done in other scripts
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
