@@ -5,11 +5,11 @@ import os
 
 import numpy as np
 
-from .gen_invoker_script import mkdir_exist_okay
 from .model import lin_comb
 from .model_config import get_region_cnt
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver import SolverState
+from .utils import mkdir_exist_okay
 
 
 class KrylovSolver:

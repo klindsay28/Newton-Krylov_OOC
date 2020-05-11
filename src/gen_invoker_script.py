@@ -3,45 +3,24 @@
 
 import argparse
 import configparser
-import errno
 import os
 import stat
 
 import git
 
-
-def mkdir_exist_okay(path):
-    """
-    Create a directory named path.
-    It is okay if it already exists.
-    """
-    try:
-        os.mkdir(path)
-    except OSError as err:
-        if err.errno == errno.EEXIST:
-            pass
-        else:
-            raise
+from utils import mkdir_exist_okay
 
 
-def invoker_script_fname(workdir):
-    """
-    full path of script for invoking nk_driver.py
-    """
-    return os.path.join(workdir, "nk_driver.sh")
-
-
-def gen_invoker_script(workdir, repo_root, modelinfo):
+def gen_invoker_script(modelinfo, repo_root):
     """
     generate script for invoking nk_driver.py with optional arguments
-    return the name of the generated script
     """
 
-    mkdir_exist_okay(workdir)
-    script_fname = invoker_script_fname(workdir)
-    print("generating %s" % script_fname)
+    invoker_script_fname = modelinfo["invoker_script_fname"]
+    mkdir_exist_okay(os.path.dirname(invoker_script_fname))
+    print("generating %s" % invoker_script_fname)
 
-    with open(script_fname, mode="w") as fptr:
+    with open(invoker_script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
         fptr.write("source %s\n" % modelinfo["newton_krylov_env_cmds_fname"])
         fptr.write("if [ -z ${PYTHONPATH+x} ]; then\n")
@@ -52,11 +31,9 @@ def gen_invoker_script(workdir, repo_root, modelinfo):
         fptr.write("cd %s\n" % repo_root)
         fptr.write('./nk_driver.py --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"])
 
-    # ensure script_fname is executable by the user, while preserving other permissions
-    fstat = os.stat(script_fname)
-    os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
-
-    return script_fname
+    # ensure script is executable by the user, while preserving other permissions
+    fstat = os.stat(invoker_script_fname)
+    os.chmod(invoker_script_fname, fstat.st_mode | stat.S_IXUSR)
 
 
 def parse_args():
@@ -97,9 +74,7 @@ def main(args):
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
 
     gen_invoker_script(
-        config["solverinfo"]["workdir"],
-        config["DEFAULT"]["repo_root"],
-        config["modelinfo"],
+        config["modelinfo"], config["DEFAULT"]["repo_root"],
     )
 
 

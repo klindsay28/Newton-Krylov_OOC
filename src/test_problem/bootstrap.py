@@ -11,9 +11,9 @@ import git
 
 from test_problem.src.spatial_axis import SpatialAxis
 
-from ..gen_invoker_script import mkdir_exist_okay
 from ..model_config import ModelConfig
 from .newton_fcn_test_problem import ModelState, NewtonFcn
+from ..utils import mkdir_exist_okay
 
 
 def _parse_args():

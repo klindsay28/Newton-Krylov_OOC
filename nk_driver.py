@@ -12,7 +12,6 @@ import git
 
 from src.model_config import ModelConfig
 from src.newton_solver import NewtonSolver
-from src.gen_invoker_script import invoker_script_fname
 
 
 def parse_args():
@@ -77,12 +76,8 @@ def main(args):
         logger.warning("KILL file detected, exiting")
         raise SystemExit
 
-    # store cfg_fname and invoker_script_fname in modelinfo,
-    # to ease access to their values elsewhere
+    # store cfg_fname in modelinfo, to ease access to its values elsewhere
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
-    config["modelinfo"]["invoker_script_fname"] = invoker_script_fname(
-        config["solverinfo"]["workdir"],
-    )
 
     ModelConfig(config["modelinfo"], logging.DEBUG if args.resume else logging.INFO)
 
