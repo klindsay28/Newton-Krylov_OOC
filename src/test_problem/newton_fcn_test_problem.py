@@ -2,6 +2,7 @@
 """test problem for Newton-Krylov solver"""
 
 import argparse
+from distutils.util import strtobool
 import logging
 import os
 import subprocess
@@ -311,10 +312,11 @@ class NewtonFcn(NewtonFcnBase):
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
-            logger.debug("invoking resume script and exiting")
-            # use Popen instead of run because we don't want to wait
-            subprocess.Popen([get_modelinfo("invoker_script_fname"), "--resume"])
-            raise SystemExit
+            if strtobool(get_modelinfo("reinvoke")):
+                logger.debug("invoking resume script and exiting")
+                # use Popen instead of run because we don't want to wait
+                subprocess.Popen([get_modelinfo("invoker_script_fname"), "--resume"])
+                raise SystemExit
 
         return ms_res
 
