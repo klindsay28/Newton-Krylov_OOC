@@ -25,9 +25,6 @@ from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
 
 
-_args_cmd = None
-
-
 def _parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(
@@ -36,12 +33,7 @@ def _parse_args():
     )
     parser.add_argument(
         "cmd",
-        choices=[
-            "gen_ic",
-            "comp_fcn",
-            "gen_precond_jacobian",
-            "apply_precond_jacobian",
-        ],
+        choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian",],
         help="command to run",
     )
     parser.add_argument(
@@ -82,9 +74,6 @@ def _resolve_fname(fname_dir, fname):
 def main(args):
     """test problem for Newton-Krylov solver"""
 
-    global _args_cmd
-    _args_cmd = args.cmd
-
     defaults = os.environ
     defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
     config = configparser.ConfigParser(defaults)
@@ -106,17 +95,8 @@ def main(args):
 
     newton_fcn = NewtonFcn()
 
-    if args.cmd == "gen_ic":
-        if args.in_fname is not None:
-            msg = "in_fname may not be specified if cmd=gen_ic"
-            raise ValueError(msg)
-        # fake value to trigger call to _read_vals
-        args.in_fname = "/not-used"
-
     ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))
-    if args.cmd == "gen_ic":
-        ms_in.dump(_resolve_fname(args.fname_dir, args.res_fname)).log("gen_ic")
-    elif args.cmd == "comp_fcn":
+    if args.cmd == "comp_fcn":
         ms_in.log("state_in")
         newton_fcn.comp_fcn(
             ms_in,
@@ -176,12 +156,9 @@ class TracerModuleState(TracerModuleStateBase):
         """return tracer values and dimension names and lengths, read from vals_fname)"""
         logger = logging.getLogger(__name__)
         logger.debug(
-            '_args_cmd="%s", tracer_module_name="%s", vals_fname="%s"',
-            _args_cmd,
-            tracer_module_name,
-            vals_fname,
+            'tracer_module_name="%s", vals_fname="%s"', tracer_module_name, vals_fname,
         )
-        if _args_cmd == "gen_ic":
+        if vals_fname == "gen_ic":
             depth = SpatialAxis("depth", get_modelinfo("depth_fname"))
             vals = np.empty((len(self._tracer_module_def), depth.nlevs))
             for tracer_ind, tracer_metadata in enumerate(
@@ -379,8 +356,8 @@ class NewtonFcn(NewtonFcnBase):
         if time == self._time_val:
             return self._mixing_coeff_vals
 
-        # z_lin ranges from 0.0 to 1.0 over span of 50.0 m, is 0.5 at bldepth
-        z_lin = 0.5 + (self.depth.edges - self.bldepth(time)) * (1.0 / 50.0)
+        # z_lin ranges from 0.0 to 1.0 over span of 40.0 m, is 0.5 at bldepth
+        z_lin = 0.5 + (self.depth.edges - self.bldepth(time)) * (1.0 / 40.0)
         z_lin = np.maximum(0.0, np.minimum(1.0, z_lin))
         res_log10_shallow = 0.0
         res_log10_deep = -5.0
