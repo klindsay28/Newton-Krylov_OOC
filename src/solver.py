@@ -115,7 +115,7 @@ class SolverState:
         """write saved state of solver to log"""
         logger = logging.getLogger(__name__)
         logger.debug('name="%s"', self._name)
-        logger.debug('iteration="%d"', self._saved_state["iteration"])
+        logger.debug("iteration=%d", self._saved_state["iteration"])
         for step_name in self._saved_state["step_log"]:
             logger.debug('"%s" logged', step_name)
 

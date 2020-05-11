@@ -39,16 +39,16 @@ def _parse_args():
         "--units", help="axis units", default="m",
     )
     parser.add_argument(
-        "--nlevs", type=int, help="number of layers", default=40,
+        "--nlevs", type=int, help="number of layers", default=30,
     )
     parser.add_argument(
         "--edge_start", type=float, help="start of edges", default=0.0,
     )
     parser.add_argument(
-        "--edge_end", type=float, help="end of edges", default=640.0,
+        "--edge_end", type=float, help="end of edges", default=675.0,
     )
     parser.add_argument(
-        "--delta_start", type=float, help="thickness of first layer", default=8.0,
+        "--delta_start", type=float, help="thickness of first layer", default=10.0,
     )
     parser.add_argument(
         "--fp_cnt",
@@ -122,7 +122,7 @@ def main(args):
 
         newton_fcn = NewtonFcn()
         for fp_iter in range(args.fp_cnt):
-            logger.info('fp_iter="%d"', fp_iter)
+            logger.info("fp_iter=%d", fp_iter)
             ic.dump(os.path.join(gen_ic_workdir, "ic_%02d.nc" % fp_iter))
             ic_fcn = newton_fcn.comp_fcn(
                 ic,
