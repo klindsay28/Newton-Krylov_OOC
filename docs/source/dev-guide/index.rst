@@ -5,5 +5,7 @@ Newton-Krylov_OOC Developer's Guide
 ===================================
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Contents:
+
+    style.rst

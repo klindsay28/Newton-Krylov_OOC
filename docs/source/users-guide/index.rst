@@ -5,7 +5,7 @@ Newton-Krylov_OOC User's Guide
 ==============================
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Contents:
 
     getting-setup.rst

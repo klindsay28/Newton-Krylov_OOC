@@ -10,14 +10,14 @@ Documentation is comprised of three documents:
 
 #. :ref:`Description <description>`:
    This document describes the mathematics and implementation of the solver.
-   Its intended audience is people desiring to understand how the solver works.
+   The intended audience is those desiring to understand how the solver works.
 #. :ref:`User's Guide <users-guide>`:
    This document describes how to practically use the software.
-   Its intended audience is people using the solver.
+   The intended audience is those using the solver.
 #. :ref:`Developer's Guide <dev-guide>`:
    This document describes software practices and tools that are used in the development
    of the software.
-   Its intended audience is people developing the solver.
+   The intended audience is those developing the solver.
 
 Please note that the documentation is under development.
 
