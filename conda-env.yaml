@@ -9,6 +9,7 @@ dependencies:
 - pytest
 - pylint
 - black
+- pre-commit
 
 # documentation
 - sphinx
