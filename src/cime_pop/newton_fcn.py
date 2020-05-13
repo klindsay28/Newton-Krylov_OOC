@@ -361,10 +361,16 @@ def _gen_post_modelrun_script(script_fname):
     )
     with open(script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash -l\n")
+        fptr.write("if ./xmlquery --value RESUBMIT | grep -q '^0$'; then\n")
+        fptr.write("    # forward run is done, reinvoke solver\n")
         fptr.write(
-            "%s %s --resume\n"
+            "    %s %s --resume\n"
             % (batch_cmd_script, get_modelinfo("invoker_script_fname"))
         )
+        fptr.write("else\n")
+        fptr.write("    # set POP_PASSIVE_TRACER_RESTART_OVERRIDE for resubmit\n")
+        fptr.write("    ./xmlchange POP_PASSIVE_TRACER_RESTART_OVERRIDE=none\n")
+        fptr.write("fi\n")
 
     # ensure script_fname is executable by the user, while preserving other permissions
     fstat = os.stat(script_fname)
