@@ -40,6 +40,19 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
                         setattr(var, attr_name, attr_value)
             setattr(var, "cell_methods", "time: point")
 
+            varname = tracer_name + "_delta"
+            var = fptr.createVariable(varname, "f8", dimensions=("depth"))
+            tracer_metadata = ms_in.tracer_metadata(tracer_name)
+            if "attrs" in tracer_metadata:
+                for attr_name, attr_value in tracer_metadata["attrs"].items():
+                    if attr_name == "long_name":
+                        setattr(
+                            var, attr_name, attr_value + ", end state minus start state"
+                        )
+                    else:
+                        setattr(var, attr_name, attr_value)
+            setattr(var, "cell_methods", "time: point")
+
             varname = tracer_name + "_zint"
             var = fptr.createVariable(varname, "f8", dimensions=("time",))
             tracer_metadata = ms_in.tracer_metadata(tracer_name)
@@ -107,6 +120,11 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
             fptr.variables[varname][
                 :
             ] = tracer_vals_time_depth - tracer_vals_time_depth[0:-1, :].mean(axis=0)
+
+            varname = tracer_name + "_delta"
+            fptr.variables[varname][:] = (
+                tracer_vals_time_depth[-1, :] - tracer_vals_time_depth[0, :]
+            )
 
             varname = tracer_name + "_zint"
             fptr.variables[varname][:] = newton_fcn_obj.depth.int_vals_mid(
