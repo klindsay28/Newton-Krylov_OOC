@@ -20,9 +20,8 @@ from netCDF4 import Dataset
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
-from ..nco_wrap import ann_files_to_mean_file, mon_files_to_mean_file
 from ..newton_fcn_base import NewtonFcnBase
-from ..utils import read_cfg_file
+from ..utils import read_cfg_file, ann_files_to_mean_file, mon_files_to_mean_file
 
 
 def _parse_args():
