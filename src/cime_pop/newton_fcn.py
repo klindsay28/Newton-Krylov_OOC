@@ -337,6 +337,10 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
     _gen_post_modelrun_script(post_modelrun_script_fname)
     cime_xmlchange("POSTRUN_SCRIPT", post_modelrun_script_fname)
 
+    # set model duration parameters
+    for xml_varname in ["STOP_OPTION", "STOP_N", "RESUBMIT"]:
+        cime_xmlchange(xml_varname, get_modelinfo(xml_varname))
+
     # submit the model run and exit
     cime_case_submit(solver_state.get_workdir())
 

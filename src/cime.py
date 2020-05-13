@@ -1,4 +1,6 @@
-"""methods specific to CIME"""
+"""
+methods specific to CIME, but independent of models/components that are run with CIME
+"""
 
 import logging
 import os
@@ -47,17 +49,23 @@ def cime_case_submit(workdir):
 
 
 def cime_yr_cnt():
-    """return how many years are in forward model run"""
-    stop_option = cime_xmlquery("STOP_OPTION")
-    stop_n = int(cime_xmlquery("STOP_N"))
-    if stop_option == "nyear":
-        yr_cnt = stop_n
-    elif stop_option == "nmonth":
-        if stop_n % 12 != 0:
-            msg = "number of months=%d not divisible by 12" % stop_n
+    """
+    return how many years are in forward model run
+    assumes STOP_OPTION, STOP_N, RESUBMIT are in modelinfo section of cfg file
+    """
+    stop_option = get_modelinfo("STOP_OPTION")
+    stop_n = int(get_modelinfo("STOP_N"))
+    resubmit = int(get_modelinfo("RESUBMIT"))
+
+    if stop_option in ["nyear", "nyears"]:
+        return resubmit * stop_n
+
+    if stop_option in ["nmonth", "nmonths"]:
+        nmonths = resubmit * stop_n
+        if nmonths % 12 != 0:
+            msg = "number of months=%d not divisible by 12" % nmonths
             raise RuntimeError(msg)
-        yr_cnt = int(stop_n) // 12
-    else:
-        msg = "stop_option = %s not implemented" % stop_option
-        raise NotImplementedError(msg)
-    return yr_cnt
+        return nmonths // 12
+
+    msg = "stop_option = %s not implemented" % stop_option
+    raise NotImplementedError(msg)
