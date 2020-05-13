@@ -26,7 +26,7 @@ def gen_invoker_script(modelinfo, repo_root):
         fptr.write("    export PYTHONPATH=models:$PYTHONPATH\n")
         fptr.write("fi\n")
         fptr.write("cd %s\n" % repo_root)
-        fptr.write('./nk_driver.py --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"])
+        fptr.write('./nk_driver.py --model_name %s "$@"\n' % modelinfo["model_name"])
 
     # ensure script is executable by the user, while preserving other permissions
     fstat = os.stat(invoker_script_fname)
@@ -41,22 +41,22 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--model",
+        "--model_name",
         help="name of model that solver is being applied to",
         default="test_problem",
     )
     parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default="models/{model}/newton_krylov.cfg",
+        default="models/{model_name}/newton_krylov.cfg",
     )
 
-    parsed_args = parser.parse_args()
+    args = parser.parse_args()
 
-    # replace {model} with specified model
-    parsed_args.cfg_fname = parsed_args.cfg_fname.replace("{model}", parsed_args.model)
+    # replace {model_name} with specified model
+    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
 
-    return parsed_args
+    return args
 
 
 def main(args):

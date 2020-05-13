@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""cime pop hooks for Newton-Krylov solver"""
+"""cime_pop hooks for Newton-Krylov solver"""
 
 from __future__ import division
 
@@ -37,25 +37,25 @@ def _parse_args():
         help="command to run",
     )
     parser.add_argument(
-        "--model",
+        "--model_name",
         help="name of model that solver is being applied to",
         default="cime_pop",
     )
     parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default="models/{model}/newton_krylov.cfg",
+        default="models/{model_name}/newton_krylov.cfg",
     )
     parser.add_argument("--hist_fname", help="name of history file", default=None)
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    parsed_args = parser.parse_args()
+    args = parser.parse_args()
 
-    # replace {model} with specified model
-    parsed_args.cfg_fname = parsed_args.cfg_fname.replace("{model}", parsed_args.model)
+    # replace {model_name} with specified model
+    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
 
-    return parsed_args
+    return args
 
 
 def main(args):

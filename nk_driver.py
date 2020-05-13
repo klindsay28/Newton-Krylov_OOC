@@ -20,14 +20,14 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--model",
+        "--model_name",
         help="name of model that solver is being applied to",
         default="test_problem",
     )
     parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default="models/{model}/newton_krylov.cfg",
+        default="models/{model_name}/newton_krylov.cfg",
     )
     parser.add_argument(
         "--resume",
@@ -42,12 +42,12 @@ def parse_args():
         default=False,
     )
 
-    parsed_args = parser.parse_args()
+    args = parser.parse_args()
 
-    # replace {model} with specified model
-    parsed_args.cfg_fname = parsed_args.cfg_fname.replace("{model}", parsed_args.model)
+    # replace {model_name} with specified model
+    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
 
-    return parsed_args
+    return args
 
 
 def main(args):

@@ -1,3 +1,5 @@
+# tracer module definitions for model=cime_pop
+
 tracer_module_defs:
     iage:  # module name
         IAGE:
