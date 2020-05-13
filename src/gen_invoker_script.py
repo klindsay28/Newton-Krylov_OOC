@@ -26,7 +26,7 @@ def gen_invoker_script(modelinfo, repo_root):
         fptr.write("    export PYTHONPATH=models:$PYTHONPATH\n")
         fptr.write("fi\n")
         fptr.write("cd %s\n" % repo_root)
-        fptr.write('./nk_driver.py --model_name %s "$@"\n' % modelinfo["model_name"])
+        fptr.write('./nk_driver.py --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"])
 
     # ensure script is executable by the user, while preserving other permissions
     fstat = os.stat(invoker_script_fname)
