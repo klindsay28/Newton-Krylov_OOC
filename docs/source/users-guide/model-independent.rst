@@ -2,10 +2,16 @@
 Model Independent Details
 =========================
 
-Most options for the solver and the test_problem model are in a cfg file.
-The default location of the cfg file is ``$TOP/models/$model/newton_krylov.cfg``,
-where ``$TOP`` is the toplevel directory of the repo and ``$model`` is the name
-of the model to which the Newton-Krylov solved is being applied.
+As described in the :ref:`terminology section<terminology>` of the NK solver description,
+the NK solver is applied to a model that is comprised of a collections of tracer modules,
+each of which is comprised of tracers.
+This section describes details of using the NK solver that are independent of which model
+the solver is being applied to.
+
+Most options for the solver and the application model are in a cfg file.
+The default location of the cfg file is ``$TOP/models/$model/newton_krylov.cfg``, where
+``$TOP`` is the toplevel directory of the repo and ``$model`` is the name of the model to
+which the Newton-Krylov solved is being applied.
 
 Output from the NK solver is written to a work directory.
 The location of the work directory is specified by ``workdir`` in the cfg file.
@@ -20,8 +26,8 @@ are available, such as the path of the cfg file.
 The ``gen_invoker_script.py`` script is designed to generate invoker scripts for any
 model for the NK solver.
 The default model is test_problem.
-The path of the invocation script, which defaults to ``nk_driver.sh`` in the work directory,
-can be modified by changing ``invoker_script_fname`` in the cfg file.
+The path of the invocation script, which defaults to ``nk_driver.sh`` in the work
+directory, can be modified by changing ``invoker_script_fname`` in the cfg file.
 The setting of the cfg file path to ``./src/gen_invoker_script.py`` is propagated to the
 invoker script.
 
@@ -81,12 +87,14 @@ Fixed Point Iterations
 At each Newton iteration, the Newton solver produces an increment that satisfies an
 Armijo residual improvement criteria.
 Adding this to the current iterate produces a provisional next Newton iterate.
-Before proceeding to the next Newton iteraton with this provisional iterate, the solver
+Before proceeding to the next Newton iteration with this provisional iterate, the solver
 performs a number of forward model runs, to allow short time scale adjustments in the
 model to occur.
+Fixed point iterations tend to be effective at spinning up processes whose timescales
+are much shorter than the model forward integration duration.
 These fixed point iterations are performed after copying shadow tracers to their real
 tracer counterparts, for those models that have shadow tracers.
-The fixed point iterations in this use case enable the shadowed tracers to adjust to the
+In this use case, the fixed point iterations enable the shadowed tracers to adjust to the
 Newton increment.
 The number of these fixed point iterations, which defaults to 1, can be modified by
 changing ``post_newton_fp_iter`` in the cfg file.
