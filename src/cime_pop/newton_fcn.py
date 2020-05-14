@@ -395,14 +395,22 @@ def _gen_hist(hist_fname):
         msg = "tavg_freq_0 = %s not implemented" % tavg_freq_0
         raise NotImplementedError(msg)
 
-    # get starting year
+    # get starting year and month
     if cime_xmlquery("RUN_TYPE") == "branch":
         date0 = cime_xmlquery("RUN_REFDATE")
     else:
         date0 = cime_xmlquery("RUN_STARTDATE")
-    yyyy = date0.split("-")[0]
+    (yyyy, mm, dd) = date0.split("-")
 
-    # construct name of first annual file
+    if dd != "01":
+        msg = "initial day = %s not implemented" % dd
+        raise NotImplementedError(msg)
+
+    if tavg_freq_opt_0 == "nyear" and mm != "01":
+        msg = "initial month = %s not implemented for nyear tavg output" % mm
+        raise NotImplementedError(msg)
+
+    # location of history files
     if cime_xmlquery("DOUT_S") == "TRUE":
         hist_dir = os.path.join(cime_xmlquery("DOUT_S_ROOT"), "ocn", "hist")
     else:
@@ -416,7 +424,7 @@ def _gen_hist(hist_fname):
 
     if tavg_freq_opt_0 == "nmonth":
         model_hist_fname0 = os.path.join(
-            hist_dir, cime_xmlquery("CASE") + ".pop.h." + yyyy + "-01.nc"
+            hist_dir, cime_xmlquery("CASE") + ".pop.h." + yyyy + "-" + mm + ".nc"
         )
         mon_files_to_mean_file(model_hist_fname0, cime_yr_cnt(), hist_fname)
 

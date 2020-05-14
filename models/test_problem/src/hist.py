@@ -15,7 +15,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
         _def_dims(fptr, newton_fcn_obj.depth)
         _def_coord_vars(fptr, depth_units)
 
-        # define tracers and corresponding _zint hist vars
+        # define tracers and corresponding derived hist vars
         # add attributes from tracer_metadata
         # cell_methods="time: point" is hard-coded, as it is a feature of hist.py,
         # not an aspect of the tracers themselves
@@ -66,7 +66,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
                         setattr(var, attr_name, attr_value)
             setattr(var, "cell_methods", "time: point")
 
-        # define non-tracer hist vars
+        # setup metadata for non-generic hist vars
 
         hist_vars_metadata = {
             "bldepth": {
@@ -95,7 +95,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
                 "attrs": {"long_name": "uptake of po4", "units": hist_var_units,},
             }
 
-        # setup metadata for non-tracer hist vars, and add attributes
+        # define non-generic hist vars, and add attributes
 
         for varname, metadata in hist_vars_metadata.items():
             var = fptr.createVariable(varname, "f8", dimensions=metadata["dimensions"])
@@ -107,7 +107,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
 
         _write_coord_vars(fptr, sol.t, newton_fcn_obj.depth)
 
-        # write tracers and corresponding _zint hist vars
+        # write tracers and corresponding derived hist vars
 
         tracer_vals = sol.y.reshape((len(tracer_names), newton_fcn_obj.depth.nlevs, -1))
         for tracer_ind, tracer_name in enumerate(tracer_names):
@@ -131,7 +131,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
                 tracer_vals_time_depth
             )
 
-        # (re-)compute and write non-tracer hist vars
+        # (re-)compute and write non-generic hist vars
 
         days_per_sec = 1.0 / 86400.0
 

@@ -53,8 +53,10 @@ def ann_files_to_mean_file(fname_in0, cnt, fname_out):
         fname_out,
         fname_in0,
     ]
+
     logger = logging.getLogger(__name__)
     logger.debug('cmd = "%s"', " ".join(cmd))
+
     subprocess.run(cmd, check=True)
 
 
@@ -66,48 +68,40 @@ def mon_files_to_mean_file(fname_in0, yr_cnt, fname_out):
     assumes that year and month are specified in fname_in0 as YYYY-MM
     at the end of fname_in0s root
 
-    generates annual means in the directory containing fname_out
-    and calls ann_files_to_mean on the annual means
+    it is okay for MM in fname_in0 to not be 01
     """
 
-    (fname_in0_root, fname_in0_ext) = os.path.splitext(fname_in0)
-    fname_in0_nodate = fname_in0_root[:-7]
-    yr0 = int(fname_in0_root[-7:-3])
-    basename_nodate = os.path.basename(fname_in0_nodate)
+    dirname_in0 = os.path.dirname(fname_in0)
+    basename_in0 = os.path.basename(fname_in0)
+    (basename_in0_root, basename_in0_ext) = os.path.splitext(basename_in0)
+    basename_in0_nodate = basename_in0_root[:-7]
+    yr0 = int(basename_in0_root[-7:-3])
+    mon0 = int(basename_in0_root[-2:])
 
-    dir_out = os.path.dirname(fname_out)
+    # construct averaging weights
+    days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    days_all = [days_in_month[(mon0 - 1 + inc) % 12] for inc in range(12 * yr_cnt)]
+    days_all_str = ",".join(["%d" % wval for wval in days_all])
 
-    for yr in range(yr0, yr0 + yr_cnt):  # pylint: disable=C0103
-        yyyy = "%04d" % yr
-        yr_fname_in0 = fname_in0_nodate + yyyy + "-01" + fname_in0_ext
-        yr_fname_out = os.path.join(dir_out, basename_nodate + yyyy + fname_in0_ext)
-        mon_files_to_ann_file(yr_fname_in0, yr_fname_out)
-
-    yyyy = "%04d" % yr0
-    yr0_ann_fname = os.path.join(dir_out, basename_nodate + yyyy + fname_in0_ext)
-    ann_files_to_mean_file(yr0_ann_fname, yr_cnt, fname_out)
-
-
-def mon_files_to_ann_file(fname_in0, fname_out):
-    """
-    average a year of files of monthly means, starting with fname_in0
-    the mean is written to fname_out
-
-    assumes that year and month are specified in fname_in0 as YYYY-MM
-    at the end of fname_in0s root
-    """
+    # generate filenames of input monthly means
+    yr_vals = [yr0 + (mon0 - 1 + inc) // 12 for inc in range(12 * yr_cnt)]
+    mon_vals = [(mon0 - 1 + inc) % 12 + 1 for inc in range(12 * yr_cnt)]
+    fname_fmt = basename_in0_nodate + "%04d" + "-" + "%02d" + basename_in0_ext
+    fnames = [fname_fmt % (yr_vals[inc], mon_vals[inc]) for inc in range(12 * yr_cnt)]
 
     cmd = [
         "ncra",
         "-O",
-        "-n",
-        "12,2",
         "-w",
-        "31,28,31,30,31,30,31,31,30,31,30,31",
+        days_all_str,
         "-o",
         fname_out,
-        fname_in0,
+        "-p",
+        dirname_in0,
     ]
+    cmd.extend(fnames)
+
     logger = logging.getLogger(__name__)
     logger.debug('cmd = "%s"', " ".join(cmd))
+
     subprocess.run(cmd, check=True)
