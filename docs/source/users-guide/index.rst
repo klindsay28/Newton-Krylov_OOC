@@ -9,4 +9,6 @@ Newton-Krylov_OOC User's Guide
     :caption: Contents:
 
     getting-setup.rst
+    model-independent.rst
     test_problem-model.rst
+    cime_pop-model.rst
