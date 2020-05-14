@@ -9,3 +9,4 @@ Newton-Krylov_OOC Description
     :caption: Contents:
 
     background.rst
+    terminology.rst

@@ -35,7 +35,15 @@ impractical for the target model configuration.
    On some computing systems, it is not possible to have the driver program reside in
    memory for the duration of multiple model runs.
 
-
 #. Solving One Problem at a Time:
+
+...
+
+The application of a preliminary version of Newton-Krylov_OOC to spinning up passive
+tracers being run online in an OGCM is documented in :cite:`Lindsay_OceMod_2017`.
+
+~~~~~~~~~~
+References
+~~~~~~~~~~
 
 .. bibliography:: ../references.bib
