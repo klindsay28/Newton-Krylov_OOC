@@ -8,6 +8,7 @@ import sys
 
 from test_problem.src.spatial_axis import SpatialAxis
 
+from .. import gen_invoker_script
 from ..model_config import ModelConfig
 from .newton_fcn import ModelState, NewtonFcn
 from ..utils import mkdir_exist_okay, read_cfg_file
@@ -132,6 +133,9 @@ def main(args):
     logger.info('init_iterate_fname="%s"', init_iterate_fname)
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
     ic.dump(init_iterate_fname)
+
+    # generate invoker script
+    gen_invoker_script.main(args)
 
 
 ################################################################################

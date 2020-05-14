@@ -5,7 +5,7 @@ import argparse
 import os
 import stat
 
-from utils import mkdir_exist_okay, read_cfg_file
+from .utils import mkdir_exist_okay, read_cfg_file
 
 
 def gen_invoker_script(modelinfo, repo_root):

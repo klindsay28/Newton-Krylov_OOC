@@ -12,5 +12,5 @@ else
     export PYTHONPATH=models:$PYTHONPATH
 fi
 
-python -m src.test_problem.bootstrap $@
-# ./models/test_problem/src/bootstrap.py $@
+python -m src.test_problem.setup_solver $@
+# ./models/test_problem/src/setup_solver.py $@
