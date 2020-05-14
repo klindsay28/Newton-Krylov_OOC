@@ -417,16 +417,16 @@ def _gen_hist(hist_fname):
         hist_dir = cime_xmlquery("RUNDIR")
 
     if tavg_freq_opt_0 == "nyear":
-        model_hist_fname0 = os.path.join(
-            hist_dir, cime_xmlquery("CASE") + ".pop.h." + yyyy + ".nc"
+        fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}.nc"
+        ann_files_to_mean_file(
+            hist_dir, fname_fmt, int(yyyy), cime_yr_cnt(), hist_fname
         )
-        ann_files_to_mean_file(model_hist_fname0, cime_yr_cnt(), hist_fname)
 
     if tavg_freq_opt_0 == "nmonth":
-        model_hist_fname0 = os.path.join(
-            hist_dir, cime_xmlquery("CASE") + ".pop.h." + yyyy + "-" + mm + ".nc"
+        fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}-{month:02d}.nc"
+        mon_files_to_mean_file(
+            hist_dir, fname_fmt, int(yyyy), int(mm), 12 * cime_yr_cnt(), hist_fname
         )
-        mon_files_to_mean_file(model_hist_fname0, cime_yr_cnt(), hist_fname)
 
 
 def _comp_fcn_post_modelrun(ms_in):
