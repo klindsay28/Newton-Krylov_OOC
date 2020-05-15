@@ -28,10 +28,25 @@ def read_cfg_file(cfg_fname):
     read cfg_fname
     set defaults common to all occurrances
     """
-    defaults = os.environ
+    defaults = {key: os.environ[key] for key in ["HOME", "USER"]}
     defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
-    config = configparser.ConfigParser(defaults)
+    config = configparser.ConfigParser(defaults, allow_no_value=True)
     config.read_file(open(cfg_fname))
+
+    # verify that only names in no_value_allowed have no value
+    # no_value_allowed is allowed to have no value or not be present
+    if "no_value_allowed" in config["DEFAULT"]:
+        no_value_allowed = config["DEFAULT"]["no_value_allowed"]
+    else:
+        no_value_allowed = None
+    nva_list = [] if no_value_allowed is None else no_value_allowed.split(",")
+    nva_list.append("no_value_allowed")
+    for section in config.sections():
+        for name in config[section]:
+            if config[section][name] is None and name not in nva_list:
+                msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fname)
+                raise ValueError(msg)
+
     return config
 
 

@@ -64,7 +64,7 @@ class ModelConfig:
         # extract region_mask from modelinfo config object
         fname = modelinfo["region_mask_fname"]
         varname = modelinfo["region_mask_varname"]
-        if not fname == "None" and not varname == "None":
+        if fname is not None and varname is not None:
             logger.log(lvl, "reading %s from %s for region_mask", varname, fname)
             with Dataset(fname, mode="r") as fptr:
                 fptr.set_auto_mask(False)
