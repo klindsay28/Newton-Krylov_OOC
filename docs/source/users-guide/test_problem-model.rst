@@ -2,55 +2,6 @@
 test_problem Model Details
 ==========================
 
------
-Usage
------
-
-Most options for the solver and the test_problem model are in a cfg file.
-The default location of the cfg file is ``$TOP/models/test_problem/newton_krylov.cfg``,
-where ``$TOP`` is the toplevel directory of the repo.
-
-To set up usage of the test_problem model, run the following command from ``$TOP``
-::
-
-  ./models/test_problem/setup_solver.sh
-
-Running ``./models/test_problem/setup_solver.sh -h`` shows what command line options are
-available, such as the path of the cfg file.
-The ``setup_solver.sh`` script does the following
-
-#. Create a work directory.
-   The location of the work directory is in the cfg file.
-   The default location is in the users home directory.
-   The work directory for test_problem is small.
-#. Create a vertical grid file in the work directory.
-   The vertical grid can be configured with ``setup_solver.sh`` command line options.
-   The default is 30 layers spanning 675 m with a top-layer thickness of 10 m.
-   The defaults can be overwritten with arguments to the ``setup_solver.sh`` script.
-#. Create an initial model state on the generated vertical grid.
-   The initial state is hard-wired to be written to a subdirectory of the work directory
-   named ``gen_ic``.
-#. Run the model forward from the generated initial state for a number of years.
-   The number of years run, which defaults 2, can be modified by with the ``--fp_cnt``
-   argument to the ``setup_solver.sh`` script.
-   The result of these forward model runs is written to the ``gen_ic`` directory.
-#. Invoke ``gen_invoker_script``, to generate the solver invoker script.
-
-
-Running the invocation script generated in the last step will start the NK solver.
-The solver will run until a convergence criteria is met, or the maximum number of Newton
-iterations is exceeded.
-Both of these options are in the cfg file.
-The default settings yield convergence for the ideal age tracer module, but not the
-phosphorus tracer module.
-
-By default, the solver solves the test_problem model with the driver persistent in memory.
-The test_problem model is small enough that this is feasible.
-If the ``reinvoke`` setting in the cfg file is set to True,
-then the solver reinvokes itself after each forward model run and exits.
-This exercises the the out-of-core functionality that is necessary for when the NK solver
-is applied to large models.
-
 -----------
 Description
 -----------
@@ -97,3 +48,76 @@ Because po4 uptake for the shadow tracer is independent of the shadow tracers,
 it is as if the shadow tracers are being spun up with a fixed productivity field.
 The restoring of the po4 shadow tracer to the real po4 tracer keeps the shadow tracers
 from getting unphysical values.
+
+-----
+Usage
+-----
+
+Most options for the solver and the test_problem model are in a cfg file.
+The default location of the cfg file is ``$TOP/models/test_problem/newton_krylov.cfg``,
+where ``$TOP`` is the toplevel directory of the repo.
+
+~~~~~~
+Step 1
+~~~~~~
+
+Set variables in the cfg file.
+It is recommended to make these modifications on a copy of the file from the repo, to be
+able to preserve the settings for a particular application of the solver, and to avoid
+conflicts if the repo copy is updated.
+The following variables are the most likely to need to be set by the user:
+
+``...``
+
+~~~~~~
+Step 2
+~~~~~~
+
+Run the following command from ``$TOP`` to set up usage of the solver
+::
+
+  ./models/test_problem/setup_solver.sh --cfg_fname <cfg_fname>
+
+Running ``./models/test_problem/setup_solver.sh -h`` shows what command line options are
+available.
+The ``setup_solver.sh`` script does the following
+
+#. Create the work directory.
+   The path of the work directory, which defaults to a subdirectory of the users home
+   directory, is specified by ``workdir`` in the cfg file.
+   The work directory contents for test_problem are small.
+#. Create a vertical grid file.
+   The location of the grid file, which defaults to a file in the work directory, is
+   specified by ``grid_weight_fname`` in the cfg file.
+   The default vertical grid has 30 layers spanning 675 m with a top-layer thickness of 10
+   m.
+   The defaults can be overwritten with arguments to the ``setup_solver.sh`` script.
+#. Create an initial model state on the generated vertical grid.
+   The initial tracer profiles are linearly interpolated to the vertical grid from the
+   values specified by ``ic_vals`` and ``ic_val_depths`` in the tracer module definition
+   file specified by ``tracer_module_defs_fname`` in the cfg file.
+   The initial state is hard-wired to be written to a subdirectory of the work directory
+   named ``gen_ic``.
+#. Run the model forward from the generated initial state for a number of years.
+   The number of years run, which defaults to 2, can be modified by with the ``--fp_cnt``
+   argument to the ``setup_solver.sh`` script.
+   The result of these forward model runs is written to the ``gen_ic`` directory.
+#. Invoke ``gen_invoker_script``, to generate the solver invoker script.
+   The location of the invoker script, which defaults to a file in the work directory, is
+   specified by ``invoker_script_fname`` in the cfg file.
+
+
+Running the invocation script generated in the last step will start the NK solver.
+The solver will run until a convergence criteria is met, or the maximum number of Newton
+iterations is exceeded.
+Both of these options are in the cfg file, as ``newton_rel_tol`` and ``newton_max_iter``
+respectively.
+The default settings yield convergence for the ideal age tracer module, but not the
+phosphorus tracer module.
+
+By default, the solver solves the test_problem model with the driver persistent in memory.
+The test_problem model is small enough that this is feasible.
+If the ``reinvoke`` setting in the cfg file is set to True,
+then the solver reinvokes itself after each forward model run and exits.
+This exercises the the out-of-core functionality that is necessary for when the NK solver
+is applied to large models.

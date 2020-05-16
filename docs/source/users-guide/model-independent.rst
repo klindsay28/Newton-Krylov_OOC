@@ -37,6 +37,10 @@ up the solver one step when resuming.
 The ``--rewind`` option is useful when resuming after a forward model run aborts.
 Otherwise, the solver assumes that the forward model run was successful.
 
+------------------
+Driver Persistence
+------------------
+
 The NK solver can either run with the driver persistent in memory, or it can invoke
 itself after a forward model run and exit.
 The latter approach is necessary when the computing environment does not allow for the
@@ -55,8 +59,8 @@ The path of the log file, which defaults to ``newton_krylov.log`` in the work di
 can be modified by changing ``logging_fname`` in the cfg file.
 Setting ``logging_level=DEBUG`` in the cfg file will generate more output in the log file.
 
-The solver writes summary statistics for each model being run to a netCDF formatted stats
-file.
+The solver writes summary statistics for each tracer module being run to a netCDF
+formatted stats file.
 The stats file includes mean and norm of the Newton iterates, their function evaluations,
 and the increments applied in Newton's method.
 The path of the stats file, which defaults to ``newton_solver_stats.nc`` in the work
@@ -76,20 +80,20 @@ much shorter than the model forward integration duration.
 An example is spinning up biogeochemical tracers in an OGCM, and utilizing shadow nutrient
 tracers whose uptake is taken from their real tracer counterparts.
 This effectively spin up the shadow nutrients with fixed productivity fields.
-The details of the shadowing are confined to the model implementation, and do not propagte
-into the NK solver.
+The details of the shadowing are confined to the model implementation, and do not
+propagate into the NK solver.
 At the end of each Newton iteration, shadow tracers are copied to the real counterparts.
 
 ----------------------
 Fixed Point Iterations
 ----------------------
 
-At each Newton iteration, the Newton solver produces an increment that satisfies an
-Armijo residual improvement criteria.
-Adding this to the current iterate produces a provisional next Newton iterate.
-Before proceeding to the next Newton iteration with this provisional iterate, the solver
-performs a number of forward model runs, to allow short time scale adjustments in the
-model to occur.
+The Newton solver generates, for each iteration, an increment that satisfies an Armijo
+residual improvement criteria.
+The sum of this increment and the current Newton iterate is a provisional next iterate.
+Before proceeding to the next Newton iteration, the solver performs a number of forward
+model runs that are initialized with this provisional iterate, to allow short time scale
+adjustments in the model to occur.
 Fixed point iterations tend to be effective at spinning up processes whose timescales
 are much shorter than the model forward integration duration.
 These fixed point iterations are performed after copying shadow tracers to their real

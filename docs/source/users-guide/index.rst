@@ -12,3 +12,4 @@ Newton-Krylov_OOC User's Guide
     model-independent.rst
     test_problem-model.rst
     cime_pop-model.rst
+    faq.rst
