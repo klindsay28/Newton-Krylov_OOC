@@ -4,7 +4,8 @@ Newton-Krylov_OOC Documentation
 
 Newton-Krylov_OOC is an Out-of-Core Newton-Krylov Solver.
 
-It is available via `github <https://github.com/klindsay28/Newton-Krylov_OOC>`_.
+The source code for the solver is available via `github
+<https://github.com/klindsay28/Newton-Krylov_OOC>`_.
 
 Documentation is comprised of three documents:
 
