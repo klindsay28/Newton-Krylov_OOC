@@ -74,13 +74,6 @@ def main(args):
         stream=sys.stdout, format=logging_format, level=solverinfo["logging_level"]
     )
     logger = logging.getLogger(__name__)
-    solverinfo = config["solverinfo"]
-
-    logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
-    logging.basicConfig(
-        stream=sys.stdout, format=logging_format, level=solverinfo["logging_level"]
-    )
-    logger = logging.getLogger(__name__)
 
     logger.info('args.model_name="%s"', args.model_name)
     logger.info('args.cfg_fname="%s"', args.cfg_fname)
@@ -129,7 +122,7 @@ def main(args):
             ic.copy_shadow_tracers_to_real_tracers()
 
     # write generated ic to where solver expects it to be
-    init_iterate_fname = config["modelinfo"]["init_iterate_fname"]
+    init_iterate_fname = modelinfo["init_iterate_fname"]
     logger.info('init_iterate_fname="%s"', init_iterate_fname)
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
     ic.dump(init_iterate_fname)

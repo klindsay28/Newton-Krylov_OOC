@@ -2,6 +2,7 @@
 """generate script for invoking nk_driver.py"""
 
 import argparse
+import logging
 import os
 import stat
 
@@ -15,7 +16,9 @@ def gen_invoker_script(modelinfo, repo_root):
 
     invoker_script_fname = modelinfo["invoker_script_fname"]
     mkdir_exist_okay(os.path.dirname(invoker_script_fname))
-    print("generating %s" % invoker_script_fname)
+
+    logger = logging.getLogger(__name__)
+    logger.info("generating %s", invoker_script_fname)
 
     with open(invoker_script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
