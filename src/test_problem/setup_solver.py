@@ -96,6 +96,7 @@ def main(args):
     mkdir_exist_okay(os.path.dirname(grid_weight_fname))
     depth.dump(grid_weight_fname)
 
+    # confirm that model configuration works with generated file
     # ModelState relies on model being configured
     ModelConfig(modelinfo)
 

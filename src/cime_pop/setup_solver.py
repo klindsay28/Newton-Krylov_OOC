@@ -12,6 +12,7 @@ import numpy as np
 
 from ..cime import cime_xmlquery, cime_yr_cnt
 from .. import gen_invoker_script
+from ..model_config import ModelConfig
 from ..utils import (
     mkdir_exist_okay,
     read_cfg_file,
@@ -78,6 +79,10 @@ def main(args):
     logger.info('region_mask_fname="%s"', region_mask_fname)
     mkdir_exist_okay(os.path.dirname(region_mask_fname))
     gen_region_mask_file(modelinfo)
+
+    # confirm that model configuration works with generated file
+    # ModelState relies on model being configured
+    ModelConfig(modelinfo)
 
     # generate invoker script
     gen_invoker_script.main(args)
