@@ -47,6 +47,10 @@ def read_cfg_file(cfg_fname):
                 msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fname)
                 raise ValueError(msg)
 
+    if config["solverinfo"]["cfg_out_fname"] is not None:
+        with open(config["solverinfo"]["cfg_out_fname"], "w") as fptr:
+            config.write(fptr)
+
     return config
 
 
