@@ -10,11 +10,11 @@ import subprocess
 from .model_config import get_modelinfo
 
 
-def cime_xmlquery(varname):
+def cime_xmlquery(varname, caseroot=None):
     """run CIME's xmlquery for varname in the directory caseroot, return the value"""
-    caseroot = get_modelinfo("caseroot")
+    caseroot_loc = get_modelinfo("caseroot") if caseroot is None else caseroot
     return subprocess.check_output(
-        ["./xmlquery", "--value", varname], cwd=caseroot
+        ["./xmlquery", "--value", varname], cwd=caseroot_loc
     ).decode()
 
 
@@ -48,20 +48,25 @@ def cime_case_submit(workdir):
     subprocess.run(script_fname, shell=True, check=True)
 
 
-def cime_yr_cnt():
+def cime_yr_cnt(modelinfo=None):
     """
     return how many years are in forward model run
     assumes STOP_OPTION, STOP_N, RESUBMIT are in modelinfo section of cfg file
     """
-    stop_option = get_modelinfo("STOP_OPTION")
-    stop_n = int(get_modelinfo("STOP_N"))
-    resubmit = int(get_modelinfo("RESUBMIT"))
+    if modelinfo is None:
+        stop_option = get_modelinfo("STOP_OPTION")
+        stop_n = int(get_modelinfo("STOP_N"))
+        resubmit = int(get_modelinfo("RESUBMIT"))
+    else:
+        stop_option = modelinfo["STOP_OPTION"]
+        stop_n = int(modelinfo["STOP_N"])
+        resubmit = int(modelinfo["RESUBMIT"])
 
     if stop_option in ["nyear", "nyears"]:
-        return resubmit * stop_n
+        return (resubmit + 1) * stop_n
 
     if stop_option in ["nmonth", "nmonths"]:
-        nmonths = resubmit * stop_n
+        nmonths = (resubmit + 1) * stop_n
         if nmonths % 12 != 0:
             msg = "number of months=%d not divisible by 12" % nmonths
             raise RuntimeError(msg)

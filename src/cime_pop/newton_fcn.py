@@ -402,6 +402,8 @@ def _gen_hist(hist_fname):
         date0 = cime_xmlquery("RUN_STARTDATE")
     (yyyy, mm, dd) = date0.split("-")
 
+    # basic error checking
+
     if dd != "01":
         msg = "initial day = %s not implemented" % dd
         raise NotImplementedError(msg)
