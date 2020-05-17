@@ -2,11 +2,25 @@
 cime_pop Model Details
 ======================
 
+-----------
+Description
+-----------
+
+The cime_pop model is the OGCM `POP <https://www.cesm.ucar.edu/models/cesm2/ocean/>`_
+being run within `CESM <http://www.cesm.ucar.edu/>`_ using the coupling infrastructure of
+`CIME <https://esmci.github.io/cime/versions/master/html/index.html>`_.
+The rationale for this name is provided in the :ref:`FAQ <cime_pop_name_FAQ>`.
+POP evolves tracers forward in time for a user specified run duration.
+The function :math:`F(X)` that the Newton-Krylov (NK) solver is finding a root of is the
+change in tracer that occurs when the model is run forward from state :math:`X`.
+That is, the solver solves for an initial tracer state such that end state from running
+the model forward in time is the same as the initial state.
+
 -----
 Usage
 -----
 
-Most options for the solver and the cime_pop model are in a cfg file.
+Most options for the solver and the cime_pop model are in the cfg file.
 The default location of the cfg file is ``$TOP/models/cime_pop/newton_krylov.cfg``,
 where ``$TOP`` is the toplevel directory of the repo.
 
@@ -33,11 +47,20 @@ Setup and build the case that the solver will use for forward model runs.
 Step 3
 ~~~~~~
 
-Set variables in the cfg file.
-It is recommended to make these modifications on a copy of the file from the repo, to be
-able to preserve the settings for a particular application of the solver, and to avoid
-conflicts if the repo copy is updated.
+Customize variable settings in the cfg file.
+We recommend that the user makes these modifications on a copy of the file from the repo,
+to be able to preserve the settings for a particular application of the solver, and to
+avoid conflicts if the repo copy is updated.
 The following variables are the most likely to need to be set by the user:
+
+* ``workdir``: directory where solver generated files are stored
+* ``newton_rel_tol``: relative tolerance for Newton convergence; The solver is considered
+  converged if :math:`|F(X)| < \text{newton_rel_tol} \cdot |X|` for each tracer module
+  and region.
+* ``newton_max_iter``: maximum number of Newton iterations
+* ``post_newton_fp_iter``: number of fixed-point iterations performed after each Newton
+  iteraton
+* ``tracer_module_names``: which tracer modules the solver is applied to
 
 ``...``
 
@@ -50,9 +73,10 @@ Run the following command from ``$TOP`` to set up usage of the solver
 
   ./models/cime_pop/setup_solver.sh --cfg_fname <cfg_fname>
 
+where <cfg_fname> is the path of the customized cfg file.
 Running ``./models/cime_pop/setup_solver.sh -h`` shows what command line options are
 available.
-The ``setup_solver.sh`` script does the following
+The ``setup_solver.sh`` script does the following:
 
 #. Create the work directory.
    The path of the work directory, which defaults to
