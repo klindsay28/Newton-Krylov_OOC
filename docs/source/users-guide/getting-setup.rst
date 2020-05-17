@@ -4,8 +4,8 @@ Getting Setup
 
 #. The solver software uses conda to create and use a software environment that includes
    the python packages used by the solver.
-   If conda is not already installed for your own usage, it can be installed using
-   miniconda, which is `available online
+   If conda is not already installed for your own usage, it needs to be installed, which
+   can be done using miniconda, which is `available online
    <https://docs.conda.io/en/latest/miniconda.html>`_.
 #. The solver software uses a bash shell script to invoke the solver.
    As described in :ref:`FAQ <bash_script_FAQ>`, this script activates the required conda
