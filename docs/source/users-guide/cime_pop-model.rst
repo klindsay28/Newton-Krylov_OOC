@@ -99,9 +99,13 @@ Specifics for the case used by solver for forward model runs
 Copy the rpointer files from ``RUN_REFCASE`` to a directory where they not not be
 overwritten by doing a forward model run.
 The solver will copy these to the run directory before each forward model run.
+This directory is specified by ``rpointer_dir`` in the cfg file.
+The default location is $CASEROOT/rpointers.
 
 Ensure that the model produces for each tracer module the output fields needed to
 construct the preconditioner in the Krylov solver.
+
+Disable short term archiving, by changing the xml variable ``DOUT_S`` to ``FALSE``.
 
 ~~~~~~
 Step 2
@@ -128,8 +132,8 @@ The following variables are the most likely to need to be set by the user:
 * ``irf_case``, ``irf_hist_dir``, ``irf_hist_freq_opt``: specifications of history (tavg)
   output from the IRF generating case
 * ``irf_hist_start_date``, ``irf_hist_yr_cnt``: starting date and duration of IRF history
-  output that is to be used; these can be omitted if the IRF output to be used coincides
-  with the run duration in the forward model runsa
+  output that is to be used; these settings can be left blank if the IRF output to be used
+  coincides with the run duration in the forward model runs
 * ``batch_charge_account``: project number to be used in batch jobs applying the Krylov
   solver preconditioner
 * ``init_iterate_fname``: name of file containing initial iterate
@@ -147,6 +151,13 @@ Run the following command from ``$TOP`` to set up usage of the solver
   ./models/cime_pop/setup_solver.sh --cfg_fname <cfg_fname>
 
 where <cfg_fname> is the path of the customized cfg file.
+If running on the NCAR/CISL machine cheyenne, replace this with
+::
+
+  qcmd -- ./models/cime_pop/setup_solver.sh --cfg_fname <cfg_fname>
+
+to avoid excessive computational load on login nodes from computing the mean of the IRF
+output.
 Running ``./models/cime_pop/setup_solver.sh -h`` shows what command line options are
 available.
 The ``setup_solver.sh`` script does the following:
