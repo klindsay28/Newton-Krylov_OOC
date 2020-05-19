@@ -16,6 +16,8 @@ In the application to spinning up tracers in an OGCM, the model is the OGCM, the
 :math:`X` is the vector of tracer values being spun up, and the function :math:`F` is the
 change in state that occurs when the model is run forward from state :math:`X`.
 
+.. _terminology_tracers:
+
 The state :math:`X` is treated as a collection of tracer values.
 This arises in the OGCM application from having multiple tracer values on the same model
 grid.
@@ -24,6 +26,8 @@ In practice, some tracers are decoupled from other tracers.
 For example, CFC tracers in an OGCM are independent of noble gas tracers.
 We refer to collections of related or coupled tracers as a tracer module.
 The solver solves :math:`F` for each tracer module independently.
+
+.. _terminology_regions:
 
 The solver also has a concept of regions, that tracer values in subsets of the state space
 are decoupled from other subsets of the state space.

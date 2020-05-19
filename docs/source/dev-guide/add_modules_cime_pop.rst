@@ -13,3 +13,7 @@ So tracer modules being supported by cime_pop need to set their namelist variabl
 appropriately when this xml variable is not "none".
 The usage of this xml variable in the setting of namelist variables in ``iage_nml`` is a
 template that can be followed.
+
+------------------------------------------------
+Tracer Module Definition File Format Description
+------------------------------------------------

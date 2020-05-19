@@ -51,7 +51,7 @@ Additionally, ``xmlchange`` commands are echoed to the CaseStatus file, creating
 of user modifications.
 This record is useful for reconstructing how a case was set up.
 
-After the case has been created using ``create_newcase`` or ``create_clone``, set the
+After the cases have been created using ``create_newcase`` or ``create_clone``, set the
 following xml variables for the initialization of the model: ``RUN_TYPE``,
 ``RUN_REFCASE``, ``RUN_REFDATE``.
 The implementation of the cime_pop model in the solver assumes that ``RUN_TYPE`` is
@@ -77,11 +77,11 @@ This is enabled by adding the following line to ``user_nl_pop``:
 
    tavg_freq_opt(1) = 'nyear'
 
- Build the case by running the command ``./case.build``.
- On the NCAR/CISL machine cheyenne, CISL requests that model builds not be done on login
- nodes, to reduce computational load.
- The build can be done on batch nodes of cheyenne by running the command ``qcmd --
- ./case.build``.
+Build the cases by running the command ``./case.build``.
+On the NCAR/CISL machine cheyenne, CISL requests that model builds not be done on login
+nodes, to reduce computational load.
+The build can be done on batch nodes of cheyenne by running the command ``qcmd --
+./case.build``.
 
 Specifics for the IRF generating case that generates IRF output
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -121,8 +121,21 @@ The following variables are the most likely to need to be set by the user:
 * ``post_newton_fp_iter``: number of fixed-point iterations performed after each Newton
   iteraton
 * ``tracer_module_names``: which tracer modules the solver is applied to
-
-``...``
+* ``caseroot``: caseroot directory of the case used by solver for forward model runs
+* ``STOP_OPTION``, ``STOP_N``, ``RESUBMIT``: options for the duration of forward model
+  runs
+* ``rpointer_dir``: directory containing rpointer files used to start forward model runs
+* ``irf_case``, ``irf_hist_dir``, ``irf_hist_freq_opt``: specifications of history (tavg)
+  output from the IRF generating case
+* ``irf_hist_start_date``, ``irf_hist_yr_cnt``: starting date and duration of IRF history
+  output that is to be used; these can be omitted if the IRF output to be used coincides
+  with the run duration in the forward model runsa
+* ``batch_charge_account``: project number to be used in batch jobs applying the Krylov
+  solver preconditioner
+* ``init_iterate_fname``: name of file containing initial iterate
+* ``include_black_sea``: True indicates that the solver will be applied in the Black Sea.
+  Spin up in the Black Sea uses a separate :ref:`region <terminology_regions>`.
+  False indicates that the solver will not be applied in the Black Sea.
 
 ~~~~~~
 Step 3
