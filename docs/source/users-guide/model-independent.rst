@@ -23,13 +23,13 @@ src.gen_invoker_script``, this is usually not necessary, as each model has a set
 script that invokes it.
 That said, running this command with the argument ``-h`` shows what command line options
 are available, such as the path of the cfg file.
-The ``gen_invoker_script.py`` script is designed to generate invoker scripts for any
-model for the NK solver.
+The ``gen_invoker_script.py`` script is designed to generate solver's invocation script
+for any model for the NK solver.
 The default model is test_problem.
 The path of the invocation script, which defaults to ``nk_driver.sh`` in the work
 directory, can be modified by changing ``invoker_script_fname`` in the cfg file.
 The setting of the cfg file path to ``./src/gen_invoker_script.py`` is propagated to the
-invoker script.
+solver's invocation script.
 
 Invoking the invocation script with the ``-h`` option shows what command line options are
 available, such ``--resume`` to resume the solver after it exits, or ``--rewind`` to back
@@ -49,6 +49,8 @@ forward model runs.
 The ``cime_pop`` model is implemented such that the solver exits immediately after
 submitting the forward model run to a batch job submission system, reducing the amount of
 time that the solver resides in memory.
+
+.. _solver_diagnostic_output:
 
 ------------------------
 Diagnostic Solver Output
