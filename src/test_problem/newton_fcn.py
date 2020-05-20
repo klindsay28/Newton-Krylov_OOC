@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """test_problem hooks for Newton-Krylov solver"""
 
-import argparse
 from distutils.util import strtobool
 import logging
 import os
@@ -22,15 +21,12 @@ from test_problem.src.hist import hist_write
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
-from ..utils import read_cfg_file
+from ..utils import parse_args_common, read_cfg_file
 
 
 def _parse_args():
     """parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="test problem for Newton-Krylov solver",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+    parser = parse_args_common("test problem for Newton-Krylov solver")
     parser.add_argument(
         "cmd",
         choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian",],
@@ -40,16 +36,6 @@ def _parse_args():
         "--fname_dir",
         help="directory that relative fname arguments are relative to",
         default=".",
-    )
-    parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default="test_problem",
-    )
-    parser.add_argument(
-        "--cfg_fname",
-        help="name of configuration file",
-        default="models/{model_name}/newton_krylov.cfg",
     )
     parser.add_argument("--hist_fname", help="name of history file", default=None)
     parser.add_argument("--precond_fname", help="name of precond file", default=None)

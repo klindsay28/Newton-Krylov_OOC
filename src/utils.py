@@ -1,5 +1,6 @@
 """general purpose utility functions"""
 
+import argparse
 import configparser
 import errno
 import logging
@@ -21,6 +22,24 @@ def mkdir_exist_okay(path):
             pass
         else:
             raise
+
+
+def parse_args_common(description, model_name="test_problem"):
+    """instantiate and return a parser, using common options"""
+    parser = argparse.ArgumentParser(
+        description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--model_name",
+        help="name of model that solver is being applied to",
+        default=model_name,
+    )
+    parser.add_argument(
+        "--cfg_fname",
+        help="name of configuration file",
+        default="models/{model_name}/newton_krylov.cfg",
+    )
+    return parser
 
 
 def read_cfg_file(cfg_fname):

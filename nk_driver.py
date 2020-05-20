@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """driver for Newton-Krylov solver"""
 
-import argparse
 import importlib
 import logging
 import os
@@ -9,26 +8,13 @@ import sys
 
 from src.model_config import ModelConfig
 from src.newton_solver import NewtonSolver
-from src.utils import read_cfg_file
+from src.utils import parse_args_common, read_cfg_file
 
 
 def parse_args():
     """parse command line arguments"""
 
-    parser = argparse.ArgumentParser(
-        description="Newton's method example",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default="test_problem",
-    )
-    parser.add_argument(
-        "--cfg_fname",
-        help="name of configuration file",
-        default="models/{model_name}/newton_krylov.cfg",
-    )
+    parser = parse_args_common("Newton's method example")
     parser.add_argument(
         "--resume",
         help="resume Newton's method from solver's saved state",

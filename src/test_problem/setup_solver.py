@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """set up files needed to run NK solver for test_problem"""
 
-import argparse
 import logging
 import os
 import sys
@@ -11,25 +10,12 @@ from test_problem.src.spatial_axis import SpatialAxis
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
 from .newton_fcn import ModelState, NewtonFcn
-from ..utils import mkdir_exist_okay, read_cfg_file
+from ..utils import parse_args_common, mkdir_exist_okay, read_cfg_file
 
 
 def _parse_args():
     """parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="setup test_problem",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default="test_problem",
-    )
-    parser.add_argument(
-        "--cfg_fname",
-        help="name of configuration file",
-        default="models/{model_name}/newton_krylov.cfg",
-    )
+    parser = parse_args_common("setup test_problem")
     parser.add_argument(
         "--axisname", help="axis name", default="depth",
     )

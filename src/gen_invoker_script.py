@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 """generate script for invoking nk_driver.py"""
 
-import argparse
 import logging
 import os
 import stat
 
-from .utils import mkdir_exist_okay, read_cfg_file
+from .utils import parse_args_common, mkdir_exist_okay, read_cfg_file
 
 
 def gen_invoker_script(modelinfo, repo_root):
@@ -42,20 +41,7 @@ def gen_invoker_script(modelinfo, repo_root):
 def parse_args():
     """parse command line arguments"""
 
-    parser = argparse.ArgumentParser(
-        description="generate script for invoking nk_driver.py",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default="test_problem",
-    )
-    parser.add_argument(
-        "--cfg_fname",
-        help="name of configuration file",
-        default="models/{model_name}/newton_krylov.cfg",
-    )
+    parser = parse_args_common("generate script for invoking nk_driver.py")
 
     args = parser.parse_args()
 
