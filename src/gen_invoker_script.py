@@ -21,9 +21,12 @@ def gen_invoker_script(modelinfo, repo_root):
     logger.info("generating %s", invoker_script_fname)
 
     with open(invoker_script_fname, mode="w") as fptr:
-        fptr.write("#!/bin/bash -l\n")
+        fptr.write("#!/bin/bash\n")
         fptr.write("cd %s\n" % repo_root)
         fptr.write("source src/newton_krylov_env_cmds\n")
+        if "mpi_cmd_env_cmds_fname" in modelinfo:
+            if modelinfo["mpi_cmd_env_cmds_fname"] is not None:
+                fptr.write("source %s\n" % modelinfo["mpi_cmd_env_cmds_fname"])
         fptr.write("if [ -z ${PYTHONPATH+x} ]; then\n")
         fptr.write("    export PYTHONPATH=models\n")
         fptr.write("else\n")

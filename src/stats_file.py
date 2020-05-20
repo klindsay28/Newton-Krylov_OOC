@@ -23,13 +23,13 @@ def stats_file_create(fname):
         # define stats variables
         dimensions = ("iteration", "region")
         attrs_dict = {
-            "%s_iterate_mean": {"long_name": "mean of %s iterate"},
-            "%s_iterate_norm": {"long_name": "norm of %s iterate"},
-            "%s_fcn_mean": {"long_name": "mean of fcn applied to %s iterate"},
-            "%s_fcn_norm": {"long_name": "norm of fcn applied to %s iterate"},
-            "%s_increment_mean": {"long_name": "mean of %s Newton increment"},
-            "%s_increment_norm": {"long_name": "norm of %s Newton increment"},
-            "%s_Armijo_Factor": {
+            "iterate_mean_%s": {"long_name": "mean of %s iterate"},
+            "iterate_norm_%s": {"long_name": "norm of %s iterate"},
+            "fcn_mean_%s": {"long_name": "mean of fcn applied to %s iterate"},
+            "fcn_norm_%s": {"long_name": "norm of fcn applied to %s iterate"},
+            "increment_mean_%s": {"long_name": "mean of %s Newton increment"},
+            "increment_norm_%s": {"long_name": "norm of %s Newton increment"},
+            "Armijo_Factor_%s": {
                 "long_name": "Armijo factor applied to %s Newton increment"
             },
         }
@@ -67,5 +67,5 @@ def stats_file_append_vals(fname, iteration, varname, vals):
                     fptr.variables[full_varname][iteration, :] = fill_value
 
         for ind, tracer_module_name in enumerate(tracer_module_names):
-            full_varname = tracer_module_name + "_" + varname
+            full_varname = varname + "_" + tracer_module_name
             fptr.variables[full_varname][iteration, :] = vals[ind].vals()

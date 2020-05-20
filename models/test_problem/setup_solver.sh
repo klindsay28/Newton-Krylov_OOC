@@ -1,10 +1,12 @@
-#!/bin/bash -l
+#!/bin/bash -i
 
 set -e
 
 toplevel_dir=`git rev-parse --show-toplevel`
 
 cd $toplevel_dir
+
+source src/newton_krylov_env_cmds
 
 if [ -z ${PYTHONPATH+x} ]; then
     export PYTHONPATH=models

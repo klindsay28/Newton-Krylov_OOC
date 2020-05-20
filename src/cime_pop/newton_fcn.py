@@ -242,6 +242,7 @@ class NewtonFcn(NewtonFcnBase):
 
     def _gen_precond_matrix_files(self, iterate, precond_fname, solver_state):
         """Generate matrix files for preconditioner of jacobian of comp_fcn."""
+        logger = logging.getLogger(__name__)
         jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
 
         matrix_def_base = get_precond_matrix_def("base")
@@ -272,6 +273,7 @@ class NewtonFcn(NewtonFcnBase):
                 matrix_opts_fname,
                 matrix_fname,
             ]
+            logger.info('cmd="%s"', " ".join(cmd))
             subprocess.run(cmd, check=True)
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
@@ -342,7 +344,7 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
         cime_xmlchange(xml_varname, get_modelinfo(xml_varname))
 
     # submit the model run and exit
-    cime_case_submit(solver_state.get_workdir())
+    cime_case_submit()
 
     solver_state.log_step(fcn_complete_step)
 
@@ -356,17 +358,20 @@ def _gen_post_modelrun_script(script_fname):
     script_fname is called by CIME, and submits invoker_script_fname
         with the command batch_cmd_script (which can be an empty string)
     """
-    batch_cmd_script = (
-        get_modelinfo("batch_cmd_script").replace("\n", " ").replace("\r", " ")
-    )
+    batch_cmd_script = get_modelinfo("batch_cmd_script")
+    if batch_cmd_script is not None:
+        batch_cmd_script = batch_cmd_script.replace("\n", " ").replace("\r", " ")
+    invoker_script_fname = get_modelinfo("invoker_script_fname")
     with open(script_fname, mode="w") as fptr:
-        fptr.write("#!/bin/bash -l\n")
+        fptr.write("#!/bin/bash\n")
         fptr.write("if ./xmlquery --value RESUBMIT | grep -q '^0$'; then\n")
         fptr.write("    # forward run is done, reinvoke solver\n")
-        fptr.write(
-            "    %s %s --resume\n"
-            % (batch_cmd_script, get_modelinfo("invoker_script_fname"))
-        )
+        if batch_cmd_script is None:
+            fptr.write("    %s --resume\n" % invoker_script_fname)
+        else:
+            fptr.write(
+                "    %s %s --resume\n" % (batch_cmd_script, invoker_script_fname)
+            )
         fptr.write("else\n")
         fptr.write("    # set POP_PASSIVE_TRACER_RESTART_OVERRIDE for resubmit\n")
         fptr.write("    ./xmlchange POP_PASSIVE_TRACER_RESTART_OVERRIDE=none\n")
@@ -385,7 +390,10 @@ def _gen_hist(hist_fname):
 
     # initial implementation only works for annual mean output
     # confirm that this is the case
-    tavg_freq_opt_0 = _get_pop_nl_var("tavg_freq_opt").split()[0].split("'")[1]
+    if _pop_nl_var_exists("tavg_freq_opt(1)"):
+        tavg_freq_opt_0 = _get_pop_nl_var("tavg_freq_opt(1)").split()[0].split("'")[1]
+    else:
+        tavg_freq_opt_0 = _get_pop_nl_var("tavg_freq_opt").split()[0].split("'")[1]
     if tavg_freq_opt_0 not in ["nyear", "nmonth"]:
         msg = "tavg_freq_opt_0 = %s not implemented" % tavg_freq_opt_0
         raise NotImplementedError(msg)
@@ -473,6 +481,7 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
             batch_cmd.format(**opt_str_subs),
             get_modelinfo("invoker_script_fname"),
         )
+        logger.info('cmd="%s"', cmd)
         subprocess.run(cmd, check=True, shell=True)
         solver_state.log_step(fcn_complete_step)
         logger.debug("raising SystemExit")
@@ -514,17 +523,20 @@ def _apply_precond_jacobian_solve_lin_eqns(
         matrix_fname = os.path.join(
             solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
         )
-        cmd = [
-            get_modelinfo("mpi_cmd"),
-            os.path.join(jacobian_precond_tools_dir, "bin", "solve_ABdist"),
-            "-D1",
-            "-n",
-            "%d,%d" % (nprow, npcol),
-            "-v",
-            tracer_names_list_to_str(tracer_names_subset),
-            matrix_fname,
-            res_fname,
-        ]
+        # split mpi_cmd, in case it has spaces because of arguments
+        cmd = get_modelinfo("mpi_cmd").split()
+        cmd.extend(
+            [
+                os.path.join(jacobian_precond_tools_dir, "bin", "solve_ABdist"),
+                "-D1",
+                "-n",
+                "%d,%d" % (nprow, npcol),
+                "-v",
+                tracer_names_list_to_str(tracer_names_subset),
+                matrix_fname,
+                res_fname,
+            ]
+        )
         logger.info('cmd="%s"', " ".join(cmd))
         subprocess.run(cmd, check=True)
 
@@ -607,6 +619,15 @@ def _apply_tracers_sflux_term(
                     term_applied = True
     if term_applied:
         model_state.dump(res_fname)
+
+
+def _pop_nl_var_exists(var_name):
+    """
+    does var_name exist as a variable in the pop namelist
+    """
+    nl_fname = os.path.join(get_modelinfo("caseroot"), "CaseDocs", "pop_in")
+    cmd = ["grep", "-q", "^ *" + var_name + " *=", nl_fname]
+    return subprocess.call(cmd) == 0
 
 
 def _get_pop_nl_var(var_name):

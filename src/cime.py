@@ -29,14 +29,15 @@ def cime_xmlchange(varname, value):
         )
 
 
-def cime_case_submit(workdir):
+def cime_case_submit():
     """submit a CIME case, return after submit completes"""
     logger = logging.getLogger(__name__)
 
-    script_fname = os.path.join(workdir, "case_submit.sh")
+    script_fname = os.path.join(get_modelinfo("workdir"), "case_submit.sh")
     with open(script_fname, mode="w") as fptr:
-        fptr.write("#!/bin/bash -l\n")
-        fptr.write("source %s\n" % get_modelinfo("cime_env_cmds_fname"))
+        fptr.write("#!/bin/bash\n")
+        fptr.write("cd %s\n" % get_modelinfo("repo_root"))
+        fptr.write("source src/cime_env_cmds\n")
         fptr.write("cd %s\n" % get_modelinfo("caseroot"))
         fptr.write("./case.submit\n")
 

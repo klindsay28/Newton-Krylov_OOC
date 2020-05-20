@@ -1,0 +1,5 @@
+# shell commands that creates an environment that cime can run in
+# assumes that the default user environment is sufficient for running cime
+# source this from a bash/sh shell
+eval "$(conda shell.bash hook)"
+conda deactivate

@@ -37,6 +37,11 @@ def _parse_args():
         help="name of configuration file",
         default="models/{model_name}/newton_krylov.cfg",
     )
+    parser.add_argument(
+        "--skip_irf_gen",
+        help="skip generating irf file if it exists, default is to overwrite it",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
@@ -65,9 +70,12 @@ def main(args):
 
     # generate irf file
     irf_fname = modelinfo["irf_fname"]
-    logger.info('irf_fname="%s"', irf_fname)
-    mkdir_exist_okay(os.path.dirname(irf_fname))
-    gen_irf_file(modelinfo)
+    if os.path.exists(irf_fname) and args.skip_irf_gen:
+        logger.info('irf_fname="%s" exists, skipping generation', irf_fname)
+    else:
+        logger.info('generating irf_fname="%s"', irf_fname)
+        mkdir_exist_okay(os.path.dirname(irf_fname))
+        gen_irf_file(modelinfo)
 
     # generate grid files from irf file
     grid_weight_fname = modelinfo["grid_weight_fname"]
@@ -91,10 +99,10 @@ def main(args):
 def gen_irf_file(modelinfo):
     """generate irf file, based on modelinfo"""
 
-    irf_freq_opt = modelinfo["irf_freq_opt"]
+    irf_hist_freq_opt = modelinfo["irf_hist_freq_opt"]
 
-    if irf_freq_opt not in ["nyear", "nmonth"]:
-        msg = "irf_freq_opt = %s not implemented" % irf_freq_opt
+    if irf_hist_freq_opt not in ["nyear", "nmonth"]:
+        msg = "irf_hist_freq_opt = %s not implemented" % irf_hist_freq_opt
         raise NotImplementedError(msg)
 
     hist_dir = modelinfo["irf_hist_dir"]
@@ -102,48 +110,55 @@ def gen_irf_file(modelinfo):
     # get start date for date range getting averaged into irf file
 
     # fallbacks values if they are not specified in the cfg file
-    if cime_xmlquery("RUN_TYPE", caseroot=modelinfo["caseroot"]) == "branch":
-        date0 = cime_xmlquery("RUN_REFDATE", caseroot=modelinfo["caseroot"])
+    if modelinfo["irf_hist_start_date"] is None:
+        caseroot = modelinfo["caseroot"]
+        if cime_xmlquery("RUN_TYPE", caseroot=caseroot) == "branch":
+            irf_hist_start_date = cime_xmlquery("RUN_REFDATE", caseroot=caseroot)
+        else:
+            irf_hist_start_date = cime_xmlquery("RUN_STARTDATE", caseroot=caseroot)
     else:
-        date0 = cime_xmlquery("RUN_STARTDATE", caseroot=modelinfo["caseroot"])
-    (yyyy, mm, dd) = date0.split("-")
+        irf_hist_start_date = modelinfo["irf_hist_start_date"]
 
-    irf_year0 = yyyy if modelinfo["irf_year0"] is None else modelinfo["irf_year0"]
-    irf_month0 = mm if modelinfo["irf_month0"] is None else modelinfo["irf_month0"]
-    irf_day0 = dd if modelinfo["irf_day0"] is None else modelinfo["irf_day0"]
+    (irf_hist_year0, irf_hist_month0, irf_hist_day0) = irf_hist_start_date.split("-")
 
     # basic error checking
 
-    if irf_day0 != "01":
-        msg = "irf_day0 = %s not implemented" % irf_day0
+    if irf_hist_day0 != "01":
+        msg = "irf_hist_day0 = %s not implemented" % irf_hist_day0
         raise NotImplementedError(msg)
 
-    if irf_freq_opt == "nyear" and irf_month0 != "01":
-        msg = "irf_month0 = %s not implemented for nyear tavg output" % irf_month0
+    if irf_hist_freq_opt == "nyear" and irf_hist_month0 != "01":
+        msg = (
+            "irf_hist_month0 = %s not implemented for nyear tavg output"
+            % irf_hist_month0
+        )
         raise NotImplementedError(msg)
 
     # get duration of date range getting averaged into irf file
 
-    irf_yr_cnt = (
-        cime_yr_cnt(modelinfo)
-        if modelinfo["irf_yr_cnt"] is None
-        else modelinfo["irf_yr_cnt"]
-    )
+    if modelinfo["irf_hist_yr_cnt"] is None:
+        irf_hist_yr_cnt = cime_yr_cnt(modelinfo)
+    else:
+        irf_hist_yr_cnt = modelinfo["irf_hist_yr_cnt"]
 
-    if irf_freq_opt == "nyear":
+    if irf_hist_freq_opt == "nyear":
         fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(
-            hist_dir, fname_fmt, int(irf_year0), int(irf_yr_cnt), modelinfo["irf_fname"]
+            hist_dir,
+            fname_fmt,
+            int(irf_hist_year0),
+            int(irf_hist_yr_cnt),
+            modelinfo["irf_fname"],
         )
 
-    if irf_freq_opt == "nmonth":
+    if irf_hist_freq_opt == "nmonth":
         fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}-{month:02d}.nc"
         mon_files_to_mean_file(
             hist_dir,
             fname_fmt,
-            int(irf_year0),
-            int(irf_month0),
-            12 * int(irf_yr_cnt),
+            int(irf_hist_year0),
+            int(irf_hist_month0),
+            12 * int(irf_hist_yr_cnt),
             modelinfo["irf_fname"],
         )
 
@@ -224,6 +239,12 @@ def gen_region_mask_file(modelinfo):
         setattr(var, "long_name", "Region Mask")
 
         var[:] = mask
+
+        varname = "DYN_REGMASK"
+        var = fptr_out.createVariable(varname, mask.dtype, dimensions=mask_dimnames[1:])
+        setattr(var, "long_name", "Region Mask")
+
+        var[:] = mask[0, :]
 
 
 ################################################################################

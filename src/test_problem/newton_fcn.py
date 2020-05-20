@@ -313,9 +313,10 @@ class NewtonFcn(NewtonFcnBase):
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
             if strtobool(get_modelinfo("reinvoke")):
-                logger.debug("invoking resume script and exiting")
+                cmd = [get_modelinfo("invoker_script_fname"), "--resume"]
+                logger.info('cmd="%s"', " ".join(cmd))
                 # use Popen instead of run because we don't want to wait
-                subprocess.Popen([get_modelinfo("invoker_script_fname"), "--resume"])
+                subprocess.Popen(cmd)
                 raise SystemExit
 
         return ms_res
