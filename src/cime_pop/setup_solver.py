@@ -169,7 +169,6 @@ def gen_grid_weight_file(modelinfo):
         weight_shape = tuple(
             fptr_in.dimensions[dimname].size for dimname in weight_dimnames
         )
-        print(weight_shape)
         weight = np.empty(weight_shape)
         for k in range(weight_shape[0]):
             weight[k, :, :] = dz[k] * np.where((k < kmt) & surf_mask, tarea, 0.0)

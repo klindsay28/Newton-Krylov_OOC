@@ -238,9 +238,6 @@ class NewtonFcn(NewtonFcnBase):
         logger = logging.getLogger(__name__)
         jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
 
-        matrix_def_base = get_precond_matrix_def("base")
-        matrix_opts_base = matrix_def_base["precond_matrices_opts"]
-
         opt_str_subs = {
             "day_cnt": 365 * cime_yr_cnt(),
             "precond_fname": precond_fname,
@@ -254,7 +251,7 @@ class NewtonFcn(NewtonFcnBase):
                 solver_state.get_workdir(), "matrix_" + matrix_name + ".opts"
             )
             with open(matrix_opts_fname, "w") as fptr:
-                for opt in matrix_opts_base + matrix_opts:
+                for opt in matrix_opts:
                     fptr.write("%s\n" % opt.format(**opt_str_subs))
             matrix_fname = os.path.join(
                 solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
@@ -505,7 +502,7 @@ def _apply_precond_jacobian_solve_lin_eqns(
     jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
 
     # determine size of decomposition to be used in matrix factorization
-    nprow, npcol = _matrix_block_decomp()
+    nprow, npcol = _matrix_block_decomp(int(get_modelinfo("precond_task_cnt")))
 
     tracer_names_all = ms_in.tracer_names()
 
@@ -544,9 +541,8 @@ def _apply_precond_jacobian_solve_lin_eqns(
     return ms_res
 
 
-def _matrix_block_decomp():
+def _matrix_block_decomp(precond_task_cnt):
     """determine size of decomposition to be used in matrix factorization"""
-    precond_task_cnt = int(get_modelinfo("precond_task_cnt"))
     log2_precond_task_cnt = round(math.log2(precond_task_cnt))
     if 2 ** log2_precond_task_cnt != precond_task_cnt:
         msg = "precond_task_cnt must be a power of 2"

@@ -46,6 +46,7 @@ class ModelConfig:
         self.tracer_module_defs = file_contents["tracer_module_defs"]
         check_shadow_tracers(self.tracer_module_defs, lvl)
         self.precond_matrix_defs = file_contents["precond_matrix_defs"]
+        propagate_base_matrix_defs_to_all(self.precond_matrix_defs)
         check_precond_matrix_defs(self.precond_matrix_defs)
 
         # extract grid_weight from modelinfo config object
@@ -106,7 +107,7 @@ def check_shadow_tracers(tracer_module_defs, lvl):
     for tracer_module_name, tracer_module_def in tracer_module_defs.items():
         shadowed_tracers = []
         # Verify that shadows is a known tracer names.
-        # Verify that no tracer is shadowe multiple times.
+        # Verify that no tracer is shadowed multiple times.
         for tracer_name, tracer_metadata in tracer_module_def.items():
             if "shadows" in tracer_metadata:
                 if tracer_metadata["shadows"] not in tracer_module_def:
@@ -132,18 +133,49 @@ def check_shadow_tracers(tracer_module_defs, lvl):
                 shadowed_tracers.append(tracer_metadata["shadows"])
 
 
+def propagate_base_matrix_defs_to_all(matrix_defs):
+    """propagate matrix_defs from matrix_def 'base' to all other matrix_defs"""
+    logger = logging.getLogger(__name__)
+    if "base" not in matrix_defs:
+        return
+    for matrix_name, matrix_def in matrix_defs.items():
+        if matrix_name != "base":
+            logger.debug("propagating matrix def to %s" % matrix_name)
+            propagate_base_matrix_defs_to_one(matrix_defs["base"], matrix_def)
+
+
+def propagate_base_matrix_defs_to_one(base_def, matrix_def):
+    """propagate matrix_defs from base_def to one matrix_def"""
+    for base_def_key, base_def_value in base_def.items():
+        if base_def_key not in matrix_def:
+            matrix_def[base_def_key] = base_def_value
+        else:
+            if isinstance(base_def_value, list):
+                matrix_def[base_def_key].extend(base_def_value)
+            elif isinstance(base_def_value, dict):
+                for key in base_def_value:
+                    if key not in matrix_def[base_def_key]:
+                        matrix_def[base_def_key][key] = base_def_value[key]
+            else:
+                msg = "base defn type %s not implemented" % type(base_def_value)
+                raise NotImplementedError(msg)
+
+
 def check_precond_matrix_defs(precond_matrix_defs):
     """Perform basic vetting of precond_matrix_defs"""
     # This check is done for all entries in def_dict,
     # whether they are being used or not.
+    logger = logging.getLogger(__name__)
     for precond_matrix_name, precond_matrix_def in precond_matrix_defs.items():
+        logger.debug("checking precond_matrix_def for %s" % precond_matrix_name)
         # verify that suffixes in hist_to_precond_var_names are recognized
-        for hist_var in precond_matrix_def["hist_to_precond_var_names"]:
-            _, _, time_op = hist_var.partition(":")
-            if time_op not in ["avg", "log_avg", "copy", ""]:
-                msg = "unknown time_op=%s in %s from %s" % (
-                    time_op,
-                    hist_var,
-                    precond_matrix_name,
-                )
-                raise ValueError(msg)
+        if "hist_to_precond_var_names" in precond_matrix_def:
+            for hist_var in precond_matrix_def["hist_to_precond_var_names"]:
+                _, _, time_op = hist_var.partition(":")
+                if time_op not in ["avg", "log_avg", "copy", ""]:
+                    msg = "unknown time_op=%s in %s from %s" % (
+                        time_op,
+                        hist_var,
+                        precond_matrix_name,
+                    )
+                    raise ValueError(msg)
