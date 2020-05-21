@@ -1,5 +1,7 @@
 """history file support for Newton-Krylov solver test problem"""
 
+from datetime import datetime
+
 from cf_units import Unit
 from netCDF4 import Dataset
 
@@ -7,6 +9,10 @@ from netCDF4 import Dataset
 def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
     """write tracer values generated in comp_fcn to hist_fname"""
     with Dataset(hist_fname, mode="w") as fptr:
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        msg = datestamp + ": created by " + __name__ + "." + "hist_write"
+        setattr(fptr, "history", msg)
+
         tracer_names = ms_in.tracer_names()
         depth_units = newton_fcn_obj.depth.units
 
