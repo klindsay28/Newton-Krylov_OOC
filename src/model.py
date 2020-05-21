@@ -1,6 +1,7 @@
 """class for representing the state space of a model, and operations on it"""
 
 import collections
+from datetime import datetime
 import logging
 
 import numpy as np
@@ -76,6 +77,10 @@ class ModelStateBase:
         logger = logging.getLogger(__name__)
         logger.debug('vals_fname="%s"', vals_fname)
         with Dataset(vals_fname, mode="w") as fptr:
+            datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            msg = datestamp + ": created by " + __name__ + "." + "dump"
+            # would be more useful to report caller of dump
+            # setattr(fptr, "history", msg)
             for action in ["define", "write"]:
                 for tracer_module in self._tracer_modules:
                     tracer_module.dump(fptr, action)
@@ -337,7 +342,11 @@ class ModelStateBase:
         """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
         res = []
         for matrix_name in self.precond_matrix_list() + ["base"]:
-            res.extend(get_precond_matrix_def(matrix_name)["hist_to_precond_var_names"])
+            precond_matrix_def = get_precond_matrix_def(matrix_name)
+            if "hist_to_precond_var_names" in precond_matrix_def:
+                for var_name in precond_matrix_def["hist_to_precond_var_names"]:
+                    if var_name not in res:
+                        res.append(var_name)
         return res
 
     def precond_matrix_list(self):

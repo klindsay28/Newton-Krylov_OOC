@@ -1,5 +1,7 @@
 """interface for stats file"""
 
+from datetime import datetime
+
 from netCDF4 import Dataset
 
 from .model_config import get_modelinfo, get_region_cnt
@@ -13,6 +15,10 @@ def stats_file_create(fname):
     tracer_module_names = get_modelinfo("tracer_module_names").split(",")
 
     with Dataset(fname, mode="w") as fptr:
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        msg = datestamp + ": created by " + __name__ + "." + "stats_file_create"
+        setattr(fptr, "history", msg)
+
         # define dimensions
         fptr.createDimension("iteration", None)
         fptr.createDimension("region", get_region_cnt())

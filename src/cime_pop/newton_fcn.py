@@ -3,7 +3,6 @@
 
 from __future__ import division
 
-import argparse
 import glob
 import logging
 import math
@@ -21,29 +20,23 @@ from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..newton_fcn_base import NewtonFcnBase
-from ..utils import read_cfg_file, ann_files_to_mean_file, mon_files_to_mean_file
+from ..utils import (
+    parse_args_common,
+    read_cfg_file,
+    ann_files_to_mean_file,
+    mon_files_to_mean_file,
+)
 
 
 def _parse_args():
     """parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="cime pop hooks for Newton-Krylov solver",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    parser = parse_args_common(
+        "cime pop hooks for Newton-Krylov solver", model_name="cime_pop",
     )
     parser.add_argument(
         "cmd",
         choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian"],
         help="command to run",
-    )
-    parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default="cime_pop",
-    )
-    parser.add_argument(
-        "--cfg_fname",
-        help="name of configuration file",
-        default="models/{model_name}/newton_krylov.cfg",
     )
     parser.add_argument("--hist_fname", help="name of history file", default=None)
     parser.add_argument("--in_fname", help="name of file with input")

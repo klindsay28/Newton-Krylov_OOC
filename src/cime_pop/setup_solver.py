@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """set up files needed to run NK solver for cime_pop"""
 
-import argparse
 from distutils.util import strtobool
 import logging
 import os
@@ -14,6 +13,7 @@ from ..cime import cime_xmlquery, cime_yr_cnt
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
 from ..utils import (
+    parse_args_common,
     mkdir_exist_okay,
     read_cfg_file,
     ann_files_to_mean_file,
@@ -23,20 +23,7 @@ from ..utils import (
 
 def _parse_args():
     """parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="setup cime_pop",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default="cime_pop",
-    )
-    parser.add_argument(
-        "--cfg_fname",
-        help="name of configuration file",
-        default="models/{model_name}/newton_krylov.cfg",
-    )
+    parser = parse_args_common("setup cime_pop", model_name="cime_pop")
     parser.add_argument(
         "--skip_irf_gen",
         help="skip generating irf file if it exists, default is to overwrite it",

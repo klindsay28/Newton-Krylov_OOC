@@ -1,5 +1,6 @@
 """Base class of methods related to problem being solved with Newton's method"""
 
+from datetime import datetime
 import logging
 import os
 
@@ -77,6 +78,12 @@ class NewtonFcnBase:
         with Dataset(hist_fname, mode="r") as fptr_in, Dataset(
             precond_fname, "w"
         ) as fptr_out:
+            datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            msg = datestamp + ": created by " + __name__ + "." + "gen_precond_jacobian"
+            if hasattr(fptr_in, "history"):
+                msg = msg + "\n" + getattr(fptr_in, "history")
+            setattr(fptr_out, "history", msg)
+
             # define output vars
             self._def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out)
 
