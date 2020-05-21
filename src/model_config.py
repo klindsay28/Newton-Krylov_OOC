@@ -45,12 +45,7 @@ class ModelConfig:
             file_contents = yaml.safe_load(fptr)
         self.tracer_module_defs = file_contents["tracer_module_defs"]
         check_shadow_tracers(self.tracer_module_defs, lvl)
-        self.precond_matrix_defs = pad_defs(
-            file_contents["precond_matrix_defs"],
-            "precond matrix",
-            {"hist_to_precond_var_names": "list"},
-            lvl,
-        )
+        self.precond_matrix_defs = file_contents["precond_matrix_defs"]
         check_precond_matrix_defs(self.precond_matrix_defs)
 
         # extract grid_weight from modelinfo config object
@@ -135,20 +130,6 @@ def check_shadow_tracers(tracer_module_defs, lvl):
                     )
                     raise ValueError(msg)
                 shadowed_tracers.append(tracer_metadata["shadows"])
-
-
-def pad_defs(def_dict, obj_desc, def_entries, lvl):
-    """
-    Place emtpy objects in dict of definitions where they do not exist.
-    This is to ease subsequent coding.
-    """
-    logger = logging.getLogger(__name__)
-    for def_dict_key, def_dict_value in def_dict.items():
-        for entry, entry_type in def_entries.items():
-            if entry not in def_dict_value:
-                logger.log(lvl, "%s %s has no entry %s", obj_desc, def_dict_key, entry)
-                def_dict_value[entry] = [] if entry_type == "list" else {}
-    return def_dict
 
 
 def check_precond_matrix_defs(precond_matrix_defs):
