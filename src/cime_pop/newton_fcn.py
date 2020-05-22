@@ -277,7 +277,7 @@ class NewtonFcn(NewtonFcnBase):
             return ModelState(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state)
+        _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state)
 
         lin_eqns_soln_fname = os.path.join(
             os.path.dirname(res_fname), "lin_eqns_soln_" + os.path.basename(res_fname)
@@ -441,7 +441,7 @@ def _comp_fcn_post_modelrun(ms_in):
     return ModelState(fname) - ms_in
 
 
-def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
+def _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state):
     """
     pre-solve_lin_eqns step of apply_precond_jacobian
     produce computing environment for solve_lin_eqns
@@ -460,10 +460,40 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state):
     logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
     if get_modelinfo("batch_cmd_precond"):
-        precond_task_cnt = int(get_modelinfo("precond_task_cnt"))
-        precond_cpus_per_node = int(get_modelinfo("precond_cpus_per_node"))
-        precond_node_cnt = int(math.ceil(precond_task_cnt / precond_cpus_per_node))
-        opt_str_subs = {"precond_node_cnt": precond_node_cnt}
+        # precond_task_cnt = int(get_modelinfo("precond_task_cnt"))
+        # precond_cpus_per_node = int(get_modelinfo("precond_cpus_per_node"))
+        # precond_node_cnt = int(math.ceil(precond_task_cnt / precond_cpus_per_node))
+
+        # determine node_cnt and cpus_per_node
+        ocn_grid = cime_xmlquery("OCN_GRID")
+        GB_per_node = int(get_modelinfo("GB_per_node"))
+        cpus_per_node_max = int(get_modelinfo("cpus_per_node_max"))
+
+        cpus_per_node_list = []
+        for matrix_name in ms_in.precond_matrix_list():
+            matrix_def = get_precond_matrix_def(matrix_name)
+            matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
+            # account for 1 task/node having increased memory usage (25%)
+            GB_per_task = matrix_solve_opts["GB_per_task"]
+            cpus_per_node = int(GB_per_node / GB_per_task - 0.25)
+            cpus_per_node = min(cpus_per_node_max, cpus_per_node)
+            cpus_per_node_list.append(cpus_per_node)
+        cpus_per_node = min(cpus_per_node_list)
+
+        # round down to nearest power of 2
+        # seems to have (unexplained) performance benefit
+        cpus_per_node = 2 ** int(math.log2(cpus_per_node))
+
+        node_cnt_list = []
+        for matrix_name in ms_in.precond_matrix_list():
+            matrix_def = get_precond_matrix_def(matrix_name)
+            matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
+            task_cnt = matrix_solve_opts["task_cnt"]
+            node_cnt = int(math.ceil(task_cnt / cpus_per_node))
+            node_cnt_list.append(node_cnt)
+        node_cnt = max(node_cnt_list)
+
+        opt_str_subs = {"node_cnt": node_cnt, "cpus_per_node": cpus_per_node}
         batch_cmd = (
             get_modelinfo("batch_cmd_precond").replace("\n", " ").replace("\r", " ")
         )
@@ -501,15 +531,19 @@ def _apply_precond_jacobian_solve_lin_eqns(
 
     jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
 
-    # determine size of decomposition to be used in matrix factorization
-    nprow, npcol = _matrix_block_decomp(int(get_modelinfo("precond_task_cnt")))
-
     tracer_names_all = ms_in.tracer_names()
+
+    ocn_grid = cime_xmlquery("OCN_GRID")
 
     for (
         matrix_name,
         tracer_names_subset,
     ) in ms_in.tracer_names_per_precond_matrix().items():
+        matrix_def = get_precond_matrix_def(matrix_name)
+        matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
+        task_cnt = matrix_solve_opts["task_cnt"]
+        nprow, npcol = _matrix_block_decomp(task_cnt)
+
         matrix_fname = os.path.join(
             solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
         )

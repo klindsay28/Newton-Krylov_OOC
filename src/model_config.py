@@ -140,7 +140,7 @@ def propagate_base_matrix_defs_to_all(matrix_defs):
         return
     for matrix_name, matrix_def in matrix_defs.items():
         if matrix_name != "base":
-            logger.debug("propagating matrix def to %s" % matrix_name)
+            logger.debug("propagating matrix def to %s", matrix_name)
             propagate_base_matrix_defs_to_one(matrix_defs["base"], matrix_def)
 
 
@@ -167,7 +167,7 @@ def check_precond_matrix_defs(precond_matrix_defs):
     # whether they are being used or not.
     logger = logging.getLogger(__name__)
     for precond_matrix_name, precond_matrix_def in precond_matrix_defs.items():
-        logger.debug("checking precond_matrix_def for %s" % precond_matrix_name)
+        logger.debug("checking precond_matrix_def for %s", precond_matrix_name)
         # verify that suffixes in hist_to_precond_var_names are recognized
         if "hist_to_precond_var_names" in precond_matrix_def:
             for hist_var in precond_matrix_def["hist_to_precond_var_names"]:
