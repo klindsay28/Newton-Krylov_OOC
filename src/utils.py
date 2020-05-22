@@ -39,14 +39,25 @@ def parse_args_common(description, model_name="test_problem"):
         help="name of configuration file",
         default="models/{model_name}/newton_krylov.cfg",
     )
+    parser.add_argument(
+        "--tracer_module_names",
+        help="override tracer_module_names from cfg file",
+        default=None,
+    )
+    if model_name == "test_problem":
+        parser.add_argument(
+            "--persist", help="override reinvoke from cfg file", action="store_true",
+        )
     return parser
 
 
-def read_cfg_file(cfg_fname):
+def read_cfg_file(args):
     """
-    read cfg_fname
+    read cfg file
     set defaults common to all occurrances
     """
+    cfg_fname = args.cfg_fname
+
     defaults = {key: os.environ[key] for key in ["HOME", "USER"]}
     defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
     config = configparser.ConfigParser(defaults, allow_no_value=True)
@@ -65,6 +76,12 @@ def read_cfg_file(cfg_fname):
             if config[section][name] is None and name not in nva_list:
                 msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fname)
                 raise ValueError(msg)
+
+    if args.tracer_module_names is not None:
+        config["modelinfo"]["tracer_module_names"] = args.tracer_module_names
+
+    if "persist" in args and args.persist:
+        config["modelinfo"]["reinvoke"] = "False"
 
     cfg_out_fname = config["solverinfo"]["cfg_out_fname"]
     if cfg_out_fname is not None:

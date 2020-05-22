@@ -52,7 +52,7 @@ def _parse_args():
 def main(args):
     """set up files needed to run NK solver for test_problem"""
 
-    config = read_cfg_file(args.cfg_fname)
+    config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"

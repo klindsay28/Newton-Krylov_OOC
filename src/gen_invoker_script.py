@@ -8,7 +8,7 @@ import stat
 from .utils import parse_args_common, mkdir_exist_okay, read_cfg_file
 
 
-def gen_invoker_script(modelinfo, repo_root):
+def gen_invoker_script(args, modelinfo, repo_root):
     """
     generate script for invoking nk_driver.py with optional arguments
     """
@@ -31,7 +31,15 @@ def gen_invoker_script(modelinfo, repo_root):
         fptr.write("else\n")
         fptr.write("    export PYTHONPATH=models:$PYTHONPATH\n")
         fptr.write("fi\n")
-        fptr.write('./nk_driver.py --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"])
+
+        # construct invocation command
+        line = "./nk_driver.py --cfg_fname %s " % modelinfo["cfg_fname"]
+        if args.tracer_module_names is not None:
+            line = line + "--tracer_module_names %s " % args.tracer_module_names
+        if "persist" in args and args.persist:
+            line = line + "--persist "
+        line = line + '"$@"\n'
+        fptr.write(line)
 
     # ensure script is executable by the user, while preserving other permissions
     fstat = os.stat(invoker_script_fname)
@@ -54,13 +62,13 @@ def parse_args():
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = read_cfg_file(args.cfg_fname)
+    config = read_cfg_file(args)
 
     # store cfg_fname in modelinfo, to follow what is done in other scripts
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
 
     gen_invoker_script(
-        config["modelinfo"], config["DEFAULT"]["repo_root"],
+        args, config["modelinfo"], config["DEFAULT"]["repo_root"],
     )
 
 

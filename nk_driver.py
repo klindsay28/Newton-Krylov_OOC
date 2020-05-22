@@ -39,7 +39,7 @@ def parse_args():
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = read_cfg_file(args.cfg_fname)
+    config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"

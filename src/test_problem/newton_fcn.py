@@ -60,7 +60,7 @@ def _resolve_fname(fname_dir, fname):
 def main(args):
     """test problem for Newton-Krylov solver"""
 
-    config = read_cfg_file(args.cfg_fname)
+    config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
     logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
