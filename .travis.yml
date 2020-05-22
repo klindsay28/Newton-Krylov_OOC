@@ -27,5 +27,10 @@ install:
 
 script:
   - black --check .
+  # setup solver, with default tracer modules
+  # persist not needed since driver is not invoked
+  # this does perform forward model runs, since fp_cnt=2
+  - ./models/test_problem/setup_solver.sh
+  # setup and run solver, do with iage only to reduce test time
   - ./models/test_problem/setup_solver.sh --tracer_module_names iage --persist
   - $HOME/test_problem_work/nk_driver.sh
