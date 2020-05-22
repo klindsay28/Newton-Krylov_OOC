@@ -21,8 +21,10 @@ dependencies:
 - numpy
 - pyyaml
 - gitpython
-- nco
 
 # test_problem requirements
 - scipy
 - cf_units
+
+# cime_pop requirements
+- nco
