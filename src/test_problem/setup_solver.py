@@ -29,10 +29,13 @@ def _parse_args():
         "--edge_start", type=float, help="start of edges", default=0.0,
     )
     parser.add_argument(
-        "--edge_end", type=float, help="end of edges", default=675.0,
+        "--edge_end", type=float, help="end of edges", default=900.0,
     )
     parser.add_argument(
-        "--delta_start", type=float, help="thickness of first layer", default=10.0,
+        "--delta_ratio_max",
+        type=float,
+        help="maximum ratio of layer thicknesses",
+        default=5.0,
     )
     parser.add_argument(
         "--fp_cnt",
@@ -70,7 +73,7 @@ def main(args):
         "nlevs": args.nlevs,
         "edge_start": args.edge_start,
         "edge_end": args.edge_end,
-        "delta_start": args.delta_start,
+        "delta_ratio_max": args.delta_ratio_max,
     }
     depth = SpatialAxis(axisname=args.axisname, defn_dict=defn_dict)
 

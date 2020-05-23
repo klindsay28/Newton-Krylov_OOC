@@ -26,7 +26,7 @@ class SpatialAxis:
             nlevs (int): number of layers
             edge_start (float): first edge value
             edge_end (float): last edge value
-            delta_start (float): difference between second and first edge values
+            delta_ratio_max (float): maximum ratio of layer thicknesses
         """
 
         if (fname is None) == (defn_dict is None):
@@ -59,14 +59,24 @@ class SpatialAxis:
         nlevs = defn_dict["nlevs"]
 
         # polynomial stretching function
-        # xs(-1)=-1, xs'(-1)=0, xs''(-1)=0
-        # xs(1)=1, xs'(1)=0, xs''(1)=0
-        x = np.linspace(-1.0, 1.0, nlevs)
-        xs = 0.125 * x * (15 + x * x * (3 * x * x - 10))
+        # stretch_fcn(-1)=-1, stretch_fcn'(-1)=0, stretch_fcn''(-1)=0
+        # stretch_fcn(1)=1, stretch_fcn'(1)=0, stretch_fcn''(1)=0
+        # the mean of stretch_fcn is 0, so adding multiples of it to the thichnesses
+        # doesn't change the mean thickness
+        coord = np.linspace(-1.0, 1.0, nlevs)
+        stretch_fcn = 0.125 * coord * (15 + coord * coord * (3 * coord * coord - 10))
 
         delta_avg = (defn_dict["edge_end"] - defn_dict["edge_start"]) / nlevs
 
-        delta = delta_avg + (delta_avg - defn_dict["delta_start"]) * xs
+        delta_ratio_max = defn_dict["delta_ratio_max"]
+        if delta_ratio_max < 1.0:
+            msg = "delta_ratio_max must be >= 1.0"
+            raise ValueError(msg)
+        # stretch_factor solves
+        # (delta_avg + stretch_factor) / (delta_avg - stretch_factor) = delta_ratio_max
+        stretch_factor = delta_avg * (delta_ratio_max - 1) / (delta_ratio_max + 1)
+
+        delta = delta_avg + stretch_factor * stretch_fcn
 
         edges = np.empty(1 + nlevs)
         edges[0] = defn_dict["edge_start"]
