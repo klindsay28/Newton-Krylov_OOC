@@ -42,6 +42,9 @@ def parse_args_common(description, model_name="test_problem"):
         default="models/{model_name}/newton_krylov.cfg",
     )
     parser.add_argument(
+        "--workdir", help="override workdir from cfg file", default=None,
+    )
+    parser.add_argument(
         "--tracer_module_names",
         help="override tracer_module_names from cfg file",
         default=None,
@@ -78,6 +81,9 @@ def read_cfg_file(args):
             if config[section][name] is None and name not in nva_list:
                 msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fname)
                 raise ValueError(msg)
+
+    if args.workdir is not None:
+        config["DEFAULT"]["workdir"] = args.workdir
 
     if args.tracer_module_names is not None:
         config["modelinfo"]["tracer_module_names"] = args.tracer_module_names

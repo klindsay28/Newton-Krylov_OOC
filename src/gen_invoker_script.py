@@ -34,6 +34,8 @@ def gen_invoker_script(args, modelinfo, repo_root):
 
         # construct invocation command
         line = "./nk_driver.py --cfg_fname %s " % modelinfo["cfg_fname"]
+        if args.workdir is not None:
+            line = line + "--workdir %s " % args.workdir
         if args.tracer_module_names is not None:
             line = line + "--tracer_module_names %s " % args.tracer_module_names
         if "persist" in args and args.persist:
