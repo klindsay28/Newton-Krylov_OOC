@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """set up files needed to run NK solver for cime_pop"""
 
+from datetime import datetime
 from distutils.util import strtobool
 import logging
 import os
@@ -128,6 +129,8 @@ def gen_irf_file(modelinfo):
     else:
         irf_hist_yr_cnt = modelinfo["irf_hist_yr_cnt"]
 
+    caller = "src.cime_pop.setup_solver.gen_irf_file"
+
     if irf_hist_freq_opt == "nyear":
         fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(
@@ -136,6 +139,7 @@ def gen_irf_file(modelinfo):
             int(irf_hist_year0),
             int(irf_hist_yr_cnt),
             modelinfo["irf_fname"],
+            caller,
         )
 
     if irf_hist_freq_opt == "nmonth":
@@ -147,6 +151,7 @@ def gen_irf_file(modelinfo):
             int(irf_hist_month0),
             12 * int(irf_hist_yr_cnt),
             modelinfo["irf_fname"],
+            caller,
         )
 
 
@@ -156,6 +161,10 @@ def gen_grid_weight_file(modelinfo):
     weight_dimnames = ("z_t", "nlat", "nlon")
 
     with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
+        if hasattr(fptr_in, "history"):
+            history_in = getattr(fptr_in, "history")
+        else:
+            history_in = None
         # generate weight
         dz = 1.0e-2 * fptr_in.variables["dz"][:]  # convert from cm to m
         tarea = 1.0e-4 * fptr_in.variables["TAREA"][:]  # convert from cm2 to m2
@@ -175,7 +184,16 @@ def gen_grid_weight_file(modelinfo):
 
     mode_out = "w"
 
-    with Dataset(modelinfo["grid_weight_fname"], mode=mode_out) as fptr_out:
+    with Dataset(
+        modelinfo["grid_weight_fname"], mode=mode_out, format="NETCDF3_64BIT_OFFSET"
+    ) as fptr_out:
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = "src.cime_pop.setup_solver.gen_grid_weight_file"
+        msg = datestamp + ": created by " + name + " from " + modelinfo["irf_fname"]
+        if history_in is not None:
+            msg = msg + "\n" + history_in
+        setattr(fptr_out, "history", msg)
+
         # propagate dimension sizes from fptr_in to fptr_out
         for dimind, dimname in enumerate(weight_dimnames):
             if dimname not in fptr_out.dimensions:
@@ -195,6 +213,7 @@ def gen_region_mask_file(modelinfo):
     mask_dimnames = ("z_t", "nlat", "nlon")
 
     with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
+        history_in = getattr(fptr_in, "history")
         # generate mask
         kmt = fptr_in.variables["KMT"][:]
         region_mask = fptr_in.variables["REGION_MASK"][:]
@@ -214,7 +233,21 @@ def gen_region_mask_file(modelinfo):
         "a" if modelinfo["region_mask_fname"] == modelinfo["grid_weight_fname"] else "w"
     )
 
-    with Dataset(modelinfo["region_mask_fname"], mode=mode_out) as fptr_out:
+    with Dataset(
+        modelinfo["region_mask_fname"], mode=mode_out, format="NETCDF3_64BIT_OFFSET"
+    ) as fptr_out:
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = "src.cime_pop.setup_solver.gen_region_mask_file"
+        msg = datestamp + ": "
+        if mode_out == "a":
+            history_in = getattr(fptr_out, "history")
+            vars_appended = ",".join([modelinfo["region_mask_varname"], "DYN_REGMASK"])
+            msg = msg + vars_appended + " appended by " + name
+        else:
+            msg = msg + "created by " + name + " from " + modelinfo["irf_fname"]
+        msg = msg + "\n" + history_in
+        setattr(fptr_out, "history", msg)
+
         # propagate dimension sizes from fptr_in to fptr_out
         for dimind, dimname in enumerate(mask_dimnames):
             if dimname not in fptr_out.dimensions:

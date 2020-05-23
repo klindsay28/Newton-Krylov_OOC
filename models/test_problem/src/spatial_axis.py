@@ -81,7 +81,7 @@ class SpatialAxis:
         edges_name = self.name + "_edges"
         delta_name = self.name + "_delta"
 
-        with Dataset(fname, mode="w") as fptr:
+        with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             # define dimensions
             fptr.createDimension(self.name, self.nlevs)
             fptr.createDimension("nbnds", 2)

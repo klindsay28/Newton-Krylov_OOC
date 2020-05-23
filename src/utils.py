@@ -2,12 +2,14 @@
 
 import argparse
 import configparser
+from datetime import datetime
 import errno
 import logging
 import os
 import subprocess
 
 import git
+from netCDF4 import Dataset
 
 
 def mkdir_exist_okay(path):
@@ -92,7 +94,7 @@ def read_cfg_file(args):
     return config
 
 
-def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out):
+def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
     """
     average cnt number of files of annual means
 
@@ -121,8 +123,15 @@ def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out):
 
     subprocess.run(cmd, check=True)
 
+    with Dataset(os.path.join(dir_in, fname_out), mode="a") as fptr:
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = "src.utils.ann_files_to_mean_file"
+        msg = datestamp + ": ncra called from " + name + " called from " + caller
+        msg = msg + "\n" + getattr(fptr, "history")
+        setattr(fptr, "history", msg)
 
-def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out):
+
+def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, caller):
     """
     average cnt number of files of monthly means
 
@@ -165,3 +174,10 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out):
     logger.debug('cmd = "%s"', " ".join(cmd))
 
     subprocess.run(cmd, check=True)
+
+    with Dataset(os.path.join(dir_in, fname_out), mode="a") as fptr:
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = "src.utils.mon_files_to_mean_file"
+        msg = datestamp + ": ncra called from " + name + " called from " + caller
+        msg = msg + "\n" + getattr(fptr, "history")
+        setattr(fptr, "history", msg)

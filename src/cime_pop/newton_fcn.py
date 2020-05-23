@@ -3,6 +3,7 @@
 
 from __future__ import division
 
+from datetime import datetime
 import glob
 import logging
 import math
@@ -247,17 +248,22 @@ class NewtonFcn(NewtonFcnBase):
 
         for matrix_name in iterate.precond_matrix_list():
             matrix_opts = get_precond_matrix_def(matrix_name)["precond_matrices_opts"]
+            # apply option string substitutions
+            for ind, matrix_opt in enumerate(matrix_opts):
+                matrix_opts[ind] = matrix_opt.format(**opt_str_subs)
+
             matrix_opts_fname = os.path.join(
                 solver_state.get_workdir(), "matrix_" + matrix_name + ".opts"
             )
             with open(matrix_opts_fname, "w") as fptr:
                 for opt in matrix_opts:
-                    fptr.write("%s\n" % opt.format(**opt_str_subs))
+                    fptr.write("%s\n" % opt)
             matrix_fname = os.path.join(
                 solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
             )
+            gen_A_fname = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
             cmd = [
-                os.path.join(jacobian_precond_tools_dir, "bin", "gen_A"),
+                gen_A_fname,
                 "-D1",
                 "-o",
                 matrix_opts_fname,
@@ -265,6 +271,16 @@ class NewtonFcn(NewtonFcnBase):
             ]
             logger.info('cmd="%s"', " ".join(cmd))
             subprocess.run(cmd, check=True)
+
+            # add creation metadata to file attributes
+            with Dataset(matrix_fname, mode="a") as fptr:
+                datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                name = ".".join([__name__, "NewtonFcn", "_gen_precond_matrix_files"])
+                msg = datestamp + ": created by " + gen_A_fname + " called from " + name
+                if hasattr(fptr, "history"):
+                    msg = msg + "\n" + getattr(fptr, "history")
+                setattr(fptr, "history", msg)
+                setattr(fptr, "matrix_opts", "\n".join(matrix_opts))
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
@@ -416,16 +432,23 @@ def _gen_hist(hist_fname):
     else:
         hist_dir = cime_xmlquery("RUNDIR")
 
+    caller = "src.cime_pop.newton_fcn._gen_hist"
     if tavg_freq_opt_0 == "nyear":
         fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(
-            hist_dir, fname_fmt, int(yyyy), cime_yr_cnt(), hist_fname
+            hist_dir, fname_fmt, int(yyyy), cime_yr_cnt(), hist_fname, caller
         )
 
     if tavg_freq_opt_0 == "nmonth":
         fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}-{month:02d}.nc"
         mon_files_to_mean_file(
-            hist_dir, fname_fmt, int(yyyy), int(mm), 12 * cime_yr_cnt(), hist_fname
+            hist_dir,
+            fname_fmt,
+            int(yyyy),
+            int(mm),
+            12 * cime_yr_cnt(),
+            hist_fname,
+            caller,
         )
 
 

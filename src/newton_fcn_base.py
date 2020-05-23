@@ -76,10 +76,11 @@ class NewtonFcnBase:
         hist_vars = iterate.hist_vars_for_precond_list()
 
         with Dataset(hist_fname, mode="r") as fptr_in, Dataset(
-            precond_fname, "w"
+            precond_fname, "w", format="NETCDF3_64BIT_OFFSET"
         ) as fptr_out:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            msg = datestamp + ": created by " + __name__ + "." + "gen_precond_jacobian"
+            name = ".".join([__name__, "NewtonFcnBase", "gen_precond_jacobian"])
+            msg = datestamp + ": created by " + name
             if hasattr(fptr_in, "history"):
                 msg = msg + "\n" + getattr(fptr_in, "history")
             setattr(fptr_out, "history", msg)

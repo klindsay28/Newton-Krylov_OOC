@@ -14,9 +14,10 @@ def stats_file_create(fname):
 
     tracer_module_names = get_modelinfo("tracer_module_names").split(",")
 
-    with Dataset(fname, mode="w") as fptr:
+    with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        msg = datestamp + ": created by " + __name__ + "." + "stats_file_create"
+        name = ".".join([__name__, "stats_file_create"])
+        msg = datestamp + ": created by " + name
         setattr(fptr, "history", msg)
 
         # define dimensions

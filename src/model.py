@@ -76,9 +76,10 @@ class ModelStateBase:
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
         logger.debug('vals_fname="%s"', vals_fname)
-        with Dataset(vals_fname, mode="w") as fptr:
+        with Dataset(vals_fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            msg = datestamp + ": created by " + __name__ + "." + "dump"
+            name = ".".join([__name__, "ModelStateBase", "dump"])
+            msg = datestamp + ": created by " + name
             # would be more useful to report caller of dump
             # setattr(fptr, "history", msg)
             for action in ["define", "write"]:
