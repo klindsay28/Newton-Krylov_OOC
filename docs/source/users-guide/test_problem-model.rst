@@ -104,8 +104,9 @@ The ``setup_solver.sh`` script does the following:
 #. Create a vertical grid file.
    The location of the grid file, which defaults to a file in the work directory, is
    specified by ``grid_weight_fname`` in the cfg file.
-   The default vertical grid has 30 layers spanning 675 m with a top-layer thickness of 10
-   m.
+   The default vertical grid has 30 layers spanning 900 m.
+   The ratio of the bottom-layer thickness to the top-layer thickness is 5.0, yielding a
+   top-layer thickness of 10 m.
    The defaults can be overwritten with arguments to the ``setup_solver.sh`` script.
 #. Create an initial model state on the generated vertical grid.
    The initial tracer profiles are linearly interpolated to the vertical grid from the
