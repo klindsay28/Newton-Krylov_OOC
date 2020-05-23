@@ -83,7 +83,8 @@ def main(args):
     grid_weight_fname = modelinfo["grid_weight_fname"]
     logger.info('grid_weight_fname="%s"', grid_weight_fname)
     mkdir_exist_okay(os.path.dirname(grid_weight_fname))
-    depth.dump(grid_weight_fname)
+    caller = "src.test_problem.setup_solver.main"
+    depth.dump(grid_weight_fname, caller)
 
     # confirm that model configuration works with generated file
     # ModelState relies on model being configured
