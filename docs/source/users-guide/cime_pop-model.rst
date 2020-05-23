@@ -77,17 +77,21 @@ This is enabled by adding the following line to ``user_nl_pop``:
 
    tavg_freq_opt(1) = 'nyear'
 
-Build the cases by running the command ``./case.build``.
-On the NCAR/CISL machine cheyenne, CISL requests that model builds not be done on login
-nodes, to reduce computational load.
-The build can be done on batch nodes of cheyenne by running the command ``qcmd --
-./case.build``.
+For the IRF generating case, see below for enabling the IRF tracers before building the
+model for that case.
+
+Build the model for the cases by running the command ``./case.build`` [#f1]_.
 
 Specifics for the IRF generating case that generates IRF output
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Set the run duration by setting the following xml variables: ``STOP_OPTION``, ``STOP_N``,
 ``RESUBMIT``.
+
+Enable the IRF tracers by appending ``IRF`` to the xml variable ``OCN_TRACER_MODULES``.
+This can be done with the command ``./xmlchange -a OCN_TRACER_MODULES=IRF``.
+We recommend doing this before running ``case.build``, as POP needs to be built, or
+rebuilt, after this change is made.
 
 Run the case, to generate the IRF output, by running the command ``./case.submit``.
 This step only needs to generate the IRF output from the IRF case.
@@ -146,18 +150,8 @@ Step 3
 ~~~~~~
 
 Run the following command from ``$TOP`` to set up usage of the solver
-::
-
-  ./models/cime_pop/setup_solver.sh --cfg_fname <cfg_fname>
-
-where <cfg_fname> is the path of the customized cfg file.
-If running on the NCAR/CISL machine cheyenne, replace this with
-::
-
-  qcmd -- ./models/cime_pop/setup_solver.sh --cfg_fname <cfg_fname>
-
-to avoid excessive computational load on login nodes from computing the mean of the IRF
-output.
+``./models/cime_pop/setup_solver.sh --cfg_fname <cfg_fname>`` where <cfg_fname> is the
+path of the customized cfg file [#f2]_.
 Running ``./models/cime_pop/setup_solver.sh -h`` shows what command line options are
 available.
 The ``setup_solver.sh`` script does the following:
@@ -203,3 +197,12 @@ forward model run is completed.
 
 The solver's progress can be monitored through examination of the solver's
 :ref:`diagnostic output <solver_diagnostic_output>`.
+
+.. rubric:: Footnotes
+.. [#f1] On the NCAR/CISL machine cheyenne, CISL requests that model builds not be done on
+         login nodes, to reduce computational load on the login nodes. The build can be
+         done on batch nodes of cheyenne by running the command ``qcmd -- ./case.build``.
+.. [#f2] On the NCAR/CISL machine cheyenne, the ``setup_solver.sh`` script should be run
+         with the command ``qcmd -- ./models/cime_pop/setup_solver.sh --cfg_fname
+         <cfg_fname>`` to reduce computational load on login nodes from computing the mean
+         of the IRF output.
