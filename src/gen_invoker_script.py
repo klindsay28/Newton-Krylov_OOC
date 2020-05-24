@@ -5,7 +5,8 @@ import logging
 import os
 import stat
 
-from .utils import parse_args_common, mkdir_exist_okay, read_cfg_file
+from .share import parse_args_common, read_cfg_file
+from .utils import mkdir_exist_okay
 
 
 def gen_invoker_script(args, modelinfo, repo_root):

@@ -8,7 +8,7 @@ import sys
 
 from src.model_config import ModelConfig
 from src.newton_solver import NewtonSolver
-from src.utils import parse_args_common, read_cfg_file
+from src.share import parse_args_common, read_cfg_file
 
 
 def parse_args():

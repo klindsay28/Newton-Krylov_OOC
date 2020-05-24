@@ -10,7 +10,8 @@ from test_problem.src.spatial_axis import SpatialAxis
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
 from .newton_fcn import ModelState, NewtonFcn
-from ..utils import parse_args_common, mkdir_exist_okay, read_cfg_file
+from ..share import parse_args_common, read_cfg_file
+from ..utils import mkdir_exist_okay
 
 
 def _parse_args():

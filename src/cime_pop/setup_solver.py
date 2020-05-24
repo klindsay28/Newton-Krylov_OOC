@@ -13,13 +13,8 @@ import numpy as np
 from ..cime import cime_xmlquery, cime_yr_cnt
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from ..utils import (
-    parse_args_common,
-    mkdir_exist_okay,
-    read_cfg_file,
-    ann_files_to_mean_file,
-    mon_files_to_mean_file,
-)
+from ..share import parse_args_common, read_cfg_file
+from ..utils import mkdir_exist_okay, ann_files_to_mean_file, mon_files_to_mean_file
 
 
 def _parse_args():

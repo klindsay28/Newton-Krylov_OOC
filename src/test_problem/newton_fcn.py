@@ -21,7 +21,7 @@ from test_problem.src.hist import hist_write
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
-from ..utils import parse_args_common, read_cfg_file
+from ..share import parse_args_common, read_cfg_file
 
 
 def _parse_args():
