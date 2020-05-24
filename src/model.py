@@ -8,7 +8,6 @@ import numpy as np
 from netCDF4 import Dataset
 
 from . import model_config
-
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .region_scalars import RegionScalars, to_ndarray
 from .stats_file import stats_file_append_vals

@@ -4,8 +4,8 @@ from datetime import datetime
 import logging
 import os
 
-import numpy as np
 from netCDF4 import Dataset
+import numpy as np
 
 
 class NewtonFcnBase:

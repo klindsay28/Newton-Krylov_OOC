@@ -13,9 +13,8 @@ import stat
 import subprocess
 import sys
 
-import numpy as np
-
 from netCDF4 import Dataset
+import numpy as np
 
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model import ModelStateBase, TracerModuleStateBase

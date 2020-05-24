@@ -7,13 +7,12 @@ import os
 import subprocess
 import sys
 
+from netCDF4 import Dataset
 import numpy as np
 from scipy.linalg import solve_banded, svd
 from scipy.sparse import diags, eye
 from scipy.sparse.linalg import spsolve
 from scipy.integrate import solve_ivp
-
-from netCDF4 import Dataset
 
 from test_problem.src.spatial_axis import SpatialAxis
 from test_problem.src.hist import hist_write
