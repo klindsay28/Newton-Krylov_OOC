@@ -331,6 +331,13 @@ class NewtonFcn(NewtonFcnBase):
         tracer_grad = self.depth.grad_vals_mid(tracer_vals)
         return self.depth.grad_vals_edges(self.mixing_coeff(time) * tracer_grad)
 
+    def _mixing_tend_sf(self, time, tracer_vals, surf_flux):
+        """single tracer tendency from mixing, with surface flux"""
+        tracer_grad = self.depth.grad_vals_mid(tracer_vals)
+        flux_neg = self.mixing_coeff(time) * tracer_grad
+        flux_neg[0] = -surf_flux
+        return self.depth.grad_vals_edges(flux_neg)
+
     def mixing_coeff(self, time):
         """
         vertical mixing coefficient, m2 d-1
@@ -400,10 +407,12 @@ class NewtonFcn(NewtonFcnBase):
         compute tendency for iage
         tendency units are tr_units / day
         """
+        # surface_flux piston velocity = 240 m / day
+        # same as restoring 24 / day over 10 m
+        surf_flux = -240.0 * tracer_vals[0]
+        dtracer_vals_dt[:] = self._mixing_tend_sf(time, tracer_vals, surf_flux)
         # age 1/year
-        dtracer_vals_dt[:] = (1.0 / 365.0) + self._mixing_tend(time, tracer_vals)
-        # restore in surface to 0 at a rate of 24.0 / day
-        dtracer_vals_dt[0] = -24.0 * tracer_vals[0]
+        dtracer_vals_dt[:] += 1.0 / 365.0
 
     def _comp_tend_phosphorus(self, time, tracer_vals, dtracer_vals_dt):
         """
@@ -524,7 +533,7 @@ class NewtonFcn(NewtonFcnBase):
         matrix_diagonals[2, :-1] = (
             mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
         )
-        matrix_diagonals[1, 0] = -24.0
+        matrix_diagonals[1, 0] = -240.0 * self.depth.delta_r[0]
         matrix_diagonals[0, 1] = 0
 
         res = solve_banded(l_and_u, matrix_diagonals, rhs)
