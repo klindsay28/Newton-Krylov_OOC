@@ -2,15 +2,29 @@
 Coding Practices
 ================
 
+-------
+Testing
+-------
+
+A small amount of Continuous Integration (ci) testing is performed on the solver using
+`travis-ci <https://travis-ci.com/>`_.
+Testing on travis-ci currently does the following:
+
+#. Run the source code through black.
+#. Run the setup script for the test_problem model.
+#. Run the solver for the test_problem model with ``iage`` turned on.
+
+Adding more tests is desirable.
+Testing is perfomed with python3.6 and python3.7.
+Conda is currently unable to create environments with the required pakages using
+earlier or later versions of python.
+
+The solver has been run for the cime_pop model with the iage and abio_dic_dic14 tracer
+modules successfully on the NCAR/CISL machine cheyenne using python3.6.
+
 --------------
 Python Version
 --------------
-
-Development is currently done using python3.6.
-Testing with earlier versions of python has not been `implemented
-<https://github.com/klindsay28/Newton-Krylov_OOC/issues/15>`_.
-Until that testing is implemented, and results are verified, support for earlier versions
-of python is aspirational.
 
 The minimal version of python required is 3.2 for python3 or 2.7 for python2, as
 ``allow_no_value`` is passed to ``configparser.ConfigParser()``.
