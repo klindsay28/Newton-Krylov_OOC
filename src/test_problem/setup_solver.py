@@ -10,13 +10,13 @@ from test_problem.src.spatial_axis import SpatialAxis
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
 from .newton_fcn import ModelState, NewtonFcn
-from ..share import parse_args_common, read_cfg_file
+from ..share import args_replace, common_args, read_cfg_file
 from ..utils import mkdir_exist_okay
 
 
 def _parse_args():
     """parse command line arguments"""
-    parser = parse_args_common("setup test_problem")
+    parser = common_args("setup test_problem")
     parser.add_argument(
         "--axisname", help="axis name", default="depth",
     )
@@ -45,12 +45,7 @@ def _parse_args():
         default=2,
     )
 
-    args = parser.parse_args()
-
-    # replace {model_name} with specified model
-    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
-
-    return args
+    return args_replace(parser.parse_args())
 
 
 def main(args):

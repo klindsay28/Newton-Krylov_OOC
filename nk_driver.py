@@ -8,13 +8,13 @@ import sys
 
 from src.model_config import ModelConfig
 from src.newton_solver import NewtonSolver
-from src.share import parse_args_common, read_cfg_file
+from src.share import args_replace, common_args, read_cfg_file
 
 
 def parse_args():
     """parse command line arguments"""
 
-    parser = parse_args_common("Newton's method example")
+    parser = common_args("Newton's method example")
     parser.add_argument(
         "--resume",
         help="resume Newton's method from solver's saved state",
@@ -28,12 +28,7 @@ def parse_args():
         default=False,
     )
 
-    args = parser.parse_args()
-
-    # replace {model_name} with specified model
-    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
-
-    return args
+    return args_replace(parser.parse_args())
 
 
 def main(args):

@@ -9,7 +9,7 @@ import git
 from .utils import mkdir_exist_okay
 
 
-def parse_args_common(description, model_name="test_problem"):
+def common_args(description, model_name="test_problem"):
     """instantiate and return a parser, using common options"""
     parser = argparse.ArgumentParser(
         description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -37,6 +37,15 @@ def parse_args_common(description, model_name="test_problem"):
             "--persist", help="override reinvoke from cfg file", action="store_true",
         )
     return parser
+
+
+def args_replace(args):
+    """apply common args replacements/format on string arguments"""
+    str_subs = {"model_name": args.model_name}
+    for arg, value in vars(args).items():
+        if isinstance(value, str):
+            setattr(args, arg, value.format(**str_subs))
+    return args
 
 
 def read_cfg_file(args):

@@ -13,25 +13,20 @@ import numpy as np
 from ..cime import cime_xmlquery, cime_yr_cnt
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from ..share import parse_args_common, read_cfg_file
+from ..share import args_replace, common_args, read_cfg_file
 from ..utils import mkdir_exist_okay, ann_files_to_mean_file, mon_files_to_mean_file
 
 
 def _parse_args():
     """parse command line arguments"""
-    parser = parse_args_common("setup cime_pop", model_name="cime_pop")
+    parser = common_args("setup cime_pop", model_name="cime_pop")
     parser.add_argument(
         "--skip_irf_gen",
         help="skip generating irf file if it exists, default is to overwrite it",
         action="store_true",
     )
 
-    args = parser.parse_args()
-
-    # replace {model_name} with specified model
-    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
-
-    return args
+    return args_replace(parser.parse_args())
 
 
 def main(args):

@@ -20,12 +20,12 @@ from test_problem.src.hist import hist_write
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
-from ..share import parse_args_common, read_cfg_file
+from ..share import args_replace, common_args, read_cfg_file
 
 
 def _parse_args():
     """parse command line arguments"""
-    parser = parse_args_common("test problem for Newton-Krylov solver")
+    parser = common_args("test problem for Newton-Krylov solver")
     parser.add_argument(
         "cmd",
         choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian",],
@@ -41,12 +41,7 @@ def _parse_args():
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    args = parser.parse_args()
-
-    # replace {model_name} with specified model
-    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
-
-    return args
+    return args_replace(parser.parse_args())
 
 
 def _resolve_fname(fname_dir, fname):

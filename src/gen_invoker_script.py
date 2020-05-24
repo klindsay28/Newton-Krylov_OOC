@@ -5,7 +5,7 @@ import logging
 import os
 import stat
 
-from .share import parse_args_common, read_cfg_file
+from .share import args_replace, common_args, read_cfg_file
 from .utils import mkdir_exist_okay
 
 
@@ -52,14 +52,9 @@ def gen_invoker_script(args, modelinfo, repo_root):
 def parse_args():
     """parse command line arguments"""
 
-    parser = parse_args_common("generate script for invoking nk_driver.py")
+    parser = common_args("generate script for invoking nk_driver.py")
 
-    args = parser.parse_args()
-
-    # replace {model_name} with specified model
-    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
-
-    return args
+    return args_replace(parser.parse_args())
 
 
 def main(args):

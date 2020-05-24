@@ -20,13 +20,13 @@ from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..newton_fcn_base import NewtonFcnBase
-from ..share import parse_args_common, read_cfg_file
+from ..share import args_replace, common_args, read_cfg_file
 from ..utils import ann_files_to_mean_file, mon_files_to_mean_file
 
 
 def _parse_args():
     """parse command line arguments"""
-    parser = parse_args_common(
+    parser = common_args(
         "cime pop hooks for Newton-Krylov solver", model_name="cime_pop",
     )
     parser.add_argument(
@@ -38,12 +38,7 @@ def _parse_args():
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    args = parser.parse_args()
-
-    # replace {model_name} with specified model
-    args.cfg_fname = args.cfg_fname.replace("{model_name}", args.model_name)
-
-    return args
+    return args_replace(parser.parse_args())
 
 
 def main(args):
