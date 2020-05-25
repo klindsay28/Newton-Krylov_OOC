@@ -52,3 +52,10 @@ Useful arguments to ``black`` are ``--check`` to see if ``black`` wants to make 
 and ``--diff`` to see what changes ``black`` wants to make.
 Automated invocation of ``black`` on ``git commit`` invocations can be enabled by running
 the command ``pre-commit install`` from the toplevel directory of the repo.
+
+Code should be run through pylint, and attention paid to errors and warnings.
+The following commands, run from the toplevel directory of the repo, perform this
+::
+
+   export PYTHONPATH=models
+   find src models -name "*.py" | xargs pylint | less -I

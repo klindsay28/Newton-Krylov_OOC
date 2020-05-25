@@ -25,7 +25,10 @@ Information on adding tracer modules to the test_problem model are included in
 the :ref:`developer's guide <add_modules_test_problem>`.
 
 The ``iage`` tracer module has a single tracer, ideal age, which has a source term of 1
-year/year, and is restored to 0 in the top layer with a 1-hour restoring timescale.
+year/year.
+A surface flux nudging the surface value to 0 with a piston velocity of 240 m day\
+:sup:`-1` is applied to keep the surface value close to 0.
+This is equivalent to restoring to 0 over the top 10 m with a rate of 1 hr\ :sup:`-1`.
 
 The ``phosphorus`` tracer module has 3 tracers: phosphate (po4), dissolved organic
 phosphorus (dop), and particulate organic phosphorus (pop).
