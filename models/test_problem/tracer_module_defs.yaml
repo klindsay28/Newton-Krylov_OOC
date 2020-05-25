@@ -28,6 +28,11 @@ tracer_module_defs:
         pop_s:
             attrs: {long_name: "shadow particulate organic phosphorus", units: "mmol m-3"}
             shadows: pop
+    dye_sink_{suff}:  # root module name
+        dye_sink_{suff}:
+            attrs: {long_name: "dye sink {suff}", units: "1"}
+            ic_vals: [1.0, 0.0]
+            ic_val_depths: [100.0, 150.0]
 
 precond_matrix_defs:
     base:

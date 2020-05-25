@@ -41,7 +41,8 @@ def common_args(description, model_name="test_problem"):
 
 def args_replace(args):
     """apply common args replacements/format on string arguments"""
-    str_subs = {"model_name": args.model_name}
+    # pass "{suff}" through
+    str_subs = {"model_name": args.model_name, "suff": "{suff}"}
     for arg, value in vars(args).items():
         if isinstance(value, str):
             setattr(args, arg, value.format(**str_subs))

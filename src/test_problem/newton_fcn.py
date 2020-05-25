@@ -311,13 +311,24 @@ class NewtonFcn(NewtonFcnBase):
                 self._comp_tend_iage(
                     time, tracer_vals[tracer_ind, :], dtracer_vals_dt[tracer_ind, :]
                 )
-            if tracer_module_name == "phosphorus":
+            elif tracer_module_name[:9] == "dye_sink_":
+                tracer_ind = self._tracer_names.index(tracer_module_name)
+                self._comp_tend_dye_sink(
+                    tracer_module_name[9:],
+                    time,
+                    tracer_vals[tracer_ind, :],
+                    dtracer_vals_dt[tracer_ind, :],
+                )
+            elif tracer_module_name == "phosphorus":
                 tracer_ind0 = self._tracer_names.index("po4")
                 self._comp_tend_phosphorus(
                     time,
                     tracer_vals[tracer_ind0 : tracer_ind0 + 6, :],
                     dtracer_vals_dt[tracer_ind0 : tracer_ind0 + 6, :],
                 )
+            else:
+                msg = "unknown tracer module %s" % tracer_module_name
+                raise ValueError(msg)
         return dtracer_vals_dt.reshape(-1)
 
     def _mixing_tend(self, time, tracer_vals):
@@ -407,6 +418,18 @@ class NewtonFcn(NewtonFcnBase):
         dtracer_vals_dt[:] = self._mixing_tend_sf(time, tracer_vals, surf_flux)
         # age 1/year
         dtracer_vals_dt[:] += 1.0 / 365.0
+
+    def _comp_tend_dye_sink(self, suff, time, tracer_vals, dtracer_vals_dt):
+        """
+        compute tendency for dye_sink tracer
+        tendency units are tr_units / day
+        """
+        # surface_flux piston velocity = 240 m / day
+        # same as restoring 24 / day over 10 m
+        surf_flux = 240.0 * (1.0 - tracer_vals[0])
+        dtracer_vals_dt[:] = self._mixing_tend_sf(time, tracer_vals, surf_flux)
+        # decay (suff / 1000) / y
+        dtracer_vals_dt[:] -= int(suff) * 0.001 / 365.0 * tracer_vals
 
     def _comp_tend_phosphorus(self, time, tracer_vals, dtracer_vals_dt):
         """
@@ -499,8 +522,15 @@ class NewtonFcn(NewtonFcnBase):
         for tracer_module_name in ms_in.tracer_module_names:
             if tracer_module_name == "iage":
                 self._apply_precond_jacobian_iage(ms_in, mca, ms_res)
-            if tracer_module_name == "phosphorus":
+            elif tracer_module_name[:9] == "dye_sink_":
+                self._apply_precond_jacobian_dye_sink(
+                    tracer_module_name, ms_in, mca, ms_res
+                )
+            elif tracer_module_name == "phosphorus":
                 self._apply_precond_jacobian_phosphorus(ms_in, mca, ms_res)
+            else:
+                msg = "unknown tracer module %s" % tracer_module_name
+                raise ValueError(msg)
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
@@ -533,6 +563,37 @@ class NewtonFcn(NewtonFcnBase):
         res = solve_banded(l_and_u, matrix_diagonals, rhs)
 
         ms_res.set_tracer_vals("iage", res - iage_in)
+
+    def _apply_precond_jacobian_dye_sink(self, name, ms_in, mca, ms_res):
+        """apply preconditioner of jacobian of dye_sink fcn"""
+
+        dye_sink_in = ms_in.get_tracer_vals(name)
+        rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * dye_sink_in
+
+        l_and_u = (1, 1)
+        matrix_diagonals = np.zeros((3, self.depth.nlevs))
+        matrix_diagonals[0, 1:] = (
+            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
+        )
+        matrix_diagonals[1, :-1] -= (
+            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
+        )
+        matrix_diagonals[1, 1:] -= (
+            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
+        )
+        matrix_diagonals[2, :-1] = (
+            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
+        )
+        matrix_diagonals[1, 0] = -240.0 * self.depth.delta_r[0]
+        matrix_diagonals[0, 1] = 0
+
+        # decay (suff / 1000) / y
+        suff = name[9:]
+        matrix_diagonals[1, :] -= int(suff) * 0.001 / 365.0
+
+        res = solve_banded(l_and_u, matrix_diagonals, rhs)
+
+        ms_res.set_tracer_vals(name, res - dye_sink_in)
 
     def _apply_precond_jacobian_phosphorus(self, ms_in, mca, ms_res):
         """

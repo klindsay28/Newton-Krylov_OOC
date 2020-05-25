@@ -110,3 +110,18 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
         msg = datestamp + ": ncra called from " + name + " called from " + caller
         msg = msg + "\n" + getattr(fptr, "history")
         setattr(fptr, "history", msg)
+
+
+def fmt_vals(var, fmt):
+    """apply format substitutions in fmt recursively to vals in var"""
+    if isinstance(var, str):
+        return var.format(**fmt)
+    if isinstance(var, list):
+        return [fmt_vals(item, fmt) for item in var]
+    if isinstance(var, tuple):
+        return tuple(fmt_vals(item, fmt) for item in var)
+    if isinstance(var, set):
+        return {fmt_vals(item, fmt) for item in var}
+    if isinstance(var, dict):
+        return {fmt_vals(key, fmt): fmt_vals(val, fmt) for key, val in var.items()}
+    return var

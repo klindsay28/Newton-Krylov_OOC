@@ -34,3 +34,6 @@ script:
   # setup and run solver, do with iage only to reduce test time
   - ./models/test_problem/setup_solver.sh --tracer_module_names iage --persist
   - $HOME/test_problem_work/nk_driver.sh
+  # setup and run solver for multiple dye_sink tracers
+  - ./models/test_problem/setup_solver.sh --tracer_module_names "dye_sink_{suff}:001:010" --persist
+  - $HOME/test_problem_work/nk_driver.sh

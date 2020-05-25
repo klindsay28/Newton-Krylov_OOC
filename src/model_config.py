@@ -6,6 +6,8 @@ from netCDF4 import Dataset
 import numpy as np
 import yaml
 
+from .utils import fmt_vals
+
 # model configuration info
 model_config_obj = None
 
@@ -45,9 +47,17 @@ class ModelConfig:
             file_contents = yaml.safe_load(fptr)
         self.tracer_module_defs = file_contents["tracer_module_defs"]
         check_shadow_tracers(self.tracer_module_defs, lvl)
+        check_tracer_module_suffs(self.tracer_module_defs)
+        check_tracer_module_names(
+            modelinfo["tracer_module_names"], self.tracer_module_defs
+        )
         self.precond_matrix_defs = file_contents["precond_matrix_defs"]
         propagate_base_matrix_defs_to_all(self.precond_matrix_defs)
         check_precond_matrix_defs(self.precond_matrix_defs)
+
+        modelinfo["tracer_module_names"] = self.tracer_module_expand_all(
+            modelinfo["tracer_module_names"]
+        )
 
         # extract grid_weight from modelinfo config object
         fname = modelinfo["grid_weight_fname"]
@@ -98,6 +108,76 @@ class ModelConfig:
         global model_config_obj  # pylint: disable=W0603
         model_config_obj = self
 
+    def tracer_module_expand_all(self, tracer_module_names):
+        """
+        Perform substitution/expansion on parameterized tracer modules.
+        Generate new tracer module definitions.
+        """
+
+        tracer_module_names_new = []
+        for tracer_module_name in tracer_module_names.split(","):
+            if ":" not in tracer_module_name:
+                tracer_module_names_new.append(tracer_module_name)
+                continue
+            (tracer_module_name_root, _, suffs) = tracer_module_name.partition(":")
+            for suff in suffs.split(":"):
+                tracer_module_name_new = self.tracer_module_expand_one(
+                    tracer_module_name_root, suff
+                )
+                tracer_module_names_new.append(tracer_module_name_new)
+        return ",".join(tracer_module_names_new)
+
+    def tracer_module_expand_one(self, tracer_module_name_root, suff):
+        """
+        Perform substitution/expansion on parameterized tracer modules.
+        Generate new tracer module definitions.
+        """
+
+        fmt = {"suff": suff}
+
+        tracer_module_name_new = fmt_vals(tracer_module_name_root, fmt)
+        # construct new tracer_module_def
+        # with {suff} replaced with suff throughout metadata
+        tracer_module_def_root = self.tracer_module_defs[tracer_module_name_root]
+        tracer_module_def = fmt_vals(tracer_module_def_root, fmt)
+        self.tracer_module_defs[tracer_module_name_new] = tracer_module_def
+
+        # apply replacement to referenced precond matrices,
+        # if their name is parameterized
+        for tracer_metadata in tracer_module_def_root.values():
+            if "precond_matrix" in tracer_metadata:
+                matrix_name = tracer_metadata["precond_matrix"]
+                matrix_name_new = matrix_name.format(**fmt)
+                if matrix_name_new != matrix_name:
+                    self.precond_matrix_defs[matrix_name_new] = fmt_vals(
+                        self.precond_matrix_defs[matrix_name], fmt
+                    )
+
+        return tracer_module_name_new
+
+
+def check_tracer_module_names(tracer_module_names, tracer_module_defs):
+    """
+    Confirm that tracer_module_names names exist in tracer_module_defs and that
+    parameterized tracer modules in tracer_module_names are provided a suffix.
+    """
+
+    fmt = {"suff": "suff"}  # dummy suff replacement
+
+    for tracer_module_name in tracer_module_names.split(","):
+        has_suff = ":" in tracer_module_name
+        if has_suff:
+            tracer_module_name = tracer_module_name.partition(":")[0]
+        if tracer_module_name not in tracer_module_defs:
+            msg = "unknown tracer module name %s" % tracer_module_name
+            raise ValueError(msg)
+        if has_suff == (tracer_module_name.format(**fmt) == tracer_module_name):
+            if has_suff:
+                msg = "%s doesn't expect suff" % tracer_module_name
+            else:
+                msg = "%s expects suff" % tracer_module_name
+            raise ValueError(msg)
+
 
 def check_shadow_tracers(tracer_module_defs, lvl):
     """Confirm that tracers specified in shadow_tracers are also in tracer_names."""
@@ -131,6 +211,27 @@ def check_shadow_tracers(tracer_module_defs, lvl):
                     )
                     raise ValueError(msg)
                 shadowed_tracers.append(tracer_metadata["shadows"])
+
+
+def check_tracer_module_suffs(tracer_module_defs):
+    """
+    Confirm that tracer module names with a suff correspond to tracer module defs with a
+    suff. Confirm that tracer names in tracer modules with a suff have a suff.
+    """
+
+    fmt = {"suff": "suff"}  # dummy suff replacement
+
+    for name, metadata in tracer_module_defs.items():
+        name_has_suff = name.format(**fmt) != name
+        metadata_has_suff = fmt_vals(metadata, fmt) != metadata
+        if name_has_suff != metadata_has_suff:
+            msg = "%s: name_has_suff must equal metadata_has_suff" % name
+            raise ValueError(msg)
+        if name_has_suff:
+            for tracer_name in metadata:
+                if tracer_name.format(**fmt) == tracer_name:
+                    msg = "%s: tracer %s must have suff" % (name, tracer_name)
+                    raise ValueError(msg)
 
 
 def propagate_base_matrix_defs_to_all(matrix_defs):
