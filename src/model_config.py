@@ -267,16 +267,21 @@ def check_precond_matrix_defs(precond_matrix_defs):
     # This check is done for all entries in def_dict,
     # whether they are being used or not.
     logger = logging.getLogger(__name__)
-    for precond_matrix_name, precond_matrix_def in precond_matrix_defs.items():
-        logger.debug("checking precond_matrix_def for %s", precond_matrix_name)
+
+    fmt = {"suff": "suff"}  # dummy suff replacement
+
+    for name, defn in precond_matrix_defs.items():
+        logger.debug("checking precond_matrix_def for %s", name)
         # verify that suffixes in hist_to_precond_var_names are recognized
-        if "hist_to_precond_var_names" in precond_matrix_def:
-            for hist_var in precond_matrix_def["hist_to_precond_var_names"]:
+        if "hist_to_precond_var_names" in defn:
+            for hist_var in defn["hist_to_precond_var_names"]:
                 _, _, time_op = hist_var.partition(":")
                 if time_op not in ["avg", "log_avg", "copy", ""]:
-                    msg = "unknown time_op=%s in %s from %s" % (
-                        time_op,
-                        hist_var,
-                        precond_matrix_name,
-                    )
+                    msg = "unknown time_op=%s in %s from %s" % (time_op, hist_var, name)
                     raise ValueError(msg)
+        # Confirm that matrix names with a defn having a suff have a suff.
+        name_has_suff = name.format(**fmt) != name
+        defn_has_suff = fmt_vals(defn, fmt) != defn
+        if name_has_suff != defn_has_suff:
+            msg = "%s: name_has_suff must equal defn_has_suff" % name
+            raise ValueError(msg)
