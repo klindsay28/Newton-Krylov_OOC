@@ -135,7 +135,7 @@ class ModelConfig:
 
         fmt = {"suff": suff}
 
-        tracer_module_name_new = fmt_vals(tracer_module_name_root, fmt)
+        tracer_module_name_new = tracer_module_name_root.format(**fmt)
         # construct new tracer_module_def
         # with {suff} replaced with suff throughout metadata
         tracer_module_def_root = self.tracer_module_defs[tracer_module_name_root]
