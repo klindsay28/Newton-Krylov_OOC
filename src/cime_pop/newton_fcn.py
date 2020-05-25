@@ -198,7 +198,8 @@ class NewtonFcn(NewtonFcnBase):
 
         ms_res = _comp_fcn_post_modelrun(ms_in)
 
-        self.comp_fcn_postprocess(ms_res, res_fname)
+        caller = __name__ + ".NewtonFcn.comp_fcn"
+        self.comp_fcn_postprocess(ms_res, res_fname, caller)
 
         solver_state.log_step(fcn_complete_step)
 
@@ -265,8 +266,9 @@ class NewtonFcn(NewtonFcnBase):
             # add creation metadata to file attributes
             with Dataset(matrix_fname, mode="a") as fptr:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                name = ".".join([__name__, "NewtonFcn", "_gen_precond_matrix_files"])
-                msg = datestamp + ": created by " + gen_A_fname + " called from " + name
+                msg = datestamp + ": created by " + gen_A_fname
+                fcn_name = __name__ + "NewtonFcn._gen_precond_matrix_files"
+                msg = msg + " called from " + fcn_name
                 if hasattr(fptr, "history"):
                     msg = msg + "\n" + getattr(fptr, "history")
                 setattr(fptr, "history", msg)
@@ -296,7 +298,8 @@ class NewtonFcn(NewtonFcnBase):
 
         solver_state.log_step(fcn_complete_step)
 
-        return ms_res.dump(res_fname)
+        caller = __name__ + ".NewtonFcn.apply_precond_jacobian"
+        return ms_res.dump(res_fname, caller)
 
 
 ################################################################################
@@ -316,7 +319,8 @@ def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
     # relative pathname of tracer_ic
     tracer_ic_fname_rel = "tracer_ic.nc"
     fname = os.path.join(cime_xmlquery("RUNDIR"), tracer_ic_fname_rel)
-    ms_in.dump(fname)
+    caller = __name__ + "._comp_fcn_pre_modelrun"
+    ms_in.dump(fname, caller)
 
     # ensure certain env xml vars are set properly
     cime_xmlchange("POP_PASSIVE_TRACER_RESTART_OVERRIDE", tracer_ic_fname_rel)
@@ -540,7 +544,8 @@ def _apply_precond_jacobian_solve_lin_eqns(
         return ModelState(res_fname)
     logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-    ms_in.dump(res_fname)
+    caller = __name__ + "._apply_precond_jacobian_solve_lin_eqns"
+    ms_in.dump(res_fname, caller)
 
     jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
 
@@ -654,7 +659,8 @@ def _apply_tracers_sflux_term(
                     model_state.set_tracer_vals(tracer_name_dst, dst)
                     term_applied = True
     if term_applied:
-        model_state.dump(res_fname)
+        caller = __name__ + "._apply_tracers_sflux_term"
+        model_state.dump(res_fname, caller)
 
 
 def _pop_nl_var_exists(var_name):

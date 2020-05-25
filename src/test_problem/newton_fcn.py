@@ -293,7 +293,8 @@ class NewtonFcn(NewtonFcnBase):
         for tracer_ind, tracer_name in enumerate(self._tracer_names):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
 
-        self.comp_fcn_postprocess(ms_res, res_fname)
+        caller = __name__ + ".NewtonFcn.comp_fcn"
+        self.comp_fcn_postprocess(ms_res, res_fname, caller)
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
@@ -550,7 +551,8 @@ class NewtonFcn(NewtonFcnBase):
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
 
-        return ms_res.dump(res_fname)
+        caller = __name__ + ".NewtonFcn.apply_precond_jacobian"
+        return ms_res.dump(res_fname, caller)
 
     def _apply_precond_jacobian_iage(self, ms_in, mca, ms_res):
         """apply preconditioner of jacobian of iage fcn"""

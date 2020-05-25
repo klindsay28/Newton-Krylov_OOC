@@ -75,11 +75,12 @@ def main(args):
 
     modelinfo = config["modelinfo"]
 
+    caller = "src.test_problem.setup_solver.main"
+
     # write depth axis
     grid_weight_fname = modelinfo["grid_weight_fname"]
     logger.info('grid_weight_fname="%s"', grid_weight_fname)
     mkdir_exist_okay(os.path.dirname(grid_weight_fname))
-    caller = "src.test_problem.setup_solver.main"
     depth.dump(grid_weight_fname, caller)
 
     # confirm that model configuration works with generated file
@@ -98,7 +99,7 @@ def main(args):
         newton_fcn = NewtonFcn()
         for fp_iter in range(args.fp_cnt):
             logger.info("fp_iter=%d", fp_iter)
-            ic.dump(os.path.join(gen_ic_workdir, "ic_%02d.nc" % fp_iter))
+            ic.dump(os.path.join(gen_ic_workdir, "ic_%02d.nc" % fp_iter), caller)
             ic_fcn = newton_fcn.comp_fcn(
                 ic,
                 os.path.join(gen_ic_workdir, "fcn_%02d.nc" % fp_iter),
@@ -112,7 +113,7 @@ def main(args):
     init_iterate_fname = modelinfo["init_iterate_fname"]
     logger.info('init_iterate_fname="%s"', init_iterate_fname)
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
-    ic.dump(init_iterate_fname)
+    ic.dump(init_iterate_fname, caller)
 
     # generate invoker script
     gen_invoker_script.main(args)

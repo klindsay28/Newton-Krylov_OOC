@@ -16,8 +16,8 @@ def stats_file_create(fname):
 
     with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = ".".join([__name__, "stats_file_create"])
-        msg = datestamp + ": created by " + name
+        fcn_name = __name__ + ".stats_file_create"
+        msg = datestamp + ": created by " + fcn_name
         setattr(fptr, "history", msg)
 
         # define dimensions

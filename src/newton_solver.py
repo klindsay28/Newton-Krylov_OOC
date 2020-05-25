@@ -37,7 +37,10 @@ class NewtonSolver:
             iterate = self._newton_fcn_obj.model_state_obj(
                 get_modelinfo("init_iterate_fname")
             )
-            iterate.copy_real_tracers_to_shadow_tracers().dump(self._fname("iterate"))
+            caller = __name__ + ".NewtonSolver.__init__"
+            iterate.copy_real_tracers_to_shadow_tracers().dump(
+                self._fname("iterate"), caller
+            )
             stats_file_create(solverinfo["newton_solver_stats_fname"])
 
         self._iterate = self._newton_fcn_obj.model_state_obj(self._fname("iterate"))
@@ -166,11 +169,13 @@ class NewtonSolver:
             )
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
+        caller = __name__ + ".NewtonSolver._comp_next_iterate"
+
         while True:
             # compute provisional candidate for next iterate
             armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
-            prov.dump(self._fname("prov_Armijo_%02d" % armijo_ind))
+            prov.dump(self._fname("prov_Armijo_%02d" % armijo_ind), caller)
             prov_fcn = self._newton_fcn_obj.comp_fcn(
                 prov,
                 self._fname("prov_fcn_Armijo_%02d" % armijo_ind),
@@ -238,6 +243,8 @@ class NewtonSolver:
             msg = "number of maximum Newton iterations exceeded"
             raise RuntimeError(msg)
 
+        caller = __name__ + "NewtonSolver.step"
+
         step = "fp iterations started"
         if not self._solver_state.step_logged(step):
 
@@ -248,7 +255,7 @@ class NewtonSolver:
             fp_iter = 0
             self._solver_state.set_value_saved_state("fp_iter", fp_iter)
             prov.copy_shadow_tracers_to_real_tracers()
-            prov.dump(self._fname("prov_fp_%02d" % fp_iter))
+            prov.dump(self._fname("prov_fp_%02d" % fp_iter), caller)
             # Evaluate comp_fcn after copying shadow tracers to their real counterparts.
             # If no shadow tracers are on, then this is the same as the final comp_fcn
             # result from Armijo iterations.
@@ -265,7 +272,7 @@ class NewtonSolver:
                 )
                 os.remove(self._fname("prov_hist_Armijo_%02d" % armijo_ind))
             else:
-                prov_fcn.dump(self._fname("prov_fcn_fp_%02d" % fp_iter))
+                prov_fcn.dump(self._fname("prov_fcn_fp_%02d" % fp_iter), caller)
                 os.rename(
                     self._fname("prov_hist_Armijo_%02d" % armijo_ind),
                     self._fname("prov_hist_fp_%02d" % fp_iter),
@@ -283,7 +290,7 @@ class NewtonSolver:
                     self.log(prov, prov_fcn, "pre-fp_iter")
                 prov += prov_fcn
                 prov.copy_shadow_tracers_to_real_tracers()
-                prov.dump(self._fname("prov_fp_%02d" % (fp_iter + 1)))
+                prov.dump(self._fname("prov_fp_%02d" % (fp_iter + 1)), caller)
                 self._solver_state.log_step(step)
             else:
                 prov = type(self._iterate)(self._fname("prov_fp_%02d" % (fp_iter + 1)))
@@ -305,6 +312,6 @@ class NewtonSolver:
         self._solver_state.inc_iteration()
 
         self._iterate = prov
-        self._iterate.dump(self._fname("iterate"))
+        self._iterate.dump(self._fname("iterate"), caller)
         self._fcn = prov_fcn
-        self._fcn.dump(self._fname("fcn"))
+        self._fcn.dump(self._fname("fcn"), caller)

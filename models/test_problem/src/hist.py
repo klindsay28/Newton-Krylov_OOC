@@ -10,7 +10,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
     """write tracer values generated in comp_fcn to hist_fname"""
     with Dataset(hist_fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = ".".join([__name__, "hist_write"])
+        name = __name__ + ".hist_write"
         msg = datestamp + ": created by " + name
         setattr(fptr, "history", msg)
 

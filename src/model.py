@@ -71,16 +71,19 @@ class ModelStateBase:
         msg = "unknown tracer_name=%s" % tracer_name
         raise ValueError(msg)
 
-    def dump(self, vals_fname):
+    def dump(self, vals_fname, caller=None):
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
         logger.debug('vals_fname="%s"', vals_fname)
         with Dataset(vals_fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            name = ".".join([__name__, "ModelStateBase", "dump"])
+            name = __name__ + ".ModelStateBase.dump"
             msg = datestamp + ": created by " + name
-            # would be more useful to report caller of dump
-            # setattr(fptr, "history", msg)
+            if caller is not None:
+                msg = msg + " called from " + caller
+            else:
+                raise ValueError("caller unknown")
+            setattr(fptr, "history", msg)
             for action in ["define", "write"]:
                 for tracer_module in self._tracer_modules:
                     tracer_module.dump(fptr, action)

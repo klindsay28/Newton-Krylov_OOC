@@ -65,6 +65,7 @@ class KrylovSolver:
         steps of solve that are only performed for iteration 0
         This is step 1 of Saad's alogrithm 9.4.
         """
+        caller = __name__ + ".KrylovSolver._solve0"
         fcn_complete_step = "_solve0 complete"
         if not self._solver_state.step_logged(fcn_complete_step):
             # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
@@ -75,7 +76,7 @@ class KrylovSolver:
                 self._solver_state,
             )
             beta = precond_fcn.norm()
-            (-precond_fcn / beta).dump(self._fname("basis"))
+            (-precond_fcn / beta).dump(self._fname("basis"), caller)
             self._solver_state.set_value_saved_state("beta_ndarray", to_ndarray(beta))
             self._solver_state.log_step(fcn_complete_step)
 
@@ -86,6 +87,8 @@ class KrylovSolver:
 
         if self._solver_state.get_iteration() == 0:
             self._solve0(fcn)
+
+        caller = __name__ + ".KrylovSolver.solve"
 
         while True:
             j_val = self._solver_state.get_iteration()
@@ -122,15 +125,15 @@ class KrylovSolver:
                 self._fname,
                 "basis",
             )
-            res.dump(self._fname("krylov_res", j_val))
+            res.dump(self._fname("krylov_res", j_val), caller)
 
             if self.converged():
                 break
 
             self._solver_state.inc_iteration()
-            w_j.dump(self._fname("basis"))
+            w_j.dump(self._fname("basis"), caller)
 
-        return res.dump(res_fname)
+        return res.dump(res_fname, caller)
 
     def comp_krylov_basis_coeffs(self, h_mat_ndarray):
         """solve least-squares minimization problem for each tracer module"""
