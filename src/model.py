@@ -10,7 +10,6 @@ from netCDF4 import Dataset
 from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .region_scalars import RegionScalars, to_ndarray
-from .stats_file import stats_file_append_vals
 
 ################################################################################
 
@@ -117,16 +116,14 @@ class ModelStateBase:
         self.log_vals(msg_full, np.stack((mean_vals, norm_vals)))
 
         if stats_info is not None and stats_info["append_vals"]:
-            stats_file_append_vals(
-                stats_info["fname"],
+            stats_info["stats_file_obj"].put_vars_generic(
                 stats_info["iteration"],
-                stats_info["varname_root"] + "_mean",
+                stats_info["varname_root"] + "_mean_{tr_mod_name}",
                 mean_vals,
             )
-            stats_file_append_vals(
-                stats_info["fname"],
+            stats_info["stats_file_obj"].put_vars_generic(
                 stats_info["iteration"],
-                stats_info["varname_root"] + "_norm",
+                stats_info["varname_root"] + "_norm_{tr_mod_name}",
                 norm_vals,
             )
 

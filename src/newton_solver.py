@@ -10,7 +10,7 @@ from .krylov_solver import KrylovSolver
 from .model_config import get_modelinfo
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver import SolverState
-from .stats_file import stats_file_create, stats_file_append_vals
+from .stats_file import StatsFile
 from .utils import mkdir_exist_okay
 
 
@@ -31,6 +31,7 @@ class NewtonSolver:
         self._newton_fcn_obj = newton_fcn_obj
         self._solverinfo = solverinfo
         self._solver_state = SolverState("Newton", workdir, resume, rewind)
+        self._stats_file = StatsFile("Newton", workdir, resume)
 
         # get solver started the first time NewtonSolver is instantiated
         if not resume:
@@ -41,7 +42,30 @@ class NewtonSolver:
             iterate.copy_real_tracers_to_shadow_tracers().dump(
                 self._fname("iterate"), caller
             )
-            stats_file_create(solverinfo["newton_solver_stats_fname"])
+            stats_metadata = {
+                "iterate_mean_{tr_mod_name}": {
+                    "long_name": "mean of {tr_mod_name} iterate"
+                },
+                "iterate_norm_{tr_mod_name}": {
+                    "long_name": "norm of {tr_mod_name} iterate"
+                },
+                "fcn_mean_{tr_mod_name}": {
+                    "long_name": "mean of fcn applied to {tr_mod_name} iterate"
+                },
+                "fcn_norm_{tr_mod_name}": {
+                    "long_name": "norm of fcn applied to {tr_mod_name} iterate"
+                },
+                "increment_mean_{tr_mod_name}": {
+                    "long_name": "mean of {tr_mod_name} Newton increment"
+                },
+                "increment_norm_{tr_mod_name}": {
+                    "long_name": "norm of {tr_mod_name} Newton increment"
+                },
+                "Armijo_Factor_{tr_mod_name}": {
+                    "long_name": "Armijo factor applied to {tr_mod_name} Newton increment"
+                },
+            }
+            self._stats_file.def_vars_gen(stats_metadata)
 
         self._iterate = self._newton_fcn_obj.model_state_obj(self._fname("iterate"))
 
@@ -75,7 +99,7 @@ class NewtonSolver:
 
         stats_info = {
             "append_vals": append_to_stats_file,
-            "fname": self._solverinfo["newton_solver_stats_fname"],
+            "stats_file_obj": self._stats_file,
             "iteration": iteration,
         }
 
@@ -132,7 +156,7 @@ class NewtonSolver:
         iteration = self._solver_state.get_iteration()
         stats_info = {
             "append_vals": True,
-            "fname": self._solverinfo["newton_solver_stats_fname"],
+            "stats_file_obj": self._stats_file,
             "iteration": iteration,
             "varname_root": "increment",
         }
@@ -208,10 +232,9 @@ class NewtonSolver:
                 self._solver_state.log_step(fcn_complete_step)
 
                 # write ArmijoFactor to the stats file
-                stats_file_append_vals(
-                    self._solverinfo["newton_solver_stats_fname"],
+                self._stats_file.put_vars_generic(
                     self._solver_state.get_iteration(),
-                    "Armijo_Factor",
+                    "Armijo_Factor_{tr_mod_name}",
                     armijo_factor,
                 )
 

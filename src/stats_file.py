@@ -1,78 +1,103 @@
 """interface for stats file"""
 
 from datetime import datetime
+import os
 
 from netCDF4 import Dataset
 
 from .model_config import get_modelinfo, get_region_cnt
 
-fill_value = -1.0e30
 
+class StatsFile:
+    """class for stats for a solver"""
 
-def stats_file_create(fname):
-    """create the file for solver stats"""
+    def __init__(self, name, workdir, resume, fill_value=-1.0e30):
+        self._fname = os.path.join(workdir, name + "_stats.nc")
+        self._fill_value = fill_value
 
-    tracer_module_names = get_modelinfo("tracer_module_names").split(",")
+        if resume:
+            # verify that stats file exists
+            if not os.path.exists(self._fname):
+                msg = "resume=True but stats file %s doesn't exist" % self._fname
+                raise RuntimeError(msg)
+            return
 
-    with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
-        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        fcn_name = __name__ + ".stats_file_create"
-        msg = datestamp + ": created by " + fcn_name
-        setattr(fptr, "history", msg)
+        with Dataset(self._fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
+            datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            fcn_name = __name__ + ".stats_file_create"
+            msg = datestamp + ": created by " + fcn_name + " for " + name + " solver"
+            setattr(fptr, "history", msg)
 
-        # define dimensions
-        fptr.createDimension("iteration", None)
-        fptr.createDimension("region", get_region_cnt())
+            # define dimensions
+            fptr.createDimension("iteration", None)
+            fptr.createDimension("region", get_region_cnt())
 
-        # define coordinate variables
-        fptr.createVariable("iteration", "i", dimensions=("iteration",))
+            # define coordinate variables
+            fptr.createVariable("iteration", "i", dimensions=("iteration",))
 
-        # define stats variables
+    def def_vars_gen(self, vars_metadata):
+        """define vars in stats file that generailize across all tracer modules"""
         dimensions = ("iteration", "region")
-        attrs_dict = {
-            "iterate_mean_%s": {"long_name": "mean of %s iterate"},
-            "iterate_norm_%s": {"long_name": "norm of %s iterate"},
-            "fcn_mean_%s": {"long_name": "mean of fcn applied to %s iterate"},
-            "fcn_norm_%s": {"long_name": "norm of fcn applied to %s iterate"},
-            "increment_mean_%s": {"long_name": "mean of %s Newton increment"},
-            "increment_norm_%s": {"long_name": "norm of %s Newton increment"},
-            "Armijo_Factor_%s": {
-                "long_name": "Armijo factor applied to %s Newton increment"
-            },
-        }
-        for tracer_module_name in tracer_module_names:
-            for varname, attrs in attrs_dict.items():
+        with Dataset(self._fname, mode="a") as fptr:
+            for tracer_module_name in get_modelinfo("tracer_module_names").split(","):
+                fmt = {"tr_mod_name": tracer_module_name}
+                for varname, attrs in vars_metadata.items():
+                    var = fptr.createVariable(
+                        varname.format(**fmt),
+                        "f8",
+                        dimensions,
+                        fill_value=self._fill_value,
+                    )
+                    for attr_name, attr_value in attrs.items():
+                        setattr(var, attr_name, attr_value.format(**fmt))
+
+    def def_vars_spec(self, vars_metadata):
+        """define vars in stats file that are specific to one tracer module"""
+        dimensions = ("iteration", "region")
+        with Dataset(self._fname, mode="a") as fptr:
+            for varname, attrs in vars_metadata.items():
                 var = fptr.createVariable(
-                    varname % tracer_module_name,
-                    "f8",
-                    dimensions,
-                    fill_value=fill_value,
+                    varname, "f8", dimensions, fill_value=self._fill_value
                 )
                 for attr_name, attr_value in attrs.items():
-                    setattr(var, attr_name, attr_value % tracer_module_name)
+                    setattr(var, attr_name, attr_value)
 
+    def put_vars_generic(self, iteration, varname, vals):
+        """
+        put vals to a generic varname with specified iteration index
+        vals is a numpy array of RegionScalars objects
+        the numpy array axis corresponds to tracer modules
+        """
 
-def stats_file_append_vals(fname, iteration, varname, vals):
-    """
-    append vals to varname with specified iteration index
-    vals is a numpy array of RegionScalars objects
-    the numpy array axis corresponds to tracer modules
-    """
+        tracer_module_names = get_modelinfo("tracer_module_names").split(",")
 
-    tracer_module_names = get_modelinfo("tracer_module_names").split(",")
+        with Dataset(self._fname, mode="a") as fptr:
+            if iteration == len(fptr.variables["iteration"]):
+                self._grow_iteration(fptr)
 
-    with Dataset(fname, mode="a") as fptr:
-        # If this is the first value being written for this iteration,
-        # then set iteration, and set all other variables to fill_value.
-        # Without doing the fill, some installs of ncview abort when viewing
-        # the stats file.
-        if iteration == len(fptr.variables["iteration"]):
-            for full_varname in fptr.variables:
-                if full_varname == "iteration":
-                    fptr.variables[full_varname][iteration] = iteration
-                else:
-                    fptr.variables[full_varname][iteration, :] = fill_value
+            for ind, tracer_module_name in enumerate(tracer_module_names):
+                full_varname = varname.format(tr_mod_name=tracer_module_name)
+                fptr.variables[full_varname][iteration, :] = vals[ind].vals()
 
-        for ind, tracer_module_name in enumerate(tracer_module_names):
-            full_varname = varname + "_" + tracer_module_name
-            fptr.variables[full_varname][iteration, :] = vals[ind].vals()
+    def put_vars_specific(self, iteration, varname, vals):
+        """
+        put vals to a specific varname with specified iteration index
+        vals is a RegionScalars object
+        """
+
+        with Dataset(self._fname, mode="a") as fptr:
+            if iteration == len(fptr.variables["iteration"]):
+                self._grow_iteration(fptr)
+
+            fptr.variables[varname][:] = vals.vals()
+
+    def _grow_iteration(self, fptr):
+        """grow iteration dimension"""
+        # Set variables to fill_value. Without doing the fill, some installs of ncview
+        # abort when viewing the stats file.
+        iteration = len(fptr.variables["iteration"])
+        for varname in fptr.variables:
+            if varname == "iteration":
+                fptr.variables[varname][iteration] = iteration
+            else:
+                fptr.variables[varname][iteration, :] = self._fill_value
