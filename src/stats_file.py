@@ -7,13 +7,14 @@ from netCDF4 import Dataset
 
 from .model_config import get_modelinfo, get_region_cnt
 
+fill_value = -1.0e30
+
 
 class StatsFile:
     """class for stats for a solver"""
 
-    def __init__(self, name, workdir, resume, fill_value=-1.0e30):
+    def __init__(self, name, workdir, resume):
         self._fname = os.path.join(workdir, name + "_stats.nc")
-        self._fill_value = fill_value
 
         if resume:
             # verify that stats file exists
@@ -24,7 +25,7 @@ class StatsFile:
 
         with Dataset(self._fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fcn_name = __name__ + ".stats_file_create"
+            fcn_name = __name__ + ".StatsFile.__init__"
             msg = datestamp + ": created by " + fcn_name + " for " + name + " solver"
             setattr(fptr, "history", msg)
 
@@ -35,7 +36,7 @@ class StatsFile:
             # define coordinate variables
             fptr.createVariable("iteration", "i", dimensions=("iteration",))
 
-    def def_vars_gen(self, vars_metadata):
+    def def_vars_generic(self, vars_metadata):
         """define vars in stats file that generailize across all tracer modules"""
         dimensions = ("iteration", "region")
         with Dataset(self._fname, mode="a") as fptr:
@@ -43,24 +44,53 @@ class StatsFile:
                 fmt = {"tr_mod_name": tracer_module_name}
                 for varname, attrs in vars_metadata.items():
                     var = fptr.createVariable(
-                        varname.format(**fmt),
-                        "f8",
-                        dimensions,
-                        fill_value=self._fill_value,
+                        varname.format(**fmt), "f8", dimensions, fill_value=fill_value
                     )
                     for attr_name, attr_value in attrs.items():
                         setattr(var, attr_name, attr_value.format(**fmt))
 
-    def def_vars_spec(self, vars_metadata):
+    def def_vars_specific(self, coords_extra, vars_metadata, caller):
         """define vars in stats file that are specific to one tracer module"""
+
         dimensions = ("iteration", "region")
         with Dataset(self._fname, mode="a") as fptr:
-            for varname, attrs in vars_metadata.items():
+            # define extra dimensions
+            # if vals are provided, define and write coordinates variables
+            # if vals are not provided, expect len to be in metadata
+            for dimname, metadata in coords_extra.items():
+                if "vals" in metadata:
+                    fptr.createDimension(dimname, len(metadata["vals"]))
+                    var = fptr.createVariable(dimname, "f8", dimensions=(dimname,))
+                    if "attrs" in metadata:
+                        for attr_name, attr_value in metadata["attrs"].items():
+                            setattr(var, attr_name, attr_value)
+                    fptr.variables[dimname][:] = metadata["vals"]
+                elif "len" in metadata:
+                    fptr.createDimension(dimname, metadata["len"])
+                else:
+                    msg = "len for %s unknown" % dimname
+                    raise ValueError(msg)
+
+            # define specific vars
+            for varname, metadata in vars_metadata.items():
+                if "dimensions_extra" in metadata:
+                    dimensions_loc = dimensions + metadata["dimensions_extra"]
+                else:
+                    dimensions_loc = dimensions
                 var = fptr.createVariable(
-                    varname, "f8", dimensions, fill_value=self._fill_value
+                    varname, "f8", dimensions_loc, fill_value=fill_value
                 )
-                for attr_name, attr_value in attrs.items():
-                    setattr(var, attr_name, attr_value)
+                if "attrs" in metadata:
+                    for attr_name, attr_value in metadata["attrs"].items():
+                        setattr(var, attr_name, attr_value)
+
+            datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            varnames = ",".join(vars_metadata)
+            fcn_name = __name__ + ".StatsFile.def_vars_specific"
+            msg = datestamp + ": " + varnames + " appended by " + fcn_name
+            msg = msg + " called by " + caller
+            msg = msg + "\n" + getattr(fptr, "history")
+            setattr(fptr, "history", msg)
 
     def put_vars_generic(self, iteration, varname, vals):
         """
@@ -73,7 +103,7 @@ class StatsFile:
 
         with Dataset(self._fname, mode="a") as fptr:
             if iteration == len(fptr.variables["iteration"]):
-                self._grow_iteration(fptr)
+                _grow_iteration(fptr)
 
             for ind, tracer_module_name in enumerate(tracer_module_names):
                 full_varname = varname.format(tr_mod_name=tracer_module_name)
@@ -87,17 +117,18 @@ class StatsFile:
 
         with Dataset(self._fname, mode="a") as fptr:
             if iteration == len(fptr.variables["iteration"]):
-                self._grow_iteration(fptr)
+                _grow_iteration(fptr)
 
-            fptr.variables[varname][:] = vals.vals()
+            fptr.variables[varname][iteration, :] = vals.vals()
 
-    def _grow_iteration(self, fptr):
-        """grow iteration dimension"""
-        # Set variables to fill_value. Without doing the fill, some installs of ncview
-        # abort when viewing the stats file.
-        iteration = len(fptr.variables["iteration"])
-        for varname in fptr.variables:
-            if varname == "iteration":
-                fptr.variables[varname][iteration] = iteration
-            else:
-                fptr.variables[varname][iteration, :] = self._fill_value
+
+def _grow_iteration(fptr):
+    """grow iteration dimension"""
+    # Set variables to fill_value. Without doing the fill, some installs of ncview
+    # abort when viewing the stats file.
+    iteration = len(fptr.variables["iteration"])
+    for varname in fptr.variables:
+        if varname == "iteration":
+            fptr.variables[varname][iteration] = iteration
+        elif fptr.variables[varname].dimensions[0] == "iteration":
+            fptr.variables[varname][iteration, :] = fill_value

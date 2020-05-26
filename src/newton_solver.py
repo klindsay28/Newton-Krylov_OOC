@@ -65,7 +65,7 @@ class NewtonSolver:
                     "long_name": "Armijo factor applied to {tr_mod_name} Newton increment"
                 },
             }
-            self._stats_file.def_vars_gen(stats_metadata)
+            self._stats_file.def_vars_generic(stats_metadata)
 
         self._iterate = self._newton_fcn_obj.model_state_obj(self._fname("iterate"))
 
@@ -80,6 +80,13 @@ class NewtonSolver:
             )
         else:
             self._fcn = self._newton_fcn_obj.model_state_obj(self._fname("fcn"))
+
+        step = "def_stats_vars called"
+        if not self._solver_state.step_logged(step, per_iteration=False):
+            self._newton_fcn_obj.def_stats_vars(
+                self._stats_file, self._iterate, self._fname("hist")
+            )
+        self._solver_state.log_step(step, per_iteration=False)
 
     def _fname(self, quantity, iteration=None):
         """construct fname corresponding to particular quantity"""
@@ -110,6 +117,17 @@ class NewtonSolver:
         log_obj = self._fcn if fcn is None else fcn
         stats_info["varname_root"] = "fcn"
         log_obj.log("%s,fcn" % iteration_p_msg, stats_info=stats_info)
+
+        if append_to_stats_file:
+            step = "put_stats_vars called"
+            if not self._solver_state.step_logged(step):
+                self._newton_fcn_obj.put_stats_vars(
+                    self._stats_file,
+                    self._solver_state.get_iteration(),
+                    self._iterate,
+                    self._fname("hist"),
+                )
+            self._solver_state.log_step(step)
 
     def converged_flat(self):
         """is residual small"""

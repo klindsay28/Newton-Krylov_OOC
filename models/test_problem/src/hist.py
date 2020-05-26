@@ -58,7 +58,6 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
                         )
                     else:
                         setattr(var, attr_name, attr_value)
-            setattr(var, "cell_methods", "time: point")
 
             varname = tracer_name + "_zint"
             var = fptr.createVariable(varname, "f8", dimensions=("time",))
@@ -108,7 +107,8 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
             var = fptr.createVariable(varname, "f8", dimensions=metadata["dimensions"])
             for attr_name, attr_value in metadata["attrs"].items():
                 setattr(var, attr_name, attr_value)
-            setattr(var, "cell_methods", "time: point")
+            if "time" in metadata["dimensions"]:
+                setattr(var, "cell_methods", "time: point")
 
         # write coordinate vars
 

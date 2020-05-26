@@ -63,13 +63,12 @@ def main(args):
     msg = "%s not implemented for command line execution in %s " % (args.cmd, __file__)
     if args.cmd == "comp_fcn":
         raise NotImplementedError(msg)
-    elif args.cmd == "gen_precond_jacobian":
+    if args.cmd == "gen_precond_jacobian":
         raise NotImplementedError(msg)
-    elif args.cmd == "apply_precond_jacobian":
+    if args.cmd == "apply_precond_jacobian":
         raise NotImplementedError(msg)
-    else:
-        msg = "unknown cmd=%s" % args.cmd
-        raise ValueError(msg)
+    msg = "unknown cmd=%s" % args.cmd
+    raise ValueError(msg)
 
 
 ################################################################################
