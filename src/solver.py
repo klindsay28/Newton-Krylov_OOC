@@ -47,7 +47,7 @@ class SolverState:
                 msg = "rewind cannot be True if resume is False, name=%s" % self._name
                 raise RuntimeError(msg)
             self._saved_state = {"iteration": 0, "step_log": []}
-            self.log_step("__init__")
+            self.log_step("__init__", per_iteration=False)
             logger.info(
                 '"%s" iteration now %d', self._name, self._saved_state["iteration"]
             )
@@ -69,27 +69,30 @@ class SolverState:
         logger.info('"%s" iteration now %d', self._name, self._saved_state["iteration"])
         return self._saved_state["iteration"]
 
-    def log_step(self, stepval):
+    def log_step(self, stepval, per_iteration=True):
         """add a step to step_log"""
         logger = logging.getLogger(__name__)
         logger.debug('name="%s"', self._name)
-        if not self.step_logged(stepval):
+        if not self.step_logged(stepval, per_iteration):
             logger.debug('adding "%s" to step_log', stepval)
-            self._saved_state["step_log"].append(self._step_log_string(stepval))
+            log_string = self._step_log_string(stepval, per_iteration)
+            self._saved_state["step_log"].append(log_string)
             self._write_saved_state()
         else:
             logger.debug('"%s" already in step_log', stepval)
 
-    def step_logged(self, stepval):
+    def step_logged(self, stepval, per_iteration=True):
         """has step been logged in the current iteration"""
-        return self._step_log_string(stepval) in self._saved_state["step_log"]
+        log_string = self._step_log_string(stepval, per_iteration)
+        return log_string in self._saved_state["step_log"]
 
-    def step_was_rewound(self, stepval):
+    def step_was_rewound(self, stepval, per_iteration=True):
         """does stepval correspond to the step that was rewound during __init__"""
+        log_string = self._step_log_string(stepval, per_iteration)
         return (
             False
             if self._rewound_step_string is None
-            else self._step_log_string(stepval) == self._rewound_step_string
+            else log_string == self._rewound_step_string
         )
 
     def set_value_saved_state(self, key, value):
@@ -119,9 +122,9 @@ class SolverState:
         for step_name in self._saved_state["step_log"]:
             logger.debug('"%s" logged', step_name)
 
-    def _step_log_string(self, stepval):
+    def _step_log_string(self, stepval, per_iteration):
         """string that gets appended to step_log corresponding to stepval"""
-        return "%02d:%s" % (self.get_iteration(), stepval)
+        return "%02d:%s" % (self.get_iteration(), stepval) if per_iteration else stepval
 
     def _write_saved_state(self):
         """write _saved_state to a JSON file"""
