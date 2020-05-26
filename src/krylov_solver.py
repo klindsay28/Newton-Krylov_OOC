@@ -45,10 +45,12 @@ class KrylovSolver:
         self._workdir = workdir
         self._solver_state = SolverState("Krylov", workdir, resume, rewind)
 
-        if self._solver_state.get_iteration() == 0:
+        step = "gen_precond_jacobian called"
+        if not self._solver_state.step_logged(step, per_iteration=False):
             self._newton_fcn_obj.gen_precond_jacobian(
-                iterate, hist_fname, self._fname("precond"), self._solver_state
+                iterate, hist_fname, self._fname("precond")
             )
+        self._solver_state.log_step(step, per_iteration=False)
 
     def _fname(self, quantity, iteration=None):
         """construct fname corresponding to particular quantity"""

@@ -204,27 +204,16 @@ class NewtonFcn(NewtonFcnBase):
 
         return ms_res
 
-    def gen_precond_jacobian(self, iterate, hist_fname, precond_fname, solver_state):
+    def gen_precond_jacobian(self, iterate, hist_fname, precond_fname):
         """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
         logger = logging.getLogger(__name__)
         logger.debug('hist_fname="%s", precond_fname="%s"', hist_fname, precond_fname)
 
-        fcn_complete_step = (
-            "gen_precond_jacobian_derived complete for %s" % precond_fname
-        )
+        super().gen_precond_jacobian(iterate, hist_fname, precond_fname)
 
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning', fcn_complete_step)
-            return
-        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+        self._gen_precond_matrix_files(iterate, precond_fname)
 
-        super().gen_precond_jacobian(iterate, hist_fname, precond_fname, solver_state)
-
-        self._gen_precond_matrix_files(iterate, precond_fname, solver_state)
-
-        solver_state.log_step(fcn_complete_step)
-
-    def _gen_precond_matrix_files(self, iterate, precond_fname, solver_state):
+    def _gen_precond_matrix_files(self, iterate, precond_fname):
         """Generate matrix files for preconditioner of jacobian of comp_fcn."""
         logger = logging.getLogger(__name__)
         jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
@@ -236,21 +225,19 @@ class NewtonFcn(NewtonFcnBase):
             "irf_fname": get_modelinfo("irf_fname"),
         }
 
+        workdir = os.path.dirname(precond_fname)
+
         for matrix_name in iterate.precond_matrix_list():
             matrix_opts = get_precond_matrix_def(matrix_name)["precond_matrices_opts"]
             # apply option string substitutions
             for ind, matrix_opt in enumerate(matrix_opts):
                 matrix_opts[ind] = matrix_opt.format(**opt_str_subs)
 
-            matrix_opts_fname = os.path.join(
-                solver_state.get_workdir(), "matrix_" + matrix_name + ".opts"
-            )
+            matrix_opts_fname = os.path.join(workdir, "matrix_" + matrix_name + ".opts")
             with open(matrix_opts_fname, "w") as fptr:
                 for opt in matrix_opts:
                     fptr.write("%s\n" % opt)
-            matrix_fname = os.path.join(
-                solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
-            )
+            matrix_fname = os.path.join(workdir, "matrix_" + matrix_name + ".nc")
             gen_A_fname = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
             cmd = [
                 gen_A_fname,
