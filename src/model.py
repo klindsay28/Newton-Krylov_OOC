@@ -127,6 +127,12 @@ class ModelStateBase:
                 norm_vals,
             )
 
+    def def_stats_vars(self, stats_file, hist_fname):
+        """define model specific stats variables"""
+
+    def put_stats_vars(self, stats_file, iteration, hist_fname):
+        """put model specific stats variables"""
+
     def copy(self):
         """return a copy of self"""
         res = type(self)()  # pylint: disable=E1120

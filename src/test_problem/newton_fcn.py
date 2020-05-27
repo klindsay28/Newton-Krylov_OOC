@@ -119,6 +119,50 @@ class ModelState(ModelStateBase):
         logger.debug('ModelState, vals_fname="%s"', vals_fname)
         super().__init__(TracerModuleState, vals_fname)
 
+    def def_stats_vars(self, stats_file, hist_fname):
+        """define model specific stats variables"""
+
+        vars_metadata = {}
+
+        with Dataset(hist_fname) as fptr_hist:
+            fptr_hist.set_auto_mask(False)
+            coords_extra = {
+                "depth": {
+                    "vals": fptr_hist.variables["depth"][:],
+                    "attrs": fptr_hist.variables["depth"].__dict__,
+                }
+            }
+            for tracer_name in self.tracer_names():
+                attrs = fptr_hist.variables[tracer_name].__dict__
+                for attname in [
+                    "cell_methods",
+                    "_FillValue",
+                    "missing_value",
+                    "coordinates",
+                ]:
+                    if attname in attrs:
+                        del attrs[attname]
+                vars_metadata[tracer_name] = {
+                    "dimensions_extra": ("depth",),
+                    "attrs": attrs,
+                }
+
+        caller = __name__ + ".ModelState.def_stats_vars"
+        stats_file.def_vars_specific(coords_extra, vars_metadata, caller)
+
+    def put_stats_vars(self, stats_file, iteration, hist_fname):
+        """put model specific stats variables"""
+        logger = logging.getLogger(__name__)
+        logger.debug("iteration=%d", iteration)
+
+        with Dataset(hist_fname) as fptr_hist:
+            fptr_hist.set_auto_mask(False)
+            for tracer_name in self.tracer_names():
+                vals = fptr_hist.variables[tracer_name][0:-1, :].mean(axis=0)
+                stats_file.put_vars_specific(
+                    iteration, tracer_name, RegionScalars(vals)
+                )
+
 
 ################################################################################
 
@@ -247,43 +291,6 @@ class NewtonFcn(NewtonFcnBase):
         # enabling access to them from inside _comp_tend
         self._tracer_module_names = None
         self._tracer_names = None
-
-    def def_stats_vars(self, stats_file, iterate, hist_fname):
-        """define model specific stats variables"""
-
-        vars_metadata = {}
-
-        with Dataset(hist_fname) as fptr_hist:
-            fptr_hist.set_auto_mask(False)
-            coords_extra = {
-                "depth": {
-                    "vals": fptr_hist.variables["depth"][:],
-                    "attrs": fptr_hist.variables["depth"].__dict__,
-                }
-            }
-            for tracer_name in iterate.tracer_names():
-                attrs = fptr_hist.variables[tracer_name].__dict__
-                del attrs["cell_methods"]
-                vars_metadata[tracer_name] = {
-                    "dimensions_extra": ("depth",),
-                    "attrs": attrs,
-                }
-
-        caller = __name__ + ".NewtonFcn.def_stats_vars"
-        stats_file.def_vars_specific(coords_extra, vars_metadata, caller)
-
-    def put_stats_vars(self, stats_file, iteration, iterate, hist_fname):
-        """put model specific stats variables"""
-        logger = logging.getLogger(__name__)
-        logger.debug("iteration=%d", iteration)
-
-        with Dataset(hist_fname) as fptr_hist:
-            fptr_hist.set_auto_mask(False)
-            for tracer_name in iterate.tracer_names():
-                vals = fptr_hist.variables[tracer_name][0:-1, :].mean(axis=0)
-                stats_file.put_vars_specific(
-                    iteration, tracer_name, RegionScalars(vals)
-                )
 
     def model_state_obj(self, fname=None):
         """return a ModelState object compatible with this function"""

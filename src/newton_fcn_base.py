@@ -11,12 +11,6 @@ import numpy as np
 class NewtonFcnBase:
     """Base class of methods related to problem being solved with Newton's method"""
 
-    def def_stats_vars(self, stats_file, iterate, hist_fname):
-        """define model specific stats variables"""
-
-    def put_stats_vars(self, stats_file, iteration, iterate, hist_fname):
-        """put model specific stats variables"""
-
     def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         msg = "% should be implemented in classes derived from %s" % (
