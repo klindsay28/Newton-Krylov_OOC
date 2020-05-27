@@ -66,20 +66,30 @@ class StatsFile:
         with Dataset(self._fname, mode="a") as fptr:
             # define extra dimensions
             # if vals are provided, define and write coordinates variables
-            # if vals are not provided, expect len to be in metadata
+            # if vals are not provided, expect dimlen to be in metadata
             for dimname, metadata in coords_extra.items():
                 if "vals" in metadata:
-                    fptr.createDimension(dimname, len(metadata["vals"]))
+                    dimlen = len(metadata["vals"])
+                elif "dimlen" in metadata:
+                    dimlen = metadata["dimlen"]
+                else:
+                    msg = "dimlen for %s unknown" % dimname
+                    raise ValueError(msg)
+                if dimname in fptr.dimensions:
+                    if len(fptr.dimensions[dimname]) != dimlen:
+                        msg = (
+                            "%s already exists in stats file with different length"
+                            % dimname
+                        )
+                        raise ValueError(msg)
+                else:
+                    fptr.createDimension(dimname, dimlen)
+                if "vals" in metadata:
                     var = fptr.createVariable(dimname, "f8", dimensions=(dimname,))
                     if "attrs" in metadata:
                         for attr_name, attr_value in metadata["attrs"].items():
                             setattr(var, attr_name, attr_value)
                     fptr.variables[dimname][:] = metadata["vals"]
-                elif "len" in metadata:
-                    fptr.createDimension(dimname, metadata["len"])
-                else:
-                    msg = "len for %s unknown" % dimname
-                    raise ValueError(msg)
 
             # define specific vars
             for varname, metadata in vars_metadata.items():

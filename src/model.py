@@ -147,7 +147,9 @@ class ModelStateBase:
                         "attrs": fptr_hist.variables[dimname].__dict__,
                     }
                 else:
-                    coords_extra[dimname] = {"len": len(fptr_hist.dimensions[dimname])}
+                    coords_extra[dimname] = {
+                        "dimlen": len(fptr_hist.dimensions[dimname])
+                    }
             for tracer_name in self.tracer_names():
                 attrs = fptr_hist.variables[tracer_name].__dict__
                 for attname in ["cell_methods", "coordinates", "grid_loc"]:
