@@ -7,14 +7,13 @@ from netCDF4 import Dataset
 
 from .model_config import get_modelinfo, get_region_cnt
 
-fill_value = -1.0e30
-
 
 class StatsFile:
     """class for stats for a solver"""
 
-    def __init__(self, name, workdir, resume):
+    def __init__(self, name, workdir, resume, fill_value=-1.0e30):
         self._fname = os.path.join(workdir, name + "_stats.nc")
+        self._fill_value = fill_value  # file-wide default fill_value
 
         if resume:
             # verify that stats file exists
@@ -43,11 +42,16 @@ class StatsFile:
             for tracer_module_name in get_modelinfo("tracer_module_names").split(","):
                 fmt = {"tr_mod_name": tracer_module_name}
                 for varname, attrs in vars_metadata.items():
+                    if "_FillValue" in attrs:
+                        fill_value = attrs["_FillValue"]
+                    else:
+                        fill_value = self._fill_value
                     var = fptr.createVariable(
                         varname.format(**fmt), "f8", dimensions, fill_value=fill_value
                     )
                     for attr_name, attr_value in attrs.items():
-                        setattr(var, attr_name, attr_value.format(**fmt))
+                        if attr_name != "_FillValue":
+                            setattr(var, attr_name, attr_value.format(**fmt))
 
     def def_vars_specific(self, coords_extra, vars_metadata, caller):
         """define vars in stats file that are specific to one tracer module"""
@@ -77,12 +81,17 @@ class StatsFile:
                     dimensions_loc = dimensions + metadata["dimensions_extra"]
                 else:
                     dimensions_loc = dimensions
+                if "attrs" in metadata and "_FillValue" in metadata["attrs"]:
+                    fill_value = metadata["attrs"]["_FillValue"]
+                else:
+                    fill_value = self._fill_value
                 var = fptr.createVariable(
                     varname, "f8", dimensions_loc, fill_value=fill_value
                 )
                 if "attrs" in metadata:
                     for attr_name, attr_value in metadata["attrs"].items():
-                        setattr(var, attr_name, attr_value)
+                        if attr_name != "_FillValue":
+                            setattr(var, attr_name, attr_value)
 
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             varnames = ",".join(vars_metadata)
@@ -112,14 +121,14 @@ class StatsFile:
     def put_vars_specific(self, iteration, varname, vals):
         """
         put vals to a specific varname with specified iteration index
-        vals is a RegionScalars object
+        vals is a numpy array of values for varname selected in the 1st dim
         """
 
         with Dataset(self._fname, mode="a") as fptr:
             if iteration == len(fptr.variables["iteration"]):
                 _grow_iteration(fptr)
 
-            fptr.variables[varname][iteration, :] = vals.vals()
+            fptr.variables[varname][iteration, :] = vals
 
 
 def _grow_iteration(fptr):
@@ -127,8 +136,8 @@ def _grow_iteration(fptr):
     # Set variables to fill_value. Without doing the fill, some installs of ncview
     # abort when viewing the stats file.
     iteration = len(fptr.variables["iteration"])
-    for varname in fptr.variables:
-        if varname == "iteration":
-            fptr.variables[varname][iteration] = iteration
-        elif fptr.variables[varname].dimensions[0] == "iteration":
-            fptr.variables[varname][iteration, :] = fill_value
+    for var in fptr.variables.values():
+        if var.name == "iteration":
+            var[iteration] = iteration
+        elif var.dimensions[0] == "iteration":
+            var[iteration, :] = getattr(var, "_FillValue")

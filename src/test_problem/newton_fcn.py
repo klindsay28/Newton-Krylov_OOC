@@ -20,7 +20,6 @@ from test_problem.src.hist import hist_write
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
 from ..newton_fcn_base import NewtonFcnBase
-from ..region_scalars import RegionScalars
 from ..share import args_replace, common_args, read_cfg_file
 
 
@@ -134,12 +133,7 @@ class ModelState(ModelStateBase):
             }
             for tracer_name in self.tracer_names():
                 attrs = fptr_hist.variables[tracer_name].__dict__
-                for attname in [
-                    "cell_methods",
-                    "_FillValue",
-                    "missing_value",
-                    "coordinates",
-                ]:
+                for attname in ["cell_methods"]:
                     if attname in attrs:
                         del attrs[attname]
                 vars_metadata[tracer_name] = {
@@ -159,9 +153,7 @@ class ModelState(ModelStateBase):
             fptr_hist.set_auto_mask(False)
             for tracer_name in self.tracer_names():
                 vals = fptr_hist.variables[tracer_name][0:-1, :].mean(axis=0)
-                stats_file.put_vars_specific(
-                    iteration, tracer_name, RegionScalars(vals)
-                )
+                stats_file.put_vars_specific(iteration, tracer_name, vals)
 
 
 ################################################################################
