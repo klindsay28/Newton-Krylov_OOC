@@ -127,11 +127,72 @@ class ModelStateBase:
                 norm_vals,
             )
 
+    def tracer_dims_keep_in_stats(self):
+        """tuple of dimensions to keep for tracers in stats file"""
+        return ()
+
     def def_stats_vars(self, stats_file, hist_fname):
         """define model specific stats variables"""
 
+        vars_metadata = {}
+
+        with Dataset(hist_fname) as fptr_hist:
+            fptr_hist.set_auto_mask(False)
+            dims_keep = self.tracer_dims_keep_in_stats()
+            coords_extra = {}
+            for dimname in dims_keep:
+                if dimname in fptr_hist.variables:
+                    coords_extra[dimname] = {
+                        "vals": fptr_hist.variables[dimname][:],
+                        "attrs": fptr_hist.variables[dimname].__dict__,
+                    }
+                else:
+                    coords_extra[dimname] = {"len": len(fptr_hist.dimensions[dimname])}
+            for tracer_name in self.tracer_names():
+                attrs = fptr_hist.variables[tracer_name].__dict__
+                for attname in ["cell_methods", "coordinates", "grid_loc"]:
+                    if attname in attrs:
+                        del attrs[attname]
+                vars_metadata[tracer_name] = {
+                    "dimensions_extra": dims_keep,
+                    "attrs": attrs,
+                }
+
+        caller = __name__ + ".ModelState.def_stats_vars"
+        stats_file.def_vars_specific(coords_extra, vars_metadata, caller)
+
+    def hist_time_mean_weights(self, fptr_hist):
+        """return weights for computing time-mean in hist file"""
+        timelen = len(fptr_hist.dimensions["time"])
+        return np.full(timelen, 1.0 / timelen)
+
     def put_stats_vars(self, stats_file, iteration, hist_fname):
         """put model specific stats variables"""
+        grid_weight = model_config.model_config_obj.grid_weight
+        dims_keep = self.tracer_dims_keep_in_stats()
+
+        with Dataset(hist_fname) as fptr_hist:
+            fptr_hist.set_auto_mask(False)
+            time_weights = self.hist_time_mean_weights(fptr_hist)
+            for tracer_name in self.tracer_names():
+                tracer = fptr_hist.variables[tracer_name]
+                vals_time_mean = np.einsum("i,i...", time_weights, tracer[:])
+                # 1+dimind becauase grid_weight has leading region dimension
+                avg_axes = tuple(
+                    1 + dimind
+                    for dimind, dimname in enumerate(tracer.dimensions[1:])
+                    if dimname not in dims_keep
+                )
+                if avg_axes == ():
+                    # no averaging to be done
+                    stats_file.put_vars_specific(iteration, tracer_name, vals_time_mean)
+                else:
+                    numer = (grid_weight * vals_time_mean).sum(axis=avg_axes)
+                    denom = grid_weight.sum(axis=avg_axes)
+                    fill_value = stats_file.get_fill_value(tracer_name)
+                    vals = np.full(numer.shape, fill_value)
+                    np.divide(numer, denom, out=vals, where=(denom != 0.0))
+                    stats_file.put_vars_specific(iteration, tracer_name, vals)
 
     def copy(self):
         """return a copy of self"""

@@ -118,42 +118,18 @@ class ModelState(ModelStateBase):
         logger.debug('ModelState, vals_fname="%s"', vals_fname)
         super().__init__(TracerModuleState, vals_fname)
 
-    def def_stats_vars(self, stats_file, hist_fname):
-        """define model specific stats variables"""
+    def tracer_dims_keep_in_stats(self):
+        """tuple of dimensions to keep for tracers in stats file"""
+        return ("depth",)
 
-        vars_metadata = {}
-
-        with Dataset(hist_fname) as fptr_hist:
-            fptr_hist.set_auto_mask(False)
-            coords_extra = {
-                "depth": {
-                    "vals": fptr_hist.variables["depth"][:],
-                    "attrs": fptr_hist.variables["depth"].__dict__,
-                }
-            }
-            for tracer_name in self.tracer_names():
-                attrs = fptr_hist.variables[tracer_name].__dict__
-                for attname in ["cell_methods"]:
-                    if attname in attrs:
-                        del attrs[attname]
-                vars_metadata[tracer_name] = {
-                    "dimensions_extra": ("depth",),
-                    "attrs": attrs,
-                }
-
-        caller = __name__ + ".ModelState.def_stats_vars"
-        stats_file.def_vars_specific(coords_extra, vars_metadata, caller)
-
-    def put_stats_vars(self, stats_file, iteration, hist_fname):
-        """put model specific stats variables"""
-        logger = logging.getLogger(__name__)
-        logger.debug("iteration=%d", iteration)
-
-        with Dataset(hist_fname) as fptr_hist:
-            fptr_hist.set_auto_mask(False)
-            for tracer_name in self.tracer_names():
-                vals = fptr_hist.variables[tracer_name][0:-1, :].mean(axis=0)
-                stats_file.put_vars_specific(iteration, tracer_name, vals)
+    def hist_time_mean_weights(self, fptr_hist):
+        """return weights for computing time-mean in hist file"""
+        # downweight endpoints because test_problem writes t=0 and t=365 to hist
+        timelen = len(fptr_hist.dimensions["time"])
+        weights = np.full(timelen, 1.0 / (timelen - 1))
+        weights[0] *= 0.5
+        weights[-1] *= 0.5
+        return weights
 
 
 ################################################################################

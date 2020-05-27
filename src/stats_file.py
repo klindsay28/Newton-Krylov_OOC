@@ -35,6 +35,12 @@ class StatsFile:
             # define coordinate variables
             fptr.createVariable("iteration", "i", dimensions=("iteration",))
 
+    def get_fill_value(self, varname):
+        """return _FillValue for varname"""
+        with Dataset(self._fname, mode="r") as fptr:
+            fill_value = getattr(fptr.variables[varname], "_FillValue")
+        return fill_value
+
     def def_vars_generic(self, vars_metadata):
         """define vars in stats file that generailize across all tracer modules"""
         dimensions = ("iteration", "region")
