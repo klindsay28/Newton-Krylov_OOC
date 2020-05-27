@@ -18,6 +18,7 @@ import numpy as np
 
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model import ModelStateBase, TracerModuleStateBase
+from .. import model_config
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..newton_fcn_base import NewtonFcnBase
 from ..share import args_replace, common_args, read_cfg_file
@@ -84,6 +85,50 @@ class ModelState(ModelStateBase):
         logger = logging.getLogger(__name__)
         logger.debug('ModelState, vals_fname="%s"', vals_fname)
         super().__init__(TracerModuleState, vals_fname)
+
+    def def_stats_vars(self, stats_file, hist_fname):
+        """define model specific stats variables"""
+
+        vars_metadata = {}
+
+        with Dataset(hist_fname) as fptr_hist:
+            fptr_hist.set_auto_mask(False)
+            coords_extra = {
+                "z_t": {
+                    "vals": fptr_hist.variables["z_t"][:],
+                    "attrs": fptr_hist.variables["z_t"].__dict__,
+                }
+            }
+            for tracer_name in self.tracer_names():
+                attrs = fptr_hist.variables[tracer_name].__dict__
+                for attname in ["cell_methods", "coordinates", "grid_loc"]:
+                    if attname in attrs:
+                        del attrs[attname]
+                vars_metadata[tracer_name] = {
+                    "dimensions_extra": ("z_t",),
+                    "attrs": attrs,
+                }
+
+        caller = __name__ + ".ModelState.def_stats_vars"
+        stats_file.def_vars_specific(coords_extra, vars_metadata, caller)
+
+    def put_stats_vars(self, stats_file, iteration, hist_fname):
+        """put model specific stats variables"""
+        logger = logging.getLogger(__name__)
+        logger.debug("iteration=%d", iteration)
+
+        weight = model_config.model_config_obj.grid_weight
+        denom = weight.sum(axis=(2, 3))
+        vals = np.empty(weight.shape[0:2])
+
+        with Dataset(hist_fname) as fptr_hist:
+            fptr_hist.set_auto_mask(False)
+            for tracer_name in self.tracer_names():
+                vals_3d = fptr_hist.variables[tracer_name][0, :]
+                numer = (weight * vals_3d).sum(axis=(2, 3))
+                vals[:] = getattr(fptr_hist.variables[tracer_name], "_FillValue")
+                np.divide(numer, denom, out=vals, where=(denom != 0.0))
+                stats_file.put_vars_specific(iteration, tracer_name, vals)
 
 
 ################################################################################
