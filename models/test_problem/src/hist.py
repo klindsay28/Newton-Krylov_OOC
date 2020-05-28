@@ -6,7 +6,7 @@ from cf_units import Unit
 from netCDF4 import Dataset
 
 
-def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
+def hist_write(ms_in, sol, hist_fname, newton_fcn):
     """write tracer values generated in comp_fcn to hist_fname"""
     with Dataset(hist_fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -15,11 +15,11 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
         setattr(fptr, "history", msg)
 
         tracer_names = ms_in.tracer_names()
-        depth_units = newton_fcn_obj.depth.units
+        depth_units = newton_fcn.depth.units
 
         # define hist dimensions and coordinate vars
 
-        _def_dims(fptr, newton_fcn_obj.depth)
+        _def_dims(fptr, newton_fcn.depth)
         _def_coord_vars(fptr, depth_units)
 
         # define tracers and corresponding derived hist vars
@@ -112,11 +112,11 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
 
         # write coordinate vars
 
-        _write_coord_vars(fptr, sol.t, newton_fcn_obj.depth)
+        _write_coord_vars(fptr, sol.t, newton_fcn.depth)
 
         # write tracers and corresponding derived hist vars
 
-        tracer_vals = sol.y.reshape((len(tracer_names), newton_fcn_obj.depth.nlevs, -1))
+        tracer_vals = sol.y.reshape((len(tracer_names), newton_fcn.depth.nlevs, -1))
         for tracer_ind, tracer_name in enumerate(tracer_names):
             tracer_vals_time_depth = tracer_vals[tracer_ind, :, :].transpose()
 
@@ -134,7 +134,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
             )
 
             varname = tracer_name + "_zint"
-            fptr.variables[varname][:] = newton_fcn_obj.depth.int_vals_mid(
+            fptr.variables[varname][:] = newton_fcn.depth.int_vals_mid(
                 tracer_vals_time_depth
             )
 
@@ -143,20 +143,29 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn_obj):
         days_per_sec = 1.0 / 86400.0
 
         for time_ind, time in enumerate(sol.t):
-            fptr.variables["bldepth"][time_ind] = newton_fcn_obj.bldepth(time)
-            fptr.variables["mixing_coeff"][
-                time_ind, :
-            ] = days_per_sec * newton_fcn_obj.mixing_coeff(time)
+            fptr.variables["bldepth"][time_ind] = newton_fcn.vert_mix.bldepth(time)
+            fptr.variables["mixing_coeff"][time_ind, 1:-1] = (
+                days_per_sec
+                * newton_fcn.vert_mix.mixing_coeff(time)
+                * newton_fcn.depth.delta_mid
+            )
+            # kludge to avoid missing values
+            fptr.variables["mixing_coeff"][time_ind, 0] = fptr.variables[
+                "mixing_coeff"
+            ][time_ind, 1]
+            fptr.variables["mixing_coeff"][time_ind, -1] = fptr.variables[
+                "mixing_coeff"
+            ][time_ind, -2]
 
         if "phosphorus" in ms_in.tracer_module_names:
             po4_ind = tracer_names.index("po4")
             for time_ind, time in enumerate(sol.t):
                 po4 = tracer_vals[po4_ind, :, time_ind]
-                po4_uptake = days_per_sec * newton_fcn_obj.po4_uptake(time, po4)
+                po4_uptake = days_per_sec * newton_fcn.po4_uptake(po4)
                 fptr.variables["po4_uptake"][time_ind, :] = po4_uptake
                 fptr.variables["po4_uptake_zint"][
                     time_ind
-                ] = newton_fcn_obj.depth.int_vals_mid(po4_uptake)
+                ] = newton_fcn.depth.int_vals_mid(po4_uptake)
 
 
 def _def_dims(fptr, depth):

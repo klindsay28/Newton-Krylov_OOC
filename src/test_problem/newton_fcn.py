@@ -16,6 +16,7 @@ from scipy.integrate import solve_ivp
 
 from test_problem.src.spatial_axis import SpatialAxis
 from test_problem.src.hist import hist_write
+from test_problem.src.vert_mix import VertMix
 
 from ..model import ModelStateBase, TracerModuleStateBase
 from ..model_config import ModelConfig, get_modelinfo
@@ -244,11 +245,12 @@ class NewtonFcn(NewtonFcnBase):
         self.time_range = (0.0, 365.0)
         self.depth = SpatialAxis("depth", get_modelinfo("depth_fname"))
 
+        self.vert_mix = VertMix(self.depth)
+
         # light has e-folding decay of 25m
         self.light_lim = np.exp((-1.0 / 25.0) * self.depth.mid)
 
-        self._time_val = None
-        self._mixing_coeff_vals = np.empty(self.depth.nlevs)
+        self._sinking_tend_work = np.zeros(1 + self.depth.nlevs)
 
         self._dye_sink_surf_val_times = 365.0 * np.array([0.1, 0.2, 0.6, 0.7])
         self._dye_sink_surf_val_vals = np.array([0.0, 1.0, 1.0, 0.0])
@@ -284,9 +286,10 @@ class NewtonFcn(NewtonFcnBase):
 
         # solve ODEs, using scipy.integrate
         # get dense output, if requested
-        t_eval = np.linspace(
-            self.time_range[0], self.time_range[1], 101 if hist_fname is not None else 2
-        )
+        if hist_fname is not None:
+            t_eval = np.linspace(self.time_range[0], self.time_range[1], 101)
+        else:
+            t_eval = np.array(self.time_range)
         sol = solve_ivp(
             self._comp_tend,
             self.time_range,
@@ -295,6 +298,7 @@ class NewtonFcn(NewtonFcnBase):
             t_eval,
             atol=1.0e-10,
             rtol=1.0e-10,
+            args=(self.vert_mix,),
         )
 
         if hist_fname is not None:
@@ -319,7 +323,7 @@ class NewtonFcn(NewtonFcnBase):
 
         return ms_res
 
-    def _comp_tend(self, time, tracer_vals_flat):
+    def _comp_tend(self, time, tracer_vals_flat, vert_mix):
         """compute tendency function"""
         tracer_vals = tracer_vals_flat.reshape((len(self._tracer_names), -1))
         dtracer_vals_dt = np.empty_like(tracer_vals)
@@ -327,7 +331,10 @@ class NewtonFcn(NewtonFcnBase):
             if tracer_module_name == "iage":
                 tracer_ind = self._tracer_names.index("iage")
                 self._comp_tend_iage(
-                    time, tracer_vals[tracer_ind, :], dtracer_vals_dt[tracer_ind, :]
+                    time,
+                    tracer_vals[tracer_ind, :],
+                    dtracer_vals_dt[tracer_ind, :],
+                    vert_mix,
                 )
             elif tracer_module_name[:9] == "dye_sink_":
                 tracer_ind = self._tracer_names.index(tracer_module_name)
@@ -336,6 +343,7 @@ class NewtonFcn(NewtonFcnBase):
                     time,
                     tracer_vals[tracer_ind, :],
                     dtracer_vals_dt[tracer_ind, :],
+                    vert_mix,
                 )
             elif tracer_module_name == "phosphorus":
                 tracer_ind0 = self._tracer_names.index("po4")
@@ -343,89 +351,14 @@ class NewtonFcn(NewtonFcnBase):
                     time,
                     tracer_vals[tracer_ind0 : tracer_ind0 + 6, :],
                     dtracer_vals_dt[tracer_ind0 : tracer_ind0 + 6, :],
+                    vert_mix,
                 )
             else:
                 msg = "unknown tracer module %s" % tracer_module_name
                 raise ValueError(msg)
         return dtracer_vals_dt.reshape(-1)
 
-    def _mixing_tend(self, time, tracer_vals):
-        """single tracer tendency from mixing"""
-        tracer_grad = self.depth.grad_vals_mid(tracer_vals)
-        return self.depth.grad_vals_edges(self.mixing_coeff(time) * tracer_grad)
-
-    def _mixing_tend_sf(self, time, tracer_vals, surf_flux):
-        """single tracer tendency from mixing, with surface flux"""
-        tracer_grad = self.depth.grad_vals_mid(tracer_vals)
-        flux_neg = self.mixing_coeff(time) * tracer_grad
-        flux_neg[0] = -surf_flux
-        return self.depth.grad_vals_edges(flux_neg)
-
-    def mixing_coeff(self, time):
-        """
-        vertical mixing coefficient, m2 d-1
-        store computed vals, so their computation can be skipped on subsequent calls
-        """
-
-        # if vals have already been computed for this time, skip computation
-        if time == self._time_val:
-            return self._mixing_coeff_vals
-
-        # z_lin ranges from 0.0 to 1.0 over span of 40.0 m, is 0.5 at bldepth
-        z_lin = 0.5 + (self.depth.edges - self.bldepth(time)) * (1.0 / 40.0)
-        z_lin = np.maximum(0.0, np.minimum(1.0, z_lin))
-        res_log10_shallow = 0.0
-        res_log10_deep = -5.0
-        res_log10_del = res_log10_deep - res_log10_shallow
-        res_log10 = res_log10_shallow + res_log10_del * z_lin
-        self._time_val = time
-        self._mixing_coeff_vals = 86400.0 * 10.0 ** res_log10
-        return self._mixing_coeff_vals
-
-    def bldepth(self, time):
-        """time varying boundary layer depth"""
-        bldepth_min = 50.0
-        bldepth_max = 150.0
-        bldepth_del_frac = 0.5 + 0.5 * np.cos((2 * np.pi) * ((time / 365.0) - 0.25))
-        return bldepth_min + (bldepth_max - bldepth_min) * bldepth_del_frac
-
-    def _z_lin_avg(self, k, bldepth):
-        """
-        average of max(0, min(1, 0.5 + (z - bldepth) * (1.0 / trans_range)))
-        over interval containing self.depth.edges[k]
-        this function ranges from 0.0 to 1.0 over span of trans_range m, is 0.5 at bldepth
-        """
-        trans_range = 50.0
-        depth_trans_lo = bldepth - 0.5 * trans_range
-        depth_trans_hi = bldepth + 0.5 * trans_range
-        depth_lo = self.depth.mid[k - 1] if k > 0 else self.depth.edges[0]
-        depth_hi = self.depth.mid[k] if k < self.depth.nlevs else self.depth.edges[-1]
-        if depth_hi <= depth_trans_lo:
-            return 0.0
-        if depth_hi <= depth_trans_hi:
-            if depth_lo <= depth_trans_lo:
-                depth_mid = 0.5 * (depth_hi + depth_trans_lo)
-                val = 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
-                return val * (depth_hi - depth_trans_lo) / (depth_hi - depth_lo)
-            # depth_lo > depth_trans_lo
-            depth_mid = 0.5 * (depth_hi + depth_lo)
-            return 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
-        # depth_hi > depth_trans_hi
-        if depth_lo <= depth_trans_lo:
-            depth_mid = bldepth
-            val = 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
-            return (val * trans_range + 1.0 * (depth_hi - depth_trans_hi)) / (
-                depth_hi - depth_lo
-            )
-        if depth_lo <= depth_trans_hi:
-            depth_mid = 0.5 * (depth_trans_hi + depth_lo)
-            val = 0.5 + (depth_mid - bldepth) * (1.0 / trans_range)
-            return (
-                val * (depth_trans_hi - depth_lo) + 1.0 * (depth_hi - depth_trans_hi)
-            ) / (depth_hi - depth_lo)
-        return 1.0
-
-    def _comp_tend_iage(self, time, tracer_vals, dtracer_vals_dt):
+    def _comp_tend_iage(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
         """
         compute tendency for iage
         tendency units are tr_units / day
@@ -433,11 +366,11 @@ class NewtonFcn(NewtonFcnBase):
         # surface_flux piston velocity = 240 m / day
         # same as restoring 24 / day over 10 m
         surf_flux = -240.0 * tracer_vals[0]
-        dtracer_vals_dt[:] = self._mixing_tend_sf(time, tracer_vals, surf_flux)
+        dtracer_vals_dt[:] = vert_mix.tend(time, tracer_vals, surf_flux)
         # age 1/year
         dtracer_vals_dt[:] += 1.0 / 365.0
 
-    def _comp_tend_dye_sink(self, suff, time, tracer_vals, dtracer_vals_dt):
+    def _comp_tend_dye_sink(self, suff, time, tracer_vals, dtracer_vals_dt, vert_mix):
         """
         compute tendency for dye_sink tracer
         tendency units are tr_units / day
@@ -446,7 +379,7 @@ class NewtonFcn(NewtonFcnBase):
         # same as restoring 24 / day over 10 m
         target_surf_val = self._dye_sink_surf_val(time)
         surf_flux = 240.0 * (target_surf_val - tracer_vals[0])
-        dtracer_vals_dt[:] = self._mixing_tend_sf(time, tracer_vals, surf_flux)
+        dtracer_vals_dt[:] = vert_mix.tend(time, tracer_vals, surf_flux)
         # decay (suff / 1000) / y
         dtracer_vals_dt[:] -= int(suff) * 0.001 / 365.0 * tracer_vals
 
@@ -459,19 +392,19 @@ class NewtonFcn(NewtonFcnBase):
             time = self._dye_sink_surf_val_time
         return self._dye_sink_surf_val_val
 
-    def _comp_tend_phosphorus(self, time, tracer_vals, dtracer_vals_dt):
+    def _comp_tend_phosphorus(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
         """
         compute tendency for phosphorus tracers
         tendency units are tr_units / day
         """
 
-        po4_uptake = self.po4_uptake(time, tracer_vals[0, :])
+        po4_uptake = self.po4_uptake(tracer_vals[0, :])
 
         self._comp_tend_phosphorus_core(
-            time, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :]
+            time, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :], vert_mix
         )
         self._comp_tend_phosphorus_core(
-            time, po4_uptake, tracer_vals[3:6, :], dtracer_vals_dt[3:6, :]
+            time, po4_uptake, tracer_vals[3:6, :], dtracer_vals_dt[3:6, :], vert_mix
         )
 
         # restore po4_s to po4, at a rate of 1 / day
@@ -482,16 +415,16 @@ class NewtonFcn(NewtonFcnBase):
         dtracer_vals_dt[4, 0] -= 0.67 * rest_term
         dtracer_vals_dt[5, 0] -= 0.33 * rest_term
 
-    def po4_uptake(self, time, po4):
+    def po4_uptake(self, po4):
         """return po4_uptake, [mmol m-3 d-1]"""
 
         # po4 half-saturation = 0.5
         # maximum uptake rate = 1 d-1
-        po4_lim = np.where(po4 > 0.0, po4 / (po4 + 0.5), 0.0)
+        po4_lim = po4 / (po4 + 0.5)
         return self.light_lim * po4_lim
 
     def _comp_tend_phosphorus_core(
-        self, time, po4_uptake, tracer_vals, dtracer_vals_dt
+        self, time, po4_uptake, tracer_vals, dtracer_vals_dt, vert_mix
     ):
         """
         core fuction for computing tendency for phosphorus tracers
@@ -503,30 +436,33 @@ class NewtonFcn(NewtonFcnBase):
         pop = tracer_vals[2, :]
 
         # dop remin rate is 1% / day
-        dop_remin = np.where(dop > 0.0, 0.01 * dop, 0.0)
+        dop_remin = 0.01 * dop
         # pop remin rate is 1% / day
-        pop_remin = np.where(pop > 0.0, 0.01 * pop, 0.0)
+        pop_remin = 0.01 * pop
 
         sigma = 0.67
 
         dtracer_vals_dt[0, :] = (
-            -po4_uptake + dop_remin + pop_remin + self._mixing_tend(time, po4)
+            -po4_uptake + dop_remin + pop_remin + vert_mix.tend(time, po4)
         )
         dtracer_vals_dt[1, :] = (
-            sigma * po4_uptake - dop_remin + self._mixing_tend(time, dop)
+            sigma * po4_uptake - dop_remin + vert_mix.tend(time, dop)
         )
         dtracer_vals_dt[2, :] = (
             (1.0 - sigma) * po4_uptake
             - pop_remin
-            + self._mixing_tend(time, pop)
+            + vert_mix.tend(time, pop)
             + self._sinking_tend(pop)
         )
 
     def _sinking_tend(self, tracer_vals):
         """tracer tendency from sinking"""
-        tracer_flux_neg = np.zeros(1 + self.depth.nlevs)
-        tracer_flux_neg[1:-1] = -tracer_vals[:-1]  # assume velocity is 1 m / day
-        return self.depth.grad_vals_edges(tracer_flux_neg)
+        self._sinking_tend_work[1:-1] = -tracer_vals[
+            :-1
+        ]  # assume velocity is 1 m / day
+        return (
+            self._sinking_tend_work[1:] - self._sinking_tend_work[:-1]
+        ) * self.depth.delta_r
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
@@ -545,7 +481,7 @@ class NewtonFcn(NewtonFcnBase):
         with Dataset(precond_fname, mode="r") as fptr:
             # hist, and thus precond, files have mixing_coeff in m2 s-1
             # convert back to model units of m2 d-1
-            mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][:]
+            mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][1:-1]
 
         for tracer_module_name in ms_in.tracer_module_names:
             if tracer_module_name == "iage":
@@ -574,18 +510,12 @@ class NewtonFcn(NewtonFcnBase):
 
         l_and_u = (1, 1)
         matrix_diagonals = np.zeros((3, self.depth.nlevs))
-        matrix_diagonals[0, 1:] = (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        )
+        matrix_diagonals[0, 1:] = mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         matrix_diagonals[1, :-1] -= (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
+            mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         )
-        matrix_diagonals[1, 1:] -= (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        )
-        matrix_diagonals[2, :-1] = (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        )
+        matrix_diagonals[1, 1:] -= mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
+        matrix_diagonals[2, :-1] = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
         matrix_diagonals[1, 0] = -240.0 * self.depth.delta_r[0]
         matrix_diagonals[0, 1] = 0
 
@@ -601,18 +531,12 @@ class NewtonFcn(NewtonFcnBase):
 
         l_and_u = (1, 1)
         matrix_diagonals = np.zeros((3, self.depth.nlevs))
-        matrix_diagonals[0, 1:] = (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        )
+        matrix_diagonals[0, 1:] = mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         matrix_diagonals[1, :-1] -= (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
+            mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         )
-        matrix_diagonals[1, 1:] -= (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        )
-        matrix_diagonals[2, :-1] = (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        )
+        matrix_diagonals[1, 1:] -= mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
+        matrix_diagonals[2, :-1] = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
         matrix_diagonals[1, 0] = -240.0 * self.depth.delta_r[0]
         matrix_diagonals[0, 1] = 0
 
@@ -671,10 +595,10 @@ class NewtonFcn(NewtonFcnBase):
         """return main diagonal of preconditioner of jacobian of phosphorus fcn"""
         diag_0_single_tracer = np.zeros(self.depth.nlevs)
         diag_0_single_tracer[:-1] -= (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
+            mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         )
         diag_0_single_tracer[1:] -= (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
+            mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
         )
         diag_0_po4_s = diag_0_single_tracer.copy()
         diag_0_po4_s[0] -= 1.0  # po4_s restoring in top layer
@@ -688,9 +612,7 @@ class NewtonFcn(NewtonFcnBase):
 
     def _diag_p_1_phosphorus(self, mca):
         """return +1 upper diagonal of preconditioner of jacobian of phosphorus fcn"""
-        diag_p_1_single_tracer = (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        )
+        diag_p_1_single_tracer = mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         diag_p_1_po4_s = diag_p_1_single_tracer.copy()
         zero = np.zeros(1)
         diag_p_1_dop_s = diag_p_1_single_tracer.copy()
@@ -701,9 +623,7 @@ class NewtonFcn(NewtonFcnBase):
 
     def _diag_m_1_phosphorus(self, mca):
         """return +1 upper diagonal of preconditioner of jacobian of phosphorus fcn"""
-        diag_m_1_single_tracer = (
-            mca[1:-1] * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        )
+        diag_m_1_single_tracer = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
         diag_m_1_po4_s = diag_m_1_single_tracer.copy()
         zero = np.zeros(1)
         diag_m_1_dop_s = diag_m_1_single_tracer.copy()

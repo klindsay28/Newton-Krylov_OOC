@@ -56,7 +56,8 @@ class SpatialAxis:
         self.mid = self.bounds.mean(axis=1)
         self.delta = self.bounds[:, 1] - self.bounds[:, 0]
         self.delta_r = 1.0 / self.delta
-        self.delta_mid_r = 1.0 / np.ediff1d(self.mid)
+        self.delta_mid = np.ediff1d(self.mid)
+        self.delta_mid_r = 1.0 / self.delta_mid
 
     def _gen_edges(self, defn_dict):
         """generate edges from grid specs in defn_dict"""
@@ -133,22 +134,6 @@ class SpatialAxis:
             fptr.variables[bounds_name][:] = self.bounds
             fptr.variables[edges_name][:] = self.edges
             fptr.variables[delta_name][:] = self.delta
-
-    def grad_vals_mid(self, vals):
-        """
-        gradient at layer edges of vals at layer midpoints
-        only works for a single tracer
-        """
-        grad = np.zeros(1 + self.nlevs)
-        grad[1:-1] = np.ediff1d(vals) * self.delta_mid_r
-        return grad
-
-    def grad_vals_edges(self, vals):
-        """
-        gradient at layer midpoints of vals at layer edges
-        only works for a single tracer
-        """
-        return np.ediff1d(vals) * self.delta_r
 
     def int_vals_mid(self, vals):
         """
