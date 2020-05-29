@@ -35,5 +35,6 @@ script:
   - ./models/test_problem/setup_solver.sh --tracer_module_names iage --persist
   - $HOME/test_problem_work/nk_driver.sh
   # setup and run solver for multiple dye_sink tracers
-  - ./models/test_problem/setup_solver.sh --tracer_module_names "dye_sink_{suff}:001:010" --persist
+  - ./models/test_problem/setup_solver.sh --tracer_module_names "dye_sink_{suff}:001:010"
+    --newton_max_iter 4 --newton_rel_tol 1.0e-6 --persist
   - $HOME/test_problem_work/nk_driver.sh

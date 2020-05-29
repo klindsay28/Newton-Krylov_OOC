@@ -11,6 +11,8 @@ from .utils import mkdir_exist_okay
 cfg_override_args = {
     "workdir": {"section": "DEFAULT"},
     "logging_level": {"section": "solverinfo"},
+    "newton_max_iter": {"section": "solverinfo"},
+    "newton_rel_tol": {"section": "solverinfo"},
     "tracer_module_names": {"section": "modelinfo"},
     "persist": {
         "model_name": "test_problem",
@@ -103,6 +105,9 @@ def read_cfg_file(args):
         if argname not in args:
             continue
         override_var = metadata.get("override_var", argname)
+        if override_var not in config[metadata["section"]]:
+            msg = "%s not in cfg section %s" % (override_var, metadata["section"])
+            raise ValueError(msg)
         if "action" not in metadata:
             if getattr(args, argname) is not None:
                 config[metadata["section"]][override_var] = getattr(args, argname)
