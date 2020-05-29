@@ -41,7 +41,7 @@ def _parse_args():
     parser.add_argument(
         "--fp_cnt",
         type=int,
-        help="number of fixed point iterations to apply to ic",
+        help="number of fixed point iterations to apply to init_iterate",
         default=2,
     )
 
@@ -88,32 +88,37 @@ def main(args):
     ModelConfig(modelinfo)
 
     # generate initial condition
-    ic = ModelState(TracerModuleState, fname="gen_ic")
+    init_iterate = ModelState(TracerModuleState, fname="gen_init_iterate")
 
-    # perform fixed point iteration(s) on ic
+    # perform fixed point iteration(s) on init_iterate
     if args.fp_cnt > 0:
         workdir = config["solverinfo"]["workdir"]
-        gen_ic_workdir = os.path.join(workdir, "gen_ic")
-        mkdir_exist_okay(gen_ic_workdir)
+        gen_init_iterate_workdir = os.path.join(workdir, "gen_init_iterate")
+        mkdir_exist_okay(gen_init_iterate_workdir)
 
         newton_fcn = NewtonFcn()
         for fp_iter in range(args.fp_cnt):
             logger.info("fp_iter=%d", fp_iter)
-            ic.dump(os.path.join(gen_ic_workdir, "ic_%02d.nc" % fp_iter), caller)
-            ic_fcn = newton_fcn.comp_fcn(
-                ic,
-                os.path.join(gen_ic_workdir, "fcn_%02d.nc" % fp_iter),
-                None,
-                os.path.join(gen_ic_workdir, "hist_%02d.nc" % fp_iter),
+            init_iterate.dump(
+                os.path.join(
+                    gen_init_iterate_workdir, "init_iterate_%02d.nc" % fp_iter
+                ),
+                caller,
             )
-            ic += ic_fcn
-            ic.copy_shadow_tracers_to_real_tracers()
+            init_iterate_fcn = newton_fcn.comp_fcn(
+                init_iterate,
+                os.path.join(gen_init_iterate_workdir, "fcn_%02d.nc" % fp_iter),
+                None,
+                os.path.join(gen_init_iterate_workdir, "hist_%02d.nc" % fp_iter),
+            )
+            init_iterate += init_iterate_fcn
+            init_iterate.copy_shadow_tracers_to_real_tracers()
 
-    # write generated ic to where solver expects it to be
+    # write generated init_iterate to where solver expects it to be
     init_iterate_fname = modelinfo["init_iterate_fname"]
     logger.info('init_iterate_fname="%s"', init_iterate_fname)
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
-    ic.dump(init_iterate_fname, caller)
+    init_iterate.dump(init_iterate_fname, caller)
 
     # generate invoker script
     gen_invoker_script.main(args)

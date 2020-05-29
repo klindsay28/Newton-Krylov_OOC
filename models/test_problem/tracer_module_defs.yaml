@@ -4,21 +4,21 @@ tracer_module_defs:
     iage:  # module name
         iage:
             attrs: {long_name: "ideal age", units: "years"}
-            ic_vals: [0.0, 830]
-            ic_val_depths: [125.0, 650.0]
+            init_iterate_val_depths: [125.0, 650.0]
+            init_iterate_vals: [0.0, 830]
     phosphorus:  # module name
         po4:
             attrs: {long_name: "phosphate", units: "mmol m-3"}
-            ic_vals: [0.0, 4.1]
-            ic_val_depths: [125.0, 375.0]
+            init_iterate_val_depths: [125.0, 375.0]
+            init_iterate_vals: [0.0, 4.1]
         dop:
             attrs: {long_name: "dissolved organic phosphorus", units: "mmol m-3"}
-            ic_vals: [7.3e-2, 0]
-            ic_val_depths: [100.0, 250.0]
+            init_iterate_val_depths: [100.0, 250.0]
+            init_iterate_vals: [7.3e-2, 0]
         pop:
             attrs: {long_name: "particulate organic phosphorus", units: "mmol m-3"}
-            ic_vals: [1.8e-2, 0.0]
-            ic_val_depths: [175.0, 425.0]
+            init_iterate_val_depths: [175.0, 425.0]
+            init_iterate_vals: [1.8e-2, 0.0]
         po4_s:
             attrs: {long_name: "shadow phosphate", units: "mmol m-3"}
             shadows: po4
@@ -31,8 +31,8 @@ tracer_module_defs:
     dye_sink_{suff}:  # root module name
         dye_sink_{suff}:
             attrs: {long_name: "dye sink {suff}", units: "1"}
-            ic_vals: [1.0, 0.0]
-            ic_val_depths: [100.0, 150.0]
+            init_iterate_val_depths: [100.0, 150.0]
+            init_iterate_vals: [1.0, 0.0]
 
 precond_matrix_defs:
     base:

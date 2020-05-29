@@ -24,10 +24,10 @@ precond_matrix_defs:
         precond_matrices_solve_opts:
             gx1v7:
                 task_cnt: 256
-                GB_per_task: 2.3
+                gigabyte_per_task: 2.3
             gx3v7:
                 task_cnt: 64
-                GB_per_task: 0.32
+                gigabyte_per_task: 0.32
 
     iage_like:
         precond_matrices_opts:

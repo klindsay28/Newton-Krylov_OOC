@@ -240,9 +240,9 @@ class NewtonFcn(NewtonFcnBase):
                 for opt in matrix_opts:
                     fptr.write("%s\n" % opt)
             matrix_fname = os.path.join(workdir, "matrix_" + matrix_name + ".nc")
-            gen_A_fname = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
+            matrix_gen_exe = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
             cmd = [
-                gen_A_fname,
+                matrix_gen_exe,
                 "-D1",
                 "-o",
                 matrix_opts_fname,
@@ -254,7 +254,7 @@ class NewtonFcn(NewtonFcnBase):
             # add creation metadata to file attributes
             with Dataset(matrix_fname, mode="a") as fptr:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                msg = datestamp + ": created by " + gen_A_fname
+                msg = datestamp + ": created by " + matrix_gen_exe
                 fcn_name = __name__ + "NewtonFcn._gen_precond_matrix_files"
                 msg = msg + " called from " + fcn_name
                 if hasattr(fptr, "history"):
@@ -396,16 +396,16 @@ def _gen_hist(hist_fname):
         date0 = cime_xmlquery("RUN_REFDATE")
     else:
         date0 = cime_xmlquery("RUN_STARTDATE")
-    (yyyy, mm, dd) = date0.split("-")
+    (yr_str, mon_str, day_str) = date0.split("-")
 
     # basic error checking
 
-    if dd != "01":
-        msg = "initial day = %s not implemented" % dd
+    if day_str != "01":
+        msg = "initial day = %s not implemented" % day_str
         raise NotImplementedError(msg)
 
-    if tavg_freq_opt_0 == "nyear" and mm != "01":
-        msg = "initial month = %s not implemented for nyear tavg output" % mm
+    if tavg_freq_opt_0 == "nyear" and mon_str != "01":
+        msg = "initial month = %s not implemented for nyear tavg output" % mon_str
         raise NotImplementedError(msg)
 
     # location of history files
@@ -418,7 +418,7 @@ def _gen_hist(hist_fname):
     if tavg_freq_opt_0 == "nyear":
         fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(
-            hist_dir, fname_fmt, int(yyyy), cime_yr_cnt(), hist_fname, caller
+            hist_dir, fname_fmt, int(yr_str), cime_yr_cnt(), hist_fname, caller
         )
 
     if tavg_freq_opt_0 == "nmonth":
@@ -426,8 +426,8 @@ def _gen_hist(hist_fname):
         mon_files_to_mean_file(
             hist_dir,
             fname_fmt,
-            int(yyyy),
-            int(mm),
+            int(yr_str),
+            int(mon_str),
             12 * cime_yr_cnt(),
             hist_fname,
             caller,
@@ -471,7 +471,7 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state):
 
         # determine node_cnt and cpus_per_node
         ocn_grid = cime_xmlquery("OCN_GRID")
-        GB_per_node = int(get_modelinfo("GB_per_node"))
+        gigabyte_per_node = int(get_modelinfo("gigabyte_per_node"))
         cpus_per_node_max = int(get_modelinfo("cpus_per_node_max"))
 
         cpus_per_node_list = []
@@ -479,8 +479,8 @@ def _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state):
             matrix_def = get_precond_matrix_def(matrix_name)
             matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
             # account for 1 task/node having increased memory usage (25%)
-            GB_per_task = matrix_solve_opts["GB_per_task"]
-            cpus_per_node = int(GB_per_node / GB_per_task - 0.25)
+            gigabyte_per_task = matrix_solve_opts["gigabyte_per_task"]
+            cpus_per_node = int(gigabyte_per_node / gigabyte_per_task - 0.25)
             cpus_per_node = min(cpus_per_node_max, cpus_per_node)
             cpus_per_node_list.append(cpus_per_node)
         cpus_per_node = min(cpus_per_node_list)

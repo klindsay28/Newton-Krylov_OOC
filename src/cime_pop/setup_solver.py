@@ -155,8 +155,8 @@ def gen_grid_weight_file(modelinfo):
         else:
             history_in = None
         # generate weight
-        dz = 1.0e-2 * fptr_in.variables["dz"][:]  # convert from cm to m
-        tarea = 1.0e-4 * fptr_in.variables["TAREA"][:]  # convert from cm2 to m2
+        thickness = 1.0e-2 * fptr_in.variables["dz"][:]  # convert from cm to m
+        area = 1.0e-4 * fptr_in.variables["TAREA"][:]  # convert from cm2 to m2
         kmt = fptr_in.variables["KMT"][:]
         region_mask = fptr_in.variables["REGION_MASK"][:]
 
@@ -169,12 +169,10 @@ def gen_grid_weight_file(modelinfo):
         )
         weight = np.empty(weight_shape)
         for k in range(weight_shape[0]):
-            weight[k, :, :] = dz[k] * np.where((k < kmt) & surf_mask, tarea, 0.0)
-
-    mode_out = "w"
+            weight[k, :, :] = thickness[k] * np.where((k < kmt) & surf_mask, area, 0.0)
 
     with Dataset(
-        modelinfo["grid_weight_fname"], mode=mode_out, format="NETCDF3_64BIT_OFFSET"
+        modelinfo["grid_weight_fname"], mode="w", format="NETCDF3_64BIT_OFFSET"
     ) as fptr_out:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "src.cime_pop.setup_solver.gen_grid_weight_file"

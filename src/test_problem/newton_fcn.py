@@ -153,28 +153,31 @@ class TracerModuleState(TracerModuleStateBase):
         logger.debug(
             'tracer_module_name="%s", fname="%s"', tracer_module_name, fname,
         )
-        if fname == "gen_ic":
+        if fname == "gen_init_iterate":
             depth = SpatialAxis("depth", get_modelinfo("depth_fname"))
             vals = np.empty((len(self._tracer_module_def), depth.nlevs))
             for tracer_ind, tracer_metadata in enumerate(
                 self._tracer_module_def.values()
             ):
-                if "ic_vals" in tracer_metadata:
+                if "init_iterate_vals" in tracer_metadata:
                     vals[tracer_ind, :] = np.interp(
                         depth.mid,
-                        tracer_metadata["ic_val_depths"],
-                        tracer_metadata["ic_vals"],
+                        tracer_metadata["init_iterate_val_depths"],
+                        tracer_metadata["init_iterate_vals"],
                     )
                 elif "shadows" in tracer_metadata:
                     shadowed_tracer = tracer_metadata["shadows"]
                     shadow_tracer_metadata = self._tracer_module_def[shadowed_tracer]
                     vals[tracer_ind, :] = np.interp(
                         depth.mid,
-                        shadow_tracer_metadata["ic_val_depths"],
-                        shadow_tracer_metadata["ic_vals"],
+                        shadow_tracer_metadata["init_iterate_val_depths"],
+                        shadow_tracer_metadata["init_iterate_vals"],
                     )
                 else:
-                    msg = "gen_ic failure for %s" % self.tracer_names()[tracer_ind]
+                    msg = (
+                        "gen_init_iterate failure for %s"
+                        % self.tracer_names()[tracer_ind]
+                    )
                     raise ValueError(msg)
             return vals, {"depth": depth.nlevs}
         dims = {}
