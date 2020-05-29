@@ -8,6 +8,19 @@ import git
 
 from .utils import mkdir_exist_okay
 
+cfg_override_args = {
+    "workdir": {"section": "DEFAULT"},
+    "logging_level": {"section": "solverinfo"},
+    "tracer_module_names": {"section": "modelinfo"},
+    "persist": {
+        "model_name": "test_problem",
+        "override_var": "reinvoke",
+        "action": "store_true",
+        "override_val": "False",
+        "section": "modelinfo",
+    },
+}
+
 
 def common_args(description, model_name="test_problem"):
     """instantiate and return a parser, using common options"""
@@ -15,34 +28,43 @@ def common_args(description, model_name="test_problem"):
         description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default=model_name,
-    )
-    parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default="models/{model_name}/newton_krylov.cfg",
+        default="models/%s/newton_krylov.cfg" % model_name,
     )
-    parser.add_argument(
-        "--workdir", help="override workdir from cfg file", default=None,
-    )
-    parser.add_argument(
-        "--tracer_module_names",
-        help="override tracer_module_names from cfg file",
-        default=None,
-    )
-    if model_name == "test_problem":
-        parser.add_argument(
-            "--persist", help="override reinvoke from cfg file", action="store_true",
-        )
+
+    # add arguments that override cfg file
+    for argname, metadata in cfg_override_args.items():
+        # skip arguments that are model specific for a different model_name
+        if "model_name" in metadata and model_name != metadata["model_name"]:
+            continue
+        override_var = metadata.get("override_var", argname)
+        if "action" not in metadata:
+            parser.add_argument(
+                "--%s" % argname,
+                help="override %s from cfg file" % override_var,
+                default=None,
+            )
+        elif metadata["action"] in ["store_true"]:
+            parser.add_argument(
+                "--%s" % argname,
+                help="override %s from cfg file" % override_var,
+                action=metadata["action"],
+            )
+        else:
+            msg = "action = %s not implemented" % metadata["action"]
+            raise NotImplementedError(msg)
+
     return parser
 
 
-def args_replace(args):
+def args_replace(args, model_name=None):
     """apply common args replacements/format on string arguments"""
+    model_name_repl = getattr(args, "model_name", model_name)
+    if "model_name" is None:
+        raise ValueError("model_name is None")
     # pass "{suff}" through
-    str_subs = {"model_name": args.model_name, "suff": "{suff}"}
+    str_subs = {"model_name": model_name_repl, "suff": "{suff}"}
     for arg, value in vars(args).items():
         if isinstance(value, str):
             setattr(args, arg, value.format(**str_subs))
@@ -75,15 +97,20 @@ def read_cfg_file(args):
                 msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fname)
                 raise ValueError(msg)
 
-    if args.workdir is not None:
-        config["DEFAULT"]["workdir"] = args.workdir
+    # apply arguments that override cfg file
+    for argname, metadata in cfg_override_args.items():
+        # skip conditional overrides that were not added
+        if argname not in args:
+            continue
+        override_var = metadata.get("override_var", argname)
+        if "action" not in metadata:
+            if getattr(args, argname) is not None:
+                config[metadata["section"]][override_var] = getattr(args, argname)
+        elif metadata["action"] == "store_true":
+            if getattr(args, argname):
+                config[metadata["section"]][override_var] = metadata["override_val"]
 
-    if args.tracer_module_names is not None:
-        config["modelinfo"]["tracer_module_names"] = args.tracer_module_names
-
-    if "persist" in args and args.persist:
-        config["modelinfo"]["reinvoke"] = "False"
-
+    # write cfg contents to a file, if requested
     cfg_out_fname = config["solverinfo"]["cfg_out_fname"]
     if cfg_out_fname is not None:
         mkdir_exist_okay(os.path.dirname(cfg_out_fname))

@@ -45,7 +45,7 @@ def _parse_args():
         default=2,
     )
 
-    return args_replace(parser.parse_args())
+    return args_replace(parser.parse_args(), model_name="test_problem")
 
 
 def main(args):
@@ -60,8 +60,11 @@ def main(args):
     )
     logger = logging.getLogger(__name__)
 
-    logger.info('args.model_name="%s"', args.model_name)
     logger.info('args.cfg_fname="%s"', args.cfg_fname)
+
+    # generate invoker script
+    args.model_name = "test_problem"
+    gen_invoker_script.main(args)
 
     # generate depth axis
     defn_dict = {
@@ -119,9 +122,6 @@ def main(args):
     logger.info('init_iterate_fname="%s"', init_iterate_fname)
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
     init_iterate.dump(init_iterate_fname, caller)
-
-    # generate invoker script
-    gen_invoker_script.main(args)
 
 
 ################################################################################

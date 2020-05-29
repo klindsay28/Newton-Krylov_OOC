@@ -5,7 +5,7 @@ import logging
 import os
 import stat
 
-from .share import args_replace, common_args, read_cfg_file
+from .share import args_replace, common_args, read_cfg_file, cfg_override_args
 from .utils import mkdir_exist_okay
 
 
@@ -34,13 +34,22 @@ def gen_invoker_script(args, modelinfo, repo_root):
         fptr.write("fi\n")
 
         # construct invocation command
-        line = "./nk_driver.py --cfg_fname %s " % modelinfo["cfg_fname"]
-        if args.workdir is not None:
-            line = line + "--workdir %s " % args.workdir
-        if args.tracer_module_names is not None:
-            line = line + "--tracer_module_names %s " % args.tracer_module_names
-        if "persist" in args and args.persist:
-            line = line + "--persist "
+        line = './nk_driver.py --cfg_fname "%s" ' % modelinfo["cfg_fname"]
+        if "model_name" in args:
+            line = line + '--model_name "%s" ' % args.model_name
+        for argname, metadata in cfg_override_args.items():
+            # skip conditional overrides that were not added
+            if argname not in args:
+                continue
+            if "action" not in metadata:
+                if getattr(args, argname) is not None:
+                    line = line + '--%s "%s" ' % (argname, getattr(args, argname))
+            elif metadata["action"] == "store_true":
+                if getattr(args, argname):
+                    line = line + "--%s " % argname
+            else:
+                msg = "action = %s not implemented" % metadata["action"]
+                raise NotImplementedError(msg)
         line = line + '"$@"\n'
         fptr.write(line)
 
@@ -53,6 +62,12 @@ def parse_args():
     """parse command line arguments"""
 
     parser = common_args("generate script for invoking nk_driver.py")
+
+    parser.add_argument(
+        "--model_name",
+        help="name of model that solver is being applied to",
+        default="test_problem",
+    )
 
     return args_replace(parser.parse_args())
 

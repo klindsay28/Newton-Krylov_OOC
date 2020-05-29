@@ -26,7 +26,7 @@ def _parse_args():
         action="store_true",
     )
 
-    return args_replace(parser.parse_args())
+    return args_replace(parser.parse_args(), model_name="cime_pop")
 
 
 def main(args):
@@ -41,8 +41,11 @@ def main(args):
     )
     logger = logging.getLogger(__name__)
 
-    logger.info('args.model_name="%s"', args.model_name)
     logger.info('args.cfg_fname="%s"', args.cfg_fname)
+
+    # generate invoker script
+    args.model_name = "cime_pop"
+    gen_invoker_script.main(args)
 
     modelinfo = config["modelinfo"]
 
@@ -68,9 +71,6 @@ def main(args):
 
     # confirm that model configuration works with generated file
     ModelConfig(modelinfo)
-
-    # generate invoker script
-    gen_invoker_script.main(args)
 
 
 def gen_irf_file(modelinfo):

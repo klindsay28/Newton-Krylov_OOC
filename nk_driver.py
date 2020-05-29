@@ -14,7 +14,13 @@ from src.share import args_replace, common_args, read_cfg_file
 def parse_args():
     """parse command line arguments"""
 
-    parser = common_args("Newton's method example")
+    parser = common_args("invoke Newton-Krylov solver")
+
+    parser.add_argument(
+        "--model_name",
+        help="name of model that solver is being applied to",
+        default="test_problem",
+    )
     parser.add_argument(
         "--resume",
         help="resume Newton's method from solver's saved state",

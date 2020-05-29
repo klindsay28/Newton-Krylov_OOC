@@ -43,7 +43,7 @@ def _parse_args():
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    return args_replace(parser.parse_args())
+    return args_replace(parser.parse_args(), model_name="test_problem")
 
 
 def _resolve_fname(fname_dir, fname):
