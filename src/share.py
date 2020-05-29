@@ -24,7 +24,7 @@ cfg_override_args = {
 }
 
 
-def common_args(description, model_name="test_problem"):
+def common_args(description, model_name):
     """instantiate and return a parser, using common options"""
     parser = argparse.ArgumentParser(
         description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter,

@@ -16,7 +16,7 @@ from ..utils import mkdir_exist_okay
 
 def _parse_args():
     """parse command line arguments"""
-    parser = common_args("setup test_problem")
+    parser = common_args("setup test_problem", "test_problem")
     parser.add_argument(
         "--axisname", help="axis name", default="depth",
     )

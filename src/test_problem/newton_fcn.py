@@ -27,7 +27,7 @@ from ..share import args_replace, common_args, read_cfg_file
 
 def _parse_args():
     """parse command line arguments"""
-    parser = common_args("test problem for Newton-Krylov solver")
+    parser = common_args("test problem for Newton-Krylov solver", "test_problem")
     parser.add_argument(
         "cmd",
         choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian",],

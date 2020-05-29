@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """generate script for invoking nk_driver.py"""
 
+import argparse
 import logging
 import os
 import stat
@@ -61,15 +62,18 @@ def gen_invoker_script(args, modelinfo, repo_root):
 def parse_args():
     """parse command line arguments"""
 
-    parser = common_args("generate script for invoking nk_driver.py")
-
+    # process --model_name so that it can be passed to common_args
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model_name",
         help="name of model that solver is being applied to",
         default="test_problem",
     )
+    args, args_remaining = parser.parse_known_args()
 
-    return args_replace(parser.parse_args())
+    parser = common_args("generate script for invoking nk_driver.py", args.model_name)
+
+    return args_replace(parser.parse_args(args_remaining))
 
 
 def main(args):
