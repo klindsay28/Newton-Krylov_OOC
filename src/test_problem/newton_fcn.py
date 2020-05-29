@@ -87,8 +87,7 @@ def main(args):
             TracerModuleState, _resolve_fname(args.fname_dir, args.res_fname)
         ).log("fcn")
     elif args.cmd == "gen_precond_jacobian":
-        newton_fcn.gen_precond_jacobian(
-            ms_in,
+        ms_in.gen_precond_jacobian(
             _resolve_fname(args.fname_dir, args.hist_fname),
             _resolve_fname(args.fname_dir, args.precond_fname),
         )

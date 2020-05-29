@@ -26,9 +26,7 @@ from ..utils import ann_files_to_mean_file, mon_files_to_mean_file
 
 def _parse_args():
     """parse command line arguments"""
-    parser = common_args(
-        "cime pop hooks for Newton-Krylov solver", model_name="cime_pop",
-    )
+    parser = common_args("cime pop hooks for Newton-Krylov solver", "cime_pop")
     parser.add_argument(
         "cmd",
         choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian"],
@@ -88,6 +86,68 @@ class ModelState(ModelStateBase):
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
         return ("z_t", "nlat")
+
+    def gen_precond_jacobian(self, hist_fname, precond_fname):
+        """
+        Generate file(s) needed for preconditioner of jacobian of comp_fcn
+        evaluated at self
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug('hist_fname="%s", precond_fname="%s"', hist_fname, precond_fname)
+
+        super().gen_precond_jacobian(hist_fname, precond_fname)
+
+        self._gen_precond_matrix_files(precond_fname)
+
+    def _gen_precond_matrix_files(self, precond_fname):
+        """
+        Generate matrix files for preconditioner of jacobian of comp_fcn
+        evaluated at self
+        """
+        logger = logging.getLogger(__name__)
+        jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
+
+        opt_str_subs = {
+            "day_cnt": 365 * cime_yr_cnt(),
+            "precond_fname": precond_fname,
+            "reg_fname": get_modelinfo("region_mask_fname"),
+            "irf_fname": get_modelinfo("irf_fname"),
+        }
+
+        workdir = os.path.dirname(precond_fname)
+
+        for matrix_name in self.precond_matrix_list():
+            matrix_opts = get_precond_matrix_def(matrix_name)["precond_matrices_opts"]
+            # apply option string substitutions
+            for ind, matrix_opt in enumerate(matrix_opts):
+                matrix_opts[ind] = matrix_opt.format(**opt_str_subs)
+
+            matrix_opts_fname = os.path.join(workdir, "matrix_" + matrix_name + ".opts")
+            with open(matrix_opts_fname, "w") as fptr:
+                for opt in matrix_opts:
+                    fptr.write("%s\n" % opt)
+            matrix_fname = os.path.join(workdir, "matrix_" + matrix_name + ".nc")
+            matrix_gen_exe = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
+            cmd = [
+                matrix_gen_exe,
+                "-D1",
+                "-o",
+                matrix_opts_fname,
+                matrix_fname,
+            ]
+            logger.info('cmd="%s"', " ".join(cmd))
+            subprocess.run(cmd, check=True)
+
+            # add creation metadata to file attributes
+            with Dataset(matrix_fname, mode="a") as fptr:
+                datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                msg = datestamp + ": created by " + matrix_gen_exe
+                fcn_name = __name__ + "NewtonFcn._gen_precond_matrix_files"
+                msg = msg + " called from " + fcn_name
+                if hasattr(fptr, "history"):
+                    msg = msg + "\n" + getattr(fptr, "history")
+                setattr(fptr, "history", msg)
+                setattr(fptr, "matrix_opts", "\n".join(matrix_opts))
 
 
 ################################################################################
@@ -205,62 +265,6 @@ class NewtonFcn(NewtonFcnBase):
         solver_state.log_step(fcn_complete_step)
 
         return ms_res
-
-    def gen_precond_jacobian(self, iterate, hist_fname, precond_fname):
-        """Generate file(s) needed for preconditioner of jacobian of comp_fcn."""
-        logger = logging.getLogger(__name__)
-        logger.debug('hist_fname="%s", precond_fname="%s"', hist_fname, precond_fname)
-
-        super().gen_precond_jacobian(iterate, hist_fname, precond_fname)
-
-        self._gen_precond_matrix_files(iterate, precond_fname)
-
-    def _gen_precond_matrix_files(self, iterate, precond_fname):
-        """Generate matrix files for preconditioner of jacobian of comp_fcn."""
-        logger = logging.getLogger(__name__)
-        jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
-
-        opt_str_subs = {
-            "day_cnt": 365 * cime_yr_cnt(),
-            "precond_fname": precond_fname,
-            "reg_fname": get_modelinfo("region_mask_fname"),
-            "irf_fname": get_modelinfo("irf_fname"),
-        }
-
-        workdir = os.path.dirname(precond_fname)
-
-        for matrix_name in iterate.precond_matrix_list():
-            matrix_opts = get_precond_matrix_def(matrix_name)["precond_matrices_opts"]
-            # apply option string substitutions
-            for ind, matrix_opt in enumerate(matrix_opts):
-                matrix_opts[ind] = matrix_opt.format(**opt_str_subs)
-
-            matrix_opts_fname = os.path.join(workdir, "matrix_" + matrix_name + ".opts")
-            with open(matrix_opts_fname, "w") as fptr:
-                for opt in matrix_opts:
-                    fptr.write("%s\n" % opt)
-            matrix_fname = os.path.join(workdir, "matrix_" + matrix_name + ".nc")
-            matrix_gen_exe = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
-            cmd = [
-                matrix_gen_exe,
-                "-D1",
-                "-o",
-                matrix_opts_fname,
-                matrix_fname,
-            ]
-            logger.info('cmd="%s"', " ".join(cmd))
-            subprocess.run(cmd, check=True)
-
-            # add creation metadata to file attributes
-            with Dataset(matrix_fname, mode="a") as fptr:
-                datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                msg = datestamp + ": created by " + matrix_gen_exe
-                fcn_name = __name__ + "NewtonFcn._gen_precond_matrix_files"
-                msg = msg + " called from " + fcn_name
-                if hasattr(fptr, "history"):
-                    msg = msg + "\n" + getattr(fptr, "history")
-                setattr(fptr, "history", msg)
-                setattr(fptr, "matrix_opts", "\n".join(matrix_opts))
 
     def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""

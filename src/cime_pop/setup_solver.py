@@ -19,7 +19,7 @@ from ..utils import mkdir_exist_okay, ann_files_to_mean_file, mon_files_to_mean_
 
 def _parse_args():
     """parse command line arguments"""
-    parser = common_args("setup cime_pop", model_name="cime_pop")
+    parser = common_args("setup cime_pop", "cime_pop")
     parser.add_argument(
         "--skip_irf_gen",
         help="skip generating irf file if it exists, default is to overwrite it",
