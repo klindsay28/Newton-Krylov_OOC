@@ -260,10 +260,11 @@ class NewtonFcn(NewtonFcnBase):
 
         self._sinking_tend_work = np.zeros(1 + self.depth.nlevs)
 
-        self._dye_sink_surf_val_times = 365.0 * np.array([0.1, 0.2, 0.6, 0.7])
-        self._dye_sink_surf_val_vals = np.array([0.0, 1.0, 1.0, 0.0])
-        self._dye_sink_surf_val_time = None
-        self._dye_sink_surf_val_val = 0.0
+        # integral of surface flux over year is 1 mol m-2
+        self._dye_sink_surf_flux_times = 365.0 * np.array([0.1, 0.2, 0.6, 0.7])
+        self._dye_sink_surf_flux_vals = np.array([0.0, 2.0, 2.0, 0.0]) / 365.0
+        self._dye_sink_surf_flux_time = None
+        self._dye_sink_surf_flux_val = 0.0
 
         # tracer_module_names and tracer_names will be stored in the following attributes,
         # enabling access to them from inside _comp_tend
@@ -383,22 +384,19 @@ class NewtonFcn(NewtonFcnBase):
         compute tendency for dye_sink tracer
         tendency units are tr_units / day
         """
-        # surface_flux piston velocity = 240 m / day
-        # same as restoring 24 / day over 10 m
-        target_surf_val = self._dye_sink_surf_val(time)
-        surf_flux = 240.0 * (target_surf_val - tracer_vals[0])
+        surf_flux = self._dye_sink_surf_flux(time)
         dtracer_vals_dt[:] = vert_mix.tend(time, tracer_vals, surf_flux)
         # decay (suff / 1000) / y
         dtracer_vals_dt[:] -= int(suff) * 0.001 / 365.0 * tracer_vals
 
-    def _dye_sink_surf_val(self, time):
-        """return surf value that dye_sink tracers are restored to"""
-        if time != self._dye_sink_surf_val_time:
-            self._dye_sink_surf_val_val = np.interp(
-                time, self._dye_sink_surf_val_times, self._dye_sink_surf_val_vals
+    def _dye_sink_surf_flux(self, time):
+        """return surf flux applied to dye_sink tracers"""
+        if time != self._dye_sink_surf_flux_time:
+            self._dye_sink_surf_flux_val = np.interp(
+                time, self._dye_sink_surf_flux_times, self._dye_sink_surf_flux_vals
             )
-            time = self._dye_sink_surf_val_time
-        return self._dye_sink_surf_val_val
+            time = self._dye_sink_surf_flux_time
+        return self._dye_sink_surf_flux_val
 
     def _comp_tend_phosphorus(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
         """
@@ -545,7 +543,6 @@ class NewtonFcn(NewtonFcnBase):
         )
         matrix_diagonals[1, 1:] -= mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
         matrix_diagonals[2, :-1] = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        matrix_diagonals[1, 0] = -240.0 * self.depth.delta_r[0]
         matrix_diagonals[0, 1] = 0
 
         # decay (suff / 1000) / y

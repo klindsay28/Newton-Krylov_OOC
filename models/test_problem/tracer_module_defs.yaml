@@ -30,9 +30,9 @@ tracer_module_defs:
             shadows: pop
     dye_sink_{suff}:  # root module name
         dye_sink_{suff}:
-            attrs: {long_name: "dye sink {suff}", units: "1"}
-            init_iterate_val_depths: [100.0, 150.0]
-            init_iterate_vals: [1.0, 0.0]
+            attrs: {long_name: "dye sink {suff}", units: "mol m-3"}
+            init_iterate_val_depths: [150.0]
+            init_iterate_vals: [0.0]
 
 precond_matrix_defs:
     base:
