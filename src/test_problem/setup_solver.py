@@ -9,7 +9,7 @@ from test_problem.src.spatial_axis import SpatialAxis
 
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from .newton_fcn import ModelState, NewtonFcn
+from .newton_fcn import ModelState, TracerModuleState, NewtonFcn
 from ..share import args_replace, common_args, read_cfg_file
 from ..utils import mkdir_exist_okay
 
@@ -88,7 +88,7 @@ def main(args):
     ModelConfig(modelinfo)
 
     # generate initial condition
-    ic = ModelState(vals_fname="gen_ic")
+    ic = ModelState(TracerModuleState, fname="gen_ic")
 
     # perform fixed point iteration(s) on ic
     if args.fp_cnt > 0:

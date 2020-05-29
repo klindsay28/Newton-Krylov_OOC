@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """test_problem hooks for Newton-Krylov solver"""
 
+import copy
 from distutils.util import strtobool
 import logging
 import os
@@ -73,7 +74,7 @@ def main(args):
 
     newton_fcn = NewtonFcn()
 
-    ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))
+    ms_in = ModelState(TracerModuleState, _resolve_fname(args.fname_dir, args.in_fname))
     if args.cmd == "comp_fcn":
         ms_in.log("state_in")
         newton_fcn.comp_fcn(
@@ -82,7 +83,9 @@ def main(args):
             solver_state=None,
             hist_fname=_resolve_fname(args.fname_dir, args.hist_fname),
         )
-        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("fcn")
+        ModelState(
+            TracerModuleState, _resolve_fname(args.fname_dir, args.res_fname)
+        ).log("fcn")
     elif args.cmd == "gen_precond_jacobian":
         newton_fcn.gen_precond_jacobian(
             ms_in,
@@ -97,7 +100,9 @@ def main(args):
             _resolve_fname(args.fname_dir, args.res_fname),
             solver_state=None,
         )
-        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("precond_res")
+        ModelState(
+            TracerModuleState, _resolve_fname(args.fname_dir, args.res_fname)
+        ).log("precond_res")
     else:
         msg = "unknown cmd=%s" % args.cmd
         raise ValueError(msg)
@@ -114,10 +119,10 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, vals_fname=None):
+    def __init__(self, tracer_module_state_class, fname):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelState, vals_fname="%s"', vals_fname)
-        super().__init__(TracerModuleState, vals_fname)
+        logger.debug('ModelState, fname="%s"', fname)
+        super().__init__(tracer_module_state_class, fname)
 
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
@@ -142,13 +147,13 @@ class TracerModuleState(TracerModuleStateBase):
     It implements _read_vals and dump.
     """
 
-    def _read_vals(self, tracer_module_name, vals_fname):
-        """return tracer values and dimension names and lengths, read from vals_fname)"""
+    def _read_vals(self, tracer_module_name, fname):
+        """return tracer values and dimension names and lengths, read from fname)"""
         logger = logging.getLogger(__name__)
         logger.debug(
-            'tracer_module_name="%s", vals_fname="%s"', tracer_module_name, vals_fname,
+            'tracer_module_name="%s", fname="%s"', tracer_module_name, fname,
         )
-        if vals_fname == "gen_ic":
+        if fname == "gen_ic":
             depth = SpatialAxis("depth", get_modelinfo("depth_fname"))
             vals = np.empty((len(self._tracer_module_def), depth.nlevs))
             for tracer_ind, tracer_metadata in enumerate(
@@ -173,7 +178,7 @@ class TracerModuleState(TracerModuleStateBase):
                     raise ValueError(msg)
             return vals, {"depth": depth.nlevs}
         dims = {}
-        with Dataset(vals_fname, mode="r") as fptr:
+        with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
             # get dims from first variable
             dimnames0 = fptr.variables[self.tracer_names()[0]].dimensions
@@ -187,16 +192,16 @@ class TracerModuleState(TracerModuleStateBase):
                 if fptr.variables[tracer_name].dimensions != dimnames0:
                     msg = (
                         "not all vars have same dimensions"
-                        ", tracer_module_name=%s, vals_fname=%s"
-                        % (tracer_module_name, vals_fname)
+                        ", tracer_module_name=%s, fname=%s"
+                        % (tracer_module_name, fname)
                     )
                     raise ValueError(msg)
             # read values
             if len(dims) > 3:
                 msg = (
                     "ndim too large (for implementation of dot_prod)"
-                    "tracer_module_name=%s, vals_fname=%s, ndim=%s"
-                    % (tracer_module_name, vals_fname, len(dims))
+                    "tracer_module_name=%s, fname=%s, ndim=%s"
+                    % (tracer_module_name, fname, len(dims))
                 )
                 raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
@@ -262,9 +267,9 @@ class NewtonFcn(NewtonFcnBase):
         self._tracer_module_names = None
         self._tracer_names = None
 
-    def model_state_obj(self, fname=None):
+    def model_state_obj(self, fname):
         """return a ModelState object compatible with this function"""
-        return ModelState(fname)
+        return ModelState(TracerModuleState, fname)
 
     def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
@@ -275,7 +280,7 @@ class NewtonFcn(NewtonFcnBase):
             fcn_complete_step = "comp_fcn complete for %s" % res_fname
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
-                return ModelState(res_fname)
+                return ModelState(TracerModuleState, res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         self._tracer_module_names = ms_in.tracer_module_names
@@ -304,7 +309,7 @@ class NewtonFcn(NewtonFcnBase):
         if hist_fname is not None:
             hist_write(ms_in, sol, hist_fname, self)
 
-        ms_res = ms_in.copy()
+        ms_res = copy.deepcopy(ms_in)
         res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
         for tracer_ind, tracer_name in enumerate(self._tracer_names):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
@@ -473,10 +478,10 @@ class NewtonFcn(NewtonFcnBase):
             fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
-                return ModelState(res_fname)
+                return ModelState(TracerModuleState, res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        ms_res = ms_in.copy()
+        ms_res = copy.deepcopy(ms_in)
 
         with Dataset(precond_fname, mode="r") as fptr:
             # hist, and thus precond, files have mixing_coeff in m2 s-1
@@ -561,23 +566,23 @@ class NewtonFcn(NewtonFcnBase):
             (po4_s, dop_s, pop_s)
         )
 
-        nz = self.depth.nlevs  # pylint: disable=C0103
+        nlevs = self.depth.nlevs
 
         matrix = diags(
             [
                 self._diag_0_phosphorus(mca),
                 self._diag_p_1_phosphorus(mca),
                 self._diag_m_1_phosphorus(mca),
-                self._diag_p_nz_phosphorus(),
-                self._diag_m_nz_phosphorus(),
-                self._diag_p_2nz_phosphorus(),
-                self._diag_m_2nz_phosphorus(),
+                self._diag_p_nlevs_phosphorus(),
+                self._diag_m_nlevs_phosphorus(),
+                self._diag_p_2nlevs_phosphorus(),
+                self._diag_m_2nlevs_phosphorus(),
             ],
-            [0, 1, -1, nz, -nz, 2 * nz, -2 * nz],
+            [0, 1, -1, nlevs, -nlevs, 2 * nlevs, -2 * nlevs],
             format="csr",
         )
 
-        matrix_adj = matrix - 1.0e-8 * eye(3 * nz)
+        matrix_adj = matrix - 1.0e-8 * eye(3 * nlevs)
         res = spsolve(matrix_adj, rhs)
 
         _, sing_vals, r_sing_vects = svd(matrix.todense())
@@ -587,9 +592,9 @@ class NewtonFcn(NewtonFcnBase):
         denom = (r_sing_vects[min_ind, :] * dz3).sum()
         res -= numer / denom * r_sing_vects[min_ind, :]
 
-        ms_res.set_tracer_vals("po4_s", res[0:nz] - po4_s)
-        ms_res.set_tracer_vals("dop_s", res[nz : 2 * nz] - dop_s)
-        ms_res.set_tracer_vals("pop_s", res[2 * nz : 3 * nz] - pop_s)
+        ms_res.set_tracer_vals("po4_s", res[0:nlevs] - po4_s)
+        ms_res.set_tracer_vals("dop_s", res[nlevs : 2 * nlevs] - dop_s)
+        ms_res.set_tracer_vals("pop_s", res[2 * nlevs : 3 * nlevs] - pop_s)
 
     def _diag_0_phosphorus(self, mca):
         """return main diagonal of preconditioner of jacobian of phosphorus fcn"""
@@ -634,25 +639,33 @@ class NewtonFcn(NewtonFcnBase):
             (diag_m_1_po4_s, zero, diag_m_1_dop_s, zero, diag_m_1_pop_s)
         )
 
-    def _diag_p_nz_phosphorus(self):
-        """return +nz upper diagonal of preconditioner of jacobian of phosphorus fcn"""
+    def _diag_p_nlevs_phosphorus(self):
+        """
+        return +nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
+        """
         diag_p_1_dop_po4 = 0.01 * np.ones(self.depth.nlevs)  # dop_s remin
         diag_p_1_pop_dop = np.zeros(self.depth.nlevs)
         return np.concatenate((diag_p_1_dop_po4, diag_p_1_pop_dop))
 
-    def _diag_m_nz_phosphorus(self):
-        """return -nz lower diagonal of preconditioner of jacobian of phosphorus fcn"""
+    def _diag_m_nlevs_phosphorus(self):
+        """
+        return -nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
+        """
         diag_p_1_po4_dop = np.zeros(self.depth.nlevs)
         diag_p_1_po4_dop[0] = 0.67  # po4_s restoring conservation balance
         diag_p_1_dop_pop = np.zeros(self.depth.nlevs)
         return np.concatenate((diag_p_1_po4_dop, diag_p_1_dop_pop))
 
-    def _diag_p_2nz_phosphorus(self):
-        """return +2nz upper diagonal of preconditioner of jacobian of phosphorus fcn"""
+    def _diag_p_2nlevs_phosphorus(self):
+        """
+        return +2nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
+        """
         return 0.01 * np.ones(self.depth.nlevs)  # pop_s remin
 
-    def _diag_m_2nz_phosphorus(self):
-        """return -2nz lower diagonal of preconditioner of jacobian of phosphorus fcn"""
+    def _diag_m_2nlevs_phosphorus(self):
+        """
+        return -2nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
+        """
         diag_p_1_po4_pop = np.zeros(self.depth.nlevs)
         diag_p_1_po4_pop[0] = 0.33  # po4_s restoring conservation balance
         return diag_p_1_po4_pop

@@ -67,7 +67,6 @@ def main(args):
     gen_region_mask_file(modelinfo)
 
     # confirm that model configuration works with generated file
-    # ModelState relies on model being configured
     ModelConfig(modelinfo)
 
     # generate invoker script

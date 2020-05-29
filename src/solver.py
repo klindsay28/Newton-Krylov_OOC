@@ -146,7 +146,7 @@ class NumpyEncoder(json.JSONEncoder):
     https://stackoverflow.com/questions/26646362/nump-array-is-not-json-serializable
     """
 
-    def default(self, o):  # pylint: disable=E0202
+    def default(self, o):
         """method called by json.dump, when cls=NumpyEncoder"""
         if isinstance(o, np.ndarray):
             return {"__ndarray__": o.tolist()}

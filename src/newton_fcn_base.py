@@ -11,14 +11,6 @@ import numpy as np
 class NewtonFcnBase:
     """Base class of methods related to problem being solved with Newton's method"""
 
-    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
-        """evalute function being solved with Newton's method"""
-        msg = "% should be implemented in classes derived from %s" % (
-            "comp_fcn",
-            "NewtonFcnBase",
-        )
-        raise NotImplementedError(msg)
-
     def comp_fcn_postprocess(self, res, res_fname, caller):
         """apply postprocessing that is common to all comp_fcn methods"""
         fcn_name = __name__ + ".NewtonFcnBase.comp_fcn_postprocess"
@@ -41,7 +33,7 @@ class NewtonFcnBase:
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return type(iterate)(res_fname)
+            return type(iterate)(iterate.tracer_module_state_class, res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         sigma = 1.0e-4 * iterate.norm()
@@ -51,7 +43,7 @@ class NewtonFcnBase:
         perturb_fcn_fname = os.path.join(
             solver_state.get_workdir(), "perturb_fcn_" + os.path.basename(res_fname)
         )
-        perturb_fcn = self.comp_fcn(  # pylint: disable=E1111
+        perturb_fcn = self.comp_fcn(  # pylint: disable=E1101
             perturb_ms, perturb_fcn_fname, solver_state
         )
 

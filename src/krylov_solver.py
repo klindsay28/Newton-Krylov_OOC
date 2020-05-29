@@ -96,14 +96,21 @@ class KrylovSolver:
             j_val = self._solver_state.get_iteration()
             h_mat = to_region_scalar_ndarray(
                 np.zeros(
-                    (iterate.tracer_module_cnt, j_val + 2, j_val + 1, get_region_cnt())
+                    (
+                        len(iterate.tracer_module_names),
+                        j_val + 2,
+                        j_val + 1,
+                        get_region_cnt(),
+                    )
                 )
             )
             if j_val > 0:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state("h_mat_ndarray")
                 )
-            basis_j = type(iterate)(self._fname("basis"))
+            basis_j = type(iterate)(
+                iterate.tracer_module_state_class, self._fname("basis")
+            )
             w_raw = self._newton_fcn_obj.comp_jacobian_fcn_state_prod(
                 iterate, fcn, basis_j, self._fname("w_raw"), self._solver_state
             )
@@ -123,6 +130,7 @@ class KrylovSolver:
             # construct approximate solution
             res = lin_comb(
                 type(iterate),
+                iterate.tracer_module_state_class,
                 to_region_scalar_ndarray(coeff_ndarray),
                 self._fname,
                 "basis",

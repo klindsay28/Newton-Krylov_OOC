@@ -1,6 +1,7 @@
 """class for representing the state space of a model, and operations on it"""
 
 import collections
+import copy
 from datetime import datetime
 import logging
 
@@ -11,6 +12,7 @@ from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .region_scalars import RegionScalars, to_ndarray
 
+
 ################################################################################
 
 
@@ -20,9 +22,9 @@ class ModelStateBase:
     # give ModelStateBase operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, tracer_module_state_class, vals_fname=None):
+    def __init__(self, tracer_module_state_class, fname):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelStateBase, vals_fname="%s"', vals_fname)
+        logger.debug('ModelStateBase, fname="%s"', fname)
         if model_config.model_config_obj is None:
             msg = (
                 "model_config.model_config_obj is None, %s must be called before %s"
@@ -34,16 +36,15 @@ class ModelStateBase:
                 "tracer_module_state_class must be a subclass of TracerModuleStateBase"
             )
             raise ValueError(msg)
+        self.tracer_module_state_class = tracer_module_state_class
         self.tracer_module_names = get_modelinfo("tracer_module_names").split(",")
-        self.tracer_module_cnt = len(self.tracer_module_names)
-        if vals_fname is not None:
-            self._tracer_modules = np.empty((self.tracer_module_cnt,), dtype=np.object)
-            for tracer_module_ind, tracer_module_name in enumerate(
-                self.tracer_module_names
-            ):
-                self._tracer_modules[tracer_module_ind] = tracer_module_state_class(
-                    tracer_module_name, vals_fname=vals_fname
-                )
+        self._tracer_modules = np.empty(len(self.tracer_module_names), dtype=np.object)
+        for tracer_module_ind, tracer_module_name in enumerate(
+            self.tracer_module_names
+        ):
+            self._tracer_modules[tracer_module_ind] = tracer_module_state_class(
+                tracer_module_name, fname=fname
+            )
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -70,11 +71,11 @@ class ModelStateBase:
         msg = "unknown tracer_name=%s" % tracer_name
         raise ValueError(msg)
 
-    def dump(self, vals_fname, caller=None):
+    def dump(self, fname, caller=None):
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
-        logger.debug('vals_fname="%s"', vals_fname)
-        with Dataset(vals_fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
+        logger.debug('fname="%s"', fname)
+        with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             name = __name__ + ".ModelStateBase.dump"
             msg = datestamp + ": created by " + name
@@ -196,24 +197,12 @@ class ModelStateBase:
                     np.divide(numer, denom, out=vals, where=(denom != 0.0))
                     stats_file.put_vars_specific(iteration, tracer_name, vals)
 
-    def copy(self):
-        """return a copy of self"""
-        res = type(self)()  # pylint: disable=E1120
-        res._tracer_modules = np.empty(
-            (self.tracer_module_cnt,), dtype=np.object
-        )  # pylint: disable=W0212
-        for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
-            res._tracer_modules[
-                tracer_module_ind
-            ] = tracer_module.copy()  # pylint: disable=W0212
-        return res
-
     def __neg__(self):
         """
         unary negation operator
         called to evaluate res = -self
         """
-        res = type(self)()  # pylint: disable=E1120
+        res = copy.copy(self)
         res._tracer_modules = -self._tracer_modules  # pylint: disable=W0212
         return res
 
@@ -222,7 +211,7 @@ class ModelStateBase:
         addition operator
         called to evaluate res = self + other
         """
-        res = type(self)()  # pylint: disable=E1120
+        res = copy.copy(self)
         if isinstance(other, ModelStateBase):
             res._tracer_modules = (
                 self._tracer_modules + other._tracer_modules
@@ -254,7 +243,7 @@ class ModelStateBase:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = type(self)()  # pylint: disable=E1120
+        res = copy.copy(self)
         if isinstance(other, ModelStateBase):
             res._tracer_modules = (
                 self._tracer_modules - other._tracer_modules
@@ -279,7 +268,7 @@ class ModelStateBase:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = type(self)()  # pylint: disable=E1120
+        res = copy.copy(self)
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * other  # pylint: disable=W0212
         elif (
@@ -323,7 +312,7 @@ class ModelStateBase:
         division operator
         called to evaluate res = self / other
         """
-        res = type(self)()  # pylint: disable=E1120
+        res = copy.copy(self)
         if isinstance(other, float):
             res._tracer_modules = self._tracer_modules * (
                 1.0 / other
@@ -347,7 +336,7 @@ class ModelStateBase:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = type(self)()  # pylint: disable=E1120
+        res = copy.copy(self)
         if isinstance(other, float):
             res._tracer_modules = other / self._tracer_modules  # pylint: disable=W0212
         elif (
@@ -387,8 +376,8 @@ class ModelStateBase:
         res = np.empty(self._tracer_modules.shape, dtype=np.object)
         for ind, tracer_module in enumerate(self._tracer_modules):
             res[ind] = tracer_module.dot_prod(
-                other._tracer_modules[ind]
-            )  # pylint: disable=W0212
+                other._tracer_modules[ind]  # pylint: disable=W0212
+            )
         return res
 
     def norm(self):
@@ -400,9 +389,11 @@ class ModelStateBase:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty((self.tracer_module_cnt, basis_cnt), dtype=np.object)
+        h_val = np.empty((len(self.tracer_module_names), basis_cnt), dtype=np.object)
         for i_val in range(0, basis_cnt):
-            basis_i = type(self)(fname_fcn(quantity, i_val))
+            basis_i = type(self)(
+                self.tracer_module_state_class, fname_fcn(quantity, i_val)
+            )
             h_val[:, i_val] = self.dot_prod(basis_i)
             self -= h_val[:, i_val] * basis_i
         return h_val
@@ -494,12 +485,12 @@ class TracerModuleStateBase:
     # give TracerModuleStateBase operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, tracer_module_name, dims=None, vals_fname=None):
+    def __init__(self, tracer_module_name, fname):
         logger = logging.getLogger(__name__)
         logger.debug(
-            'TracerModuleStateBase, tracer_module_name="%s", vals_fname="%s"',
+            'TracerModuleStateBase, tracer_module_name="%s", fname="%s"',
             tracer_module_name,
-            vals_fname,
+            fname,
         )
         if model_config.model_config_obj is None:
             msg = (
@@ -511,23 +502,9 @@ class TracerModuleStateBase:
         self._tracer_module_def = model_config.model_config_obj.tracer_module_defs[
             tracer_module_name
         ]
-        if (dims is None) == (vals_fname is None):
-            msg = "exactly one of dims and vals_fname must be passed"
-            raise ValueError(msg)
-        if dims is not None:
-            self._dims = dims
-        if vals_fname is not None:
-            self._vals, self._dims = self._read_vals(  # pylint: disable=E1111
-                tracer_module_name, vals_fname
-            )
-
-    def _read_vals(self, tracer_module_name, vals_fname):
-        """return tracer values and dimension names and lengths, read from vals_fname)"""
-        msg = "% should be implemented in classes derived from %s" % (
-            "_read_vals",
-            "TracerModuleStateBase",
+        self._vals, self._dims = self._read_vals(  # pylint: disable=E1101
+            tracer_module_name, fname
         )
-        raise NotImplementedError(msg)
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -544,17 +521,6 @@ class TracerModuleStateBase:
     def tracer_metadata(self, tracer_name):
         """return tracer's metadata"""
         return self._tracer_module_def[tracer_name]
-
-    def dump(self, fptr, action):
-        """
-        perform an action (define or write) of dumping a TracerModuleStateBase object
-        to an open file
-        """
-        msg = "% should be implemented in classes derived from %s" % (
-            "dump",
-            "TracerModuleStateBase",
-        )
-        raise NotImplementedError(msg)
 
     def log_vals(self, msg, vals):
         """write per-tracer module values to the log"""
@@ -595,18 +561,12 @@ class TracerModuleStateBase:
             msg = "vals.ndim=%d not handled" % vals.ndim
             raise ValueError(msg)
 
-    def copy(self):
-        """return a copy of self"""
-        res = type(self)(self._tracer_module_name, dims=self._dims)
-        res._vals = np.copy(self._vals)  # pylint: disable=W0212
-        return res
-
     def __neg__(self):
         """
         unary negation operator
         called to evaluate res = -self
         """
-        res = type(self)(self._tracer_module_name, dims=self._dims)
+        res = copy.copy(self)
         res._vals = -self._vals  # pylint: disable=W0212
         return res
 
@@ -615,7 +575,7 @@ class TracerModuleStateBase:
         addition operator
         called to evaluate res = self + other
         """
-        res = type(self)(self._tracer_module_name, dims=self._dims)
+        res = copy.copy(self)
         if isinstance(other, TracerModuleStateBase):
             res._vals = self._vals + other._vals  # pylint: disable=W0212
         else:
@@ -638,7 +598,7 @@ class TracerModuleStateBase:
         subtraction operator
         called to evaluate res = self - other
         """
-        res = type(self)(self._tracer_module_name, dims=self._dims)
+        res = copy.copy(self)
         if isinstance(other, TracerModuleStateBase):
             res._vals = self._vals - other._vals  # pylint: disable=W0212
         else:
@@ -661,7 +621,7 @@ class TracerModuleStateBase:
         multiplication operator
         called to evaluate res = self * other
         """
-        res = type(self)(self._tracer_module_name, dims=self._dims)
+        res = copy.copy(self)
         if isinstance(other, float):
             res._vals = self._vals * other  # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
@@ -701,7 +661,7 @@ class TracerModuleStateBase:
         division operator
         called to evaluate res = self / other
         """
-        res = type(self)(self._tracer_module_name, dims=self._dims)
+        res = copy.copy(self)
         if isinstance(other, float):
             res._vals = self._vals * (1.0 / other)  # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
@@ -719,7 +679,7 @@ class TracerModuleStateBase:
         reversed division operator
         called to evaluate res = other / self
         """
-        res = type(self)(self._tracer_module_name, dims=self._dims)
+        res = copy.copy(self)
         if isinstance(other, float):
             res._vals = other / self._vals  # pylint: disable=W0212
         elif isinstance(other, RegionScalars):
@@ -784,22 +744,22 @@ class TracerModuleStateBase:
                 "ik,jk,jk",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,
-            )  # pylint: disable=W0212
+                other._vals,  # pylint: disable=W0212
+            )
         elif ndim == 2:
             tmp = np.einsum(
                 "ikl,jkl,jkl",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,
-            )  # pylint: disable=W0212
+                other._vals,  # pylint: disable=W0212
+            )
         else:
             tmp = np.einsum(
                 "iklm,jklm,jklm",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,
-            )  # pylint: disable=W0212
+                other._vals,  # pylint: disable=W0212
+            )
         # return RegionScalars object
         return RegionScalars(tmp)
 
@@ -886,9 +846,11 @@ class TracerModuleStateBase:
 ################################################################################
 
 
-def lin_comb(res_type, coeff, fname_fcn, quantity):
+def lin_comb(res_type, tracer_module_state_class, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelStateBase objects in files"""
-    res = coeff[:, 0] * res_type(fname_fcn(quantity, 0))
+    res = coeff[:, 0] * res_type(tracer_module_state_class, fname_fcn(quantity, 0))
     for j_val in range(1, coeff.shape[-1]):
-        res += coeff[:, j_val] * res_type(fname_fcn(quantity, j_val))
+        res += coeff[:, j_val] * res_type(
+            tracer_module_state_class, fname_fcn(quantity, j_val)
+        )
     return res

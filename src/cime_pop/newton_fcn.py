@@ -80,10 +80,10 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, vals_fname=None):
+    def __init__(self, tracer_module_state_class, fname):
         logger = logging.getLogger(__name__)
-        logger.debug('ModelState, vals_fname="%s"', vals_fname)
-        super().__init__(TracerModuleState, vals_fname)
+        logger.debug('ModelState, fname="%s"', fname)
+        super().__init__(tracer_module_state_class, fname)
 
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
@@ -99,15 +99,13 @@ class TracerModuleState(TracerModuleStateBase):
     It implements _read_vals and dump.
     """
 
-    def _read_vals(self, tracer_module_name, vals_fname):
-        """return tracer values and dimension names and lengths, read from vals_fname)"""
+    def _read_vals(self, tracer_module_name, fname):
+        """return tracer values and dimension names and lengths, read from fname)"""
         logger = logging.getLogger(__name__)
-        logger.debug(
-            'tracer_module_name="%s", vals_fname="%s"', tracer_module_name, vals_fname
-        )
+        logger.debug('tracer_module_name="%s", fname="%s"', tracer_module_name, fname)
         dims = {}
         suffix = "_CUR"
-        with Dataset(vals_fname, mode="r") as fptr:
+        with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
             # get dims from first variable
             dimnames0 = fptr.variables[self.tracer_names()[0] + suffix].dimensions
@@ -121,16 +119,16 @@ class TracerModuleState(TracerModuleStateBase):
                 if fptr.variables[tracer_name + suffix].dimensions != dimnames0:
                     msg = (
                         "not all vars have same dimensions"
-                        ", tracer_module_name=%s, vals_fname=%s"
-                        % (tracer_module_name, vals_fname)
+                        ", tracer_module_name=%s, fname=%s"
+                        % (tracer_module_name, fname)
                     )
                     raise ValueError(msg)
             # read values
             if len(dims) > 3:
                 msg = (
                     "ndim too large (for implementation of dot_prod)"
-                    "tracer_module_name=%s, vals_fname=%s, ndim=%s"
-                    % (tracer_module_name, vals_fname, len(dims))
+                    "tracer_module_name=%s, fname=%s, ndim=%s"
+                    % (tracer_module_name, fname, len(dims))
                 )
                 raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
@@ -180,9 +178,9 @@ class NewtonFcn(NewtonFcnBase):
     def __init__(self):
         pass
 
-    def model_state_obj(self, fname=None):
+    def model_state_obj(self, fname):
         """return a ModelState object compatible with this function"""
-        return ModelState(fname)
+        return ModelState(TracerModuleState, fname)
 
     def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
@@ -192,7 +190,7 @@ class NewtonFcn(NewtonFcnBase):
         fcn_complete_step = "comp_fcn complete for %s" % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(res_fname)
+            return ModelState(TracerModuleState, res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state)
@@ -272,7 +270,7 @@ class NewtonFcn(NewtonFcnBase):
         fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(res_fname)
+            return ModelState(TracerModuleState, res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state)
@@ -445,7 +443,7 @@ def _comp_fcn_post_modelrun(ms_in):
         rest_file_fname_rel = fptr.readline().strip()
     fname = os.path.join(cime_xmlquery("RUNDIR"), rest_file_fname_rel)
 
-    return ModelState(fname) - ms_in
+    return ModelState(TracerModuleState, fname) - ms_in
 
 
 def _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state):
@@ -531,7 +529,7 @@ def _apply_precond_jacobian_solve_lin_eqns(
     )
     if solver_state.step_logged(fcn_complete_step):
         logger.debug('"%s" logged, returning result', fcn_complete_step)
-        return ModelState(res_fname)
+        return ModelState(TracerModuleState, res_fname)
     logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
     caller = __name__ + "._apply_precond_jacobian_solve_lin_eqns"
@@ -576,7 +574,7 @@ def _apply_precond_jacobian_solve_lin_eqns(
             tracer_names_subset, tracer_names_all, precond_fname, res_fname
         )
 
-    ms_res = ModelState(res_fname)
+    ms_res = ModelState(TracerModuleState, res_fname)
 
     solver_state.log_step(fcn_complete_step)
 
@@ -616,7 +614,7 @@ def _apply_tracers_sflux_term(
         precond_fname,
         res_fname,
     )
-    model_state = ModelState(res_fname)
+    model_state = ModelState(TracerModuleState, res_fname)
     term_applied = False
     delta_time = 365.0 * 86400.0 * cime_yr_cnt()
     with Dataset(precond_fname, mode="r") as fptr:
