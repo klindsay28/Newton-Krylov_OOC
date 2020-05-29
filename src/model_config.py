@@ -105,7 +105,7 @@ class ModelConfig:
             )
 
         # store contents in module level var, to enable use elsewhere
-        global model_config_obj  # pylint: disable=W0603
+        global model_config_obj  # pylint: disable=global-statement
         model_config_obj = self
 
     def tracer_module_expand_all(self, tracer_module_names):

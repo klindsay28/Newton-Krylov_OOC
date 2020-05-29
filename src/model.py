@@ -203,7 +203,7 @@ class ModelStateBase:
         called to evaluate res = -self
         """
         res = copy.copy(self)
-        res._tracer_modules = -self._tracer_modules  # pylint: disable=W0212
+        res._tracer_modules = -self._tracer_modules
         return res
 
     def __add__(self, other):
@@ -213,9 +213,7 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, ModelStateBase):
-            res._tracer_modules = (
-                self._tracer_modules + other._tracer_modules
-            )  # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules + other._tracer_modules
         else:
             return NotImplemented
         return res
@@ -233,7 +231,7 @@ class ModelStateBase:
         called to evaluate self += other
         """
         if isinstance(other, ModelStateBase):
-            self._tracer_modules += other._tracer_modules  # pylint: disable=W0212
+            self._tracer_modules += other._tracer_modules
         else:
             return NotImplemented
         return self
@@ -245,9 +243,7 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, ModelStateBase):
-            res._tracer_modules = (
-                self._tracer_modules - other._tracer_modules
-            )  # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules - other._tracer_modules
         else:
             return NotImplemented
         return res
@@ -258,7 +254,7 @@ class ModelStateBase:
         called to evaluate self -= other
         """
         if isinstance(other, ModelStateBase):
-            self._tracer_modules -= other._tracer_modules  # pylint: disable=W0212
+            self._tracer_modules -= other._tracer_modules
         else:
             return NotImplemented
         return self
@@ -270,15 +266,11 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules * other  # pylint: disable=W0212
-        elif (
-            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
-        ):
-            res._tracer_modules = self._tracer_modules * other  # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules * other
+        elif isinstance(other, np.ndarray):
+            res._tracer_modules = self._tracer_modules * other
         elif isinstance(other, ModelStateBase):
-            res._tracer_modules = (
-                self._tracer_modules * other._tracer_modules
-            )  # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules * other._tracer_modules
         else:
             return NotImplemented
         return res
@@ -297,12 +289,10 @@ class ModelStateBase:
         """
         if isinstance(other, float):
             self._tracer_modules *= other
-        elif (
-            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
-        ):
+        elif isinstance(other, np.ndarray):
             self._tracer_modules *= other
         elif isinstance(other, ModelStateBase):
-            self._tracer_modules *= other._tracer_modules  # pylint: disable=W0212
+            self._tracer_modules *= other._tracer_modules
         else:
             return NotImplemented
         return self
@@ -314,19 +304,11 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules * (
-                1.0 / other
-            )  # pylint: disable=W0212
-        elif (
-            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
-        ):
-            res._tracer_modules = self._tracer_modules * (
-                1.0 / other
-            )  # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules * (1.0 / other)
+        elif isinstance(other, np.ndarray):
+            res._tracer_modules = self._tracer_modules * (1.0 / other)
         elif isinstance(other, ModelStateBase):
-            res._tracer_modules = (
-                self._tracer_modules / other._tracer_modules
-            )  # pylint: disable=W0212
+            res._tracer_modules = self._tracer_modules / other._tracer_modules
         else:
             return NotImplemented
         return res
@@ -338,11 +320,9 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._tracer_modules = other / self._tracer_modules  # pylint: disable=W0212
-        elif (
-            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
-        ):
-            res._tracer_modules = other / self._tracer_modules  # pylint: disable=W0212
+            res._tracer_modules = other / self._tracer_modules
+        elif isinstance(other, np.ndarray):
+            res._tracer_modules = other / self._tracer_modules
         else:
             return NotImplemented
         return res
@@ -354,12 +334,10 @@ class ModelStateBase:
         """
         if isinstance(other, float):
             self._tracer_modules *= 1.0 / other
-        elif (
-            isinstance(other, np.ndarray) and other.shape == self._tracer_modules.shape
-        ):
+        elif isinstance(other, np.ndarray):
             self._tracer_modules *= 1.0 / other
         elif isinstance(other, ModelStateBase):
-            self._tracer_modules /= other._tracer_modules  # pylint: disable=W0212
+            self._tracer_modules /= other._tracer_modules
         else:
             return NotImplemented
         return self
@@ -376,7 +354,7 @@ class ModelStateBase:
         res = np.empty(self._tracer_modules.shape, dtype=np.object)
         for ind, tracer_module in enumerate(self._tracer_modules):
             res[ind] = tracer_module.dot_prod(
-                other._tracer_modules[ind]  # pylint: disable=W0212
+                other._tracer_modules[ind]  # pylint: disable=protected-access
             )
         return res
 
@@ -502,7 +480,7 @@ class TracerModuleStateBase:
         self._tracer_module_def = model_config.model_config_obj.tracer_module_defs[
             tracer_module_name
         ]
-        self._vals, self._dims = self._read_vals(  # pylint: disable=E1101
+        self._vals, self._dims = self._read_vals(  # pylint: disable=no-member
             tracer_module_name, fname
         )
 
@@ -567,7 +545,7 @@ class TracerModuleStateBase:
         called to evaluate res = -self
         """
         res = copy.copy(self)
-        res._vals = -self._vals  # pylint: disable=W0212
+        res._vals = -self._vals
         return res
 
     def __add__(self, other):
@@ -577,7 +555,7 @@ class TracerModuleStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals + other._vals  # pylint: disable=W0212
+            res._vals = self._vals + other._vals
         else:
             return NotImplemented
         return res
@@ -588,7 +566,7 @@ class TracerModuleStateBase:
         called to evaluate self += other
         """
         if isinstance(other, TracerModuleStateBase):
-            self._vals += other._vals  # pylint: disable=W0212
+            self._vals += other._vals
         else:
             return NotImplemented
         return self
@@ -600,7 +578,7 @@ class TracerModuleStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals - other._vals  # pylint: disable=W0212
+            res._vals = self._vals - other._vals
         else:
             return NotImplemented
         return res
@@ -611,7 +589,7 @@ class TracerModuleStateBase:
         called to evaluate self -= other
         """
         if isinstance(other, TracerModuleStateBase):
-            self._vals -= other._vals  # pylint: disable=W0212
+            self._vals -= other._vals
         else:
             return NotImplemented
         return self
@@ -623,13 +601,13 @@ class TracerModuleStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._vals = self._vals * other  # pylint: disable=W0212
+            res._vals = self._vals * other
         elif isinstance(other, RegionScalars):
-            res._vals = self._vals * other.broadcast(  # pylint: disable=W0212
+            res._vals = self._vals * other.broadcast(
                 model_config.model_config_obj.region_mask
             )
         elif isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals * other._vals  # pylint: disable=W0212
+            res._vals = self._vals * other._vals
         else:
             return NotImplemented
         return res
@@ -651,7 +629,7 @@ class TracerModuleStateBase:
         elif isinstance(other, RegionScalars):
             self._vals *= other.broadcast(model_config.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
-            self._vals *= other._vals  # pylint: disable=W0212
+            self._vals *= other._vals
         else:
             return NotImplemented
         return self
@@ -663,13 +641,13 @@ class TracerModuleStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._vals = self._vals * (1.0 / other)  # pylint: disable=W0212
+            res._vals = self._vals * (1.0 / other)
         elif isinstance(other, RegionScalars):
-            res._vals = self._vals * other.recip().broadcast(  # pylint: disable=W0212
+            res._vals = self._vals * other.recip().broadcast(
                 model_config.model_config_obj.region_mask
             )
         elif isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals / other._vals  # pylint: disable=W0212
+            res._vals = self._vals / other._vals
         else:
             return NotImplemented
         return res
@@ -681,13 +659,10 @@ class TracerModuleStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._vals = other / self._vals  # pylint: disable=W0212
+            res._vals = other / self._vals
         elif isinstance(other, RegionScalars):
             res._vals = (
-                other.broadcast(
-                    model_config.model_config_obj.region_mask
-                )  # pylint: disable=W0212
-                / self._vals
+                other.broadcast(model_config.model_config_obj.region_mask) / self._vals
             )
         else:
             return NotImplemented
@@ -705,7 +680,7 @@ class TracerModuleStateBase:
                 model_config.model_config_obj.region_mask
             )
         elif isinstance(other, TracerModuleStateBase):
-            self._vals /= other._vals  # pylint: disable=W0212
+            self._vals /= other._vals
         else:
             return NotImplemented
         return self

@@ -19,7 +19,7 @@ class RegionScalars:
         if isinstance(other, float):
             return RegionScalars(self._vals * other)
         if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals * other._vals)  # pylint: disable=W0212
+            return RegionScalars(self._vals * other._vals)
         return NotImplemented
 
     def __rmul__(self, other):
@@ -37,7 +37,7 @@ class RegionScalars:
         if isinstance(other, float):
             return RegionScalars(self._vals / other)
         if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals / other._vals)  # pylint: disable=W0212
+            return RegionScalars(self._vals / other._vals)
         return NotImplemented
 
     def __rtruediv__(self, other):

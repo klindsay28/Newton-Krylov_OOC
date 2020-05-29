@@ -43,7 +43,7 @@ class NewtonFcnBase:
         perturb_fcn_fname = os.path.join(
             solver_state.get_workdir(), "perturb_fcn_" + os.path.basename(res_fname)
         )
-        perturb_fcn = self.comp_fcn(  # pylint: disable=E1101
+        perturb_fcn = self.comp_fcn(  # pylint: disable=no-member
             perturb_ms, perturb_fcn_fname, solver_state
         )
 
