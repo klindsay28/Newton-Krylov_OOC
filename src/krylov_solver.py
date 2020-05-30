@@ -109,8 +109,12 @@ class KrylovSolver:
             basis_j = type(iterate)(
                 iterate.tracer_module_state_class, self._fname("basis")
             )
-            w_raw = self._newton_fcn_obj.comp_jacobian_fcn_state_prod(
-                iterate, fcn, basis_j, self._fname("w_raw"), self._solver_state
+            w_raw = iterate.comp_jacobian_fcn_state_prod(
+                self._newton_fcn_obj,
+                fcn,
+                basis_j,
+                self._fname("w_raw"),
+                self._solver_state,
             )
             w_j = self._newton_fcn_obj.apply_precond_jacobian(
                 w_raw, self._fname("precond", 0), self._fname("w"), self._solver_state
