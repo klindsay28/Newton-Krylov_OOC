@@ -477,6 +477,15 @@ class ModelStateBase:
                     if hasattr(hist_var, att_name):
                         setattr(precond_var, att_name, getattr(hist_var, att_name))
 
+    def comp_fcn_postprocess(self, res_fname, caller):
+        """
+        apply postprocessing to comp_fcn result in self that is common to all comp_fcn
+        methods
+        """
+        fcn_name = __name__ + ".ModelStateBase.comp_fcn_postprocess"
+        caller = fcn_name + " called from " + caller
+        return self.zero_extra_tracers().apply_region_mask().dump(res_fname, caller)
+
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
         for tracer_module in self._tracer_modules:

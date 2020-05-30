@@ -318,7 +318,7 @@ class NewtonFcn(NewtonFcnBase):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
 
         caller = __name__ + ".NewtonFcn.comp_fcn"
-        self.comp_fcn_postprocess(ms_res, res_fname, caller)
+        ms_res.comp_fcn_postprocess(res_fname, caller)
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)

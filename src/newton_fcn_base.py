@@ -7,12 +7,6 @@ import os
 class NewtonFcnBase:
     """Base class of methods related to problem being solved with Newton's method"""
 
-    def comp_fcn_postprocess(self, res, res_fname, caller):
-        """apply postprocessing that is common to all comp_fcn methods"""
-        fcn_name = __name__ + ".NewtonFcnBase.comp_fcn_postprocess"
-        caller = fcn_name + " called from " + caller
-        return res.zero_extra_tracers().apply_region_mask().dump(res_fname, caller)
-
     def comp_jacobian_fcn_state_prod(
         self, iterate, fcn, direction, res_fname, solver_state
     ):
