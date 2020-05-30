@@ -22,29 +22,27 @@ class ModelStateBase:
     # give ModelStateBase operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, tracer_module_state_class, fname):
+    def __init__(self, fname):
         logger = logging.getLogger(__name__)
         logger.debug('ModelStateBase, fname="%s"', fname)
         if model_config.model_config_obj is None:
             msg = (
                 "model_config.model_config_obj is None, %s must be called before %s"
-                % ("ModelConfig.__init__", "ModelStateBase.__init__",)
+                % ("ModelConfig.__init__", "ModelStateBase.__init__")
             )
             raise RuntimeError(msg)
-        if not issubclass(tracer_module_state_class, TracerModuleStateBase):
-            msg = (
-                "tracer_module_state_class must be a subclass of TracerModuleStateBase"
-            )
-            raise ValueError(msg)
-        self.tracer_module_state_class = tracer_module_state_class
         self.tracer_module_names = get_modelinfo("tracer_module_names").split(",")
         self._tracer_modules = np.empty(len(self.tracer_module_names), dtype=np.object)
         for tracer_module_ind, tracer_module_name in enumerate(
             self.tracer_module_names
         ):
-            self._tracer_modules[tracer_module_ind] = tracer_module_state_class(
-                tracer_module_name, fname=fname
+            self._tracer_modules[tracer_module_ind] = self.tracer_module_state_class()(
+                tracer_module_name, fname
             )
+
+    def tracer_module_state_class(self):
+        """TracerModuleState class compatible with this ModelState class"""
+        return TracerModuleStateBase
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -137,7 +135,7 @@ class ModelStateBase:
 
         vars_metadata = {}
 
-        with Dataset(hist_fname) as fptr_hist:
+        with Dataset(hist_fname, mode="r") as fptr_hist:
             fptr_hist.set_auto_mask(False)
             dims_keep = self.tracer_dims_keep_in_stats()
             coords_extra = {}
@@ -369,9 +367,7 @@ class ModelStateBase:
         """
         h_val = np.empty((len(self.tracer_module_names), basis_cnt), dtype=np.object)
         for i_val in range(0, basis_cnt):
-            basis_i = type(self)(
-                self.tracer_module_state_class, fname_fcn(quantity, i_val)
-            )
+            basis_i = type(self)(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)
             self -= h_val[:, i_val] * basis_i
         return h_val
@@ -415,7 +411,7 @@ class ModelStateBase:
             precond_fname, "w", format="NETCDF3_64BIT_OFFSET"
         ) as fptr_out:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fcn_name = __name__ + ".NewtonFcnBase.gen_precond_jacobian"
+            fcn_name = __name__ + ".ModelStateBase.gen_precond_jacobian"
             msg = datestamp + ": created by " + fcn_name
             if hasattr(fptr_in, "history"):
                 msg = msg + "\n" + getattr(fptr_in, "history")
@@ -486,9 +482,7 @@ class ModelStateBase:
         caller = fcn_name + " called from " + caller
         return self.zero_extra_tracers().apply_region_mask().dump(res_fname, caller)
 
-    def comp_jacobian_fcn_state_prod(
-        self, newton_fcn_obj, fcn, direction, res_fname, solver_state
-    ):
+    def comp_jacobian_fcn_state_prod(self, fcn, direction, res_fname, solver_state):
         """
         compute the product of the Jacobian of fcn at self with the model state
         direction
@@ -502,7 +496,7 @@ class ModelStateBase:
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return type(self)(self.tracer_module_state_class, res_fname)
+            return type(self)(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         sigma = 1.0e-4 * self.norm()
@@ -512,9 +506,7 @@ class ModelStateBase:
         perturb_fcn_fname = os.path.join(
             solver_state.get_workdir(), "perturb_fcn_" + os.path.basename(res_fname)
         )
-        perturb_fcn = newton_fcn_obj.comp_fcn(
-            perturb_ms, perturb_fcn_fname, solver_state
-        )
+        perturb_fcn = perturb_ms.comp_fcn(perturb_fcn_fname, solver_state)
 
         # compute finite difference
         caller = __name__ + ".ModelStateBase.comp_jacobian_fcn_state_prod"
@@ -611,11 +603,9 @@ def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
 ################################################################################
 
 
-def lin_comb(res_type, tracer_module_state_class, coeff, fname_fcn, quantity):
+def lin_comb(res_type, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelStateBase objects in files"""
-    res = coeff[:, 0] * res_type(tracer_module_state_class, fname_fcn(quantity, 0))
+    res = coeff[:, 0] * res_type(fname_fcn(quantity, 0))
     for j_val in range(1, coeff.shape[-1]):
-        res += coeff[:, j_val] * res_type(
-            tracer_module_state_class, fname_fcn(quantity, j_val)
-        )
+        res += coeff[:, j_val] * res_type(fname_fcn(quantity, j_val))
     return res

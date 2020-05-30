@@ -21,7 +21,6 @@ from test_problem.src.vert_mix import VertMix
 
 from ..model_state_base import ModelStateBase
 from ..model_config import ModelConfig, get_modelinfo
-from ..newton_fcn_base import NewtonFcnBase
 from ..share import args_replace, common_args, read_cfg_file
 from .tracer_module_state import TracerModuleState
 
@@ -73,20 +72,15 @@ def main(args):
 
     ModelConfig(config["modelinfo"])
 
-    newton_fcn = NewtonFcn()
-
-    ms_in = ModelState(TracerModuleState, _resolve_fname(args.fname_dir, args.in_fname))
+    ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))
     if args.cmd == "comp_fcn":
         ms_in.log("state_in")
-        newton_fcn.comp_fcn(
-            ms_in,
+        ms_in.comp_fcn(
             _resolve_fname(args.fname_dir, args.res_fname),
             solver_state=None,
             hist_fname=_resolve_fname(args.fname_dir, args.hist_fname),
         )
-        ModelState(
-            TracerModuleState, _resolve_fname(args.fname_dir, args.res_fname)
-        ).log("fcn")
+        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("fcn")
     elif args.cmd == "gen_precond_jacobian":
         ms_in.gen_precond_jacobian(
             _resolve_fname(args.fname_dir, args.hist_fname),
@@ -94,15 +88,12 @@ def main(args):
         )
     elif args.cmd == "apply_precond_jacobian":
         ms_in.log("state_in")
-        newton_fcn.apply_precond_jacobian(
-            ms_in,
+        ms_in.apply_precond_jacobian(
             _resolve_fname(args.fname_dir, args.precond_fname),
             _resolve_fname(args.fname_dir, args.res_fname),
             solver_state=None,
         )
-        ModelState(
-            TracerModuleState, _resolve_fname(args.fname_dir, args.res_fname)
-        ).log("precond_res")
+        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("precond_res")
     else:
         msg = "unknown cmd=%s" % args.cmd
         raise ValueError(msg)
@@ -119,32 +110,11 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, tracer_module_state_class, fname):
+    def __init__(self, fname):
         logger = logging.getLogger(__name__)
         logger.debug('ModelState, fname="%s"', fname)
-        super().__init__(tracer_module_state_class, fname)
+        super().__init__(fname)
 
-    def tracer_dims_keep_in_stats(self):
-        """tuple of dimensions to keep for tracers in stats file"""
-        return ("depth",)
-
-    def hist_time_mean_weights(self, fptr_hist):
-        """return weights for computing time-mean in hist file"""
-        # downweight endpoints because test_problem writes t=0 and t=365 to hist
-        timelen = len(fptr_hist.dimensions["time"])
-        weights = np.full(timelen, 1.0 / (timelen - 1))
-        weights[0] *= 0.5
-        weights[-1] *= 0.5
-        return weights
-
-
-################################################################################
-
-
-class NewtonFcn(NewtonFcnBase):
-    """class of methods related to problem being solved with Newton's method"""
-
-    def __init__(self):
         self.time_range = (0.0, 365.0)
         self.depth = SpatialAxis("depth", get_modelinfo("depth_fname"))
 
@@ -161,16 +131,24 @@ class NewtonFcn(NewtonFcnBase):
         self._dye_sink_surf_flux_time = None
         self._dye_sink_surf_flux_val = 0.0
 
-        # tracer_module_names and tracer_names will be stored in the following attributes,
-        # enabling access to them from inside _comp_tend
-        self._tracer_module_names = None
-        self._tracer_names = None
+    def tracer_module_state_class(self):
+        """TracerModuleState class compatible with this ModelState class"""
+        return TracerModuleState
 
-    def model_state_obj(self, fname):
-        """return a ModelState object compatible with this function"""
-        return ModelState(TracerModuleState, fname)
+    def tracer_dims_keep_in_stats(self):
+        """tuple of dimensions to keep for tracers in stats file"""
+        return ("depth",)
 
-    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
+    def hist_time_mean_weights(self, fptr_hist):
+        """return weights for computing time-mean in hist file"""
+        # downweight endpoints because test_problem writes t=0 and t=365 to hist
+        timelen = len(fptr_hist.dimensions["time"])
+        weights = np.full(timelen, 1.0 / (timelen - 1))
+        weights[0] *= 0.5
+        weights[-1] *= 0.5
+        return weights
+
+    def comp_fcn(self, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s", hist_fname="%s"', res_fname, hist_fname)
@@ -179,14 +157,12 @@ class NewtonFcn(NewtonFcnBase):
             fcn_complete_step = "comp_fcn complete for %s" % res_fname
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
-                return ModelState(TracerModuleState, res_fname)
+                return ModelState(res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        self._tracer_module_names = ms_in.tracer_module_names
-        self._tracer_names = ms_in.tracer_names()
-        tracer_vals_init = np.empty((len(self._tracer_names), self.depth.nlevs))
-        for tracer_ind, tracer_name in enumerate(self._tracer_names):
-            tracer_vals_init[tracer_ind, :] = ms_in.get_tracer_vals(tracer_name)
+        tracer_vals_init = np.empty((self.tracer_cnt(), self.depth.nlevs))
+        for tracer_ind, tracer_name in enumerate(self.tracer_names()):
+            tracer_vals_init[tracer_ind, :] = self.get_tracer_vals(tracer_name)
 
         # solve ODEs, using scipy.integrate
         # get dense output, if requested
@@ -206,14 +182,14 @@ class NewtonFcn(NewtonFcnBase):
         )
 
         if hist_fname is not None:
-            hist_write(ms_in, sol, hist_fname, self)
+            hist_write(self, sol, hist_fname, self)
 
-        ms_res = copy.deepcopy(ms_in)
+        ms_res = copy.deepcopy(self)
         res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
-        for tracer_ind, tracer_name in enumerate(self._tracer_names):
+        for tracer_ind, tracer_name in enumerate(self.tracer_names()):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
 
-        caller = __name__ + ".NewtonFcn.comp_fcn"
+        caller = __name__ + ".ModelState.comp_fcn"
         ms_res.comp_fcn_postprocess(res_fname, caller)
 
         if solver_state is not None:
@@ -229,11 +205,11 @@ class NewtonFcn(NewtonFcnBase):
 
     def _comp_tend(self, time, tracer_vals_flat, vert_mix):
         """compute tendency function"""
-        tracer_vals = tracer_vals_flat.reshape((len(self._tracer_names), -1))
+        tracer_vals = tracer_vals_flat.reshape((self.tracer_cnt(), -1))
         dtracer_vals_dt = np.empty_like(tracer_vals)
-        for tracer_module_name in self._tracer_module_names:
+        for tracer_module_name in self.tracer_module_names:
             if tracer_module_name == "iage":
-                tracer_ind = self._tracer_names.index("iage")
+                tracer_ind = self.tracer_names().index("iage")
                 self._comp_tend_iage(
                     time,
                     tracer_vals[tracer_ind, :],
@@ -241,7 +217,7 @@ class NewtonFcn(NewtonFcnBase):
                     vert_mix,
                 )
             elif tracer_module_name[:9] == "dye_sink_":
-                tracer_ind = self._tracer_names.index(tracer_module_name)
+                tracer_ind = self.tracer_names().index(tracer_module_name)
                 self._comp_tend_dye_sink(
                     tracer_module_name[9:],
                     time,
@@ -250,7 +226,7 @@ class NewtonFcn(NewtonFcnBase):
                     vert_mix,
                 )
             elif tracer_module_name == "phosphorus":
-                tracer_ind0 = self._tracer_names.index("po4")
+                tracer_ind0 = self.tracer_names().index("po4")
                 self._comp_tend_phosphorus(
                     time,
                     tracer_vals[tracer_ind0 : tracer_ind0 + 6, :],
@@ -365,8 +341,8 @@ class NewtonFcn(NewtonFcnBase):
             self._sinking_tend_work[1:] - self._sinking_tend_work[:-1]
         ) * self.depth.delta_r
 
-    def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
-        """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
+    def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
+        """apply preconditioner of jacobian of comp_fcn to model state object, self"""
         logger = logging.getLogger(__name__)
         logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
@@ -374,25 +350,23 @@ class NewtonFcn(NewtonFcnBase):
             fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
-                return ModelState(TracerModuleState, res_fname)
+                return ModelState(res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        ms_res = copy.deepcopy(ms_in)
+        ms_res = copy.deepcopy(self)
 
         with Dataset(precond_fname, mode="r") as fptr:
             # hist, and thus precond, files have mixing_coeff in m2 s-1
             # convert back to model units of m2 d-1
             mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][1:-1]
 
-        for tracer_module_name in ms_in.tracer_module_names:
+        for tracer_module_name in self.tracer_module_names:
             if tracer_module_name == "iage":
-                self._apply_precond_jacobian_iage(ms_in, mca, ms_res)
+                self._apply_precond_jacobian_iage(mca, ms_res)
             elif tracer_module_name[:9] == "dye_sink_":
-                self._apply_precond_jacobian_dye_sink(
-                    tracer_module_name, ms_in, mca, ms_res
-                )
+                self._apply_precond_jacobian_dye_sink(tracer_module_name, mca, ms_res)
             elif tracer_module_name == "phosphorus":
-                self._apply_precond_jacobian_phosphorus(ms_in, mca, ms_res)
+                self._apply_precond_jacobian_phosphorus(mca, ms_res)
             else:
                 msg = "unknown tracer module %s" % tracer_module_name
                 raise ValueError(msg)
@@ -400,13 +374,13 @@ class NewtonFcn(NewtonFcnBase):
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
 
-        caller = __name__ + ".NewtonFcn.apply_precond_jacobian"
+        caller = __name__ + ".ModelState.apply_precond_jacobian"
         return ms_res.dump(res_fname, caller)
 
-    def _apply_precond_jacobian_iage(self, ms_in, mca, ms_res):
+    def _apply_precond_jacobian_iage(self, mca, ms_res):
         """apply preconditioner of jacobian of iage fcn"""
 
-        iage_in = ms_in.get_tracer_vals("iage")
+        iage_in = self.get_tracer_vals("iage")
         rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * iage_in
 
         l_and_u = (1, 1)
@@ -424,10 +398,10 @@ class NewtonFcn(NewtonFcnBase):
 
         ms_res.set_tracer_vals("iage", res - iage_in)
 
-    def _apply_precond_jacobian_dye_sink(self, name, ms_in, mca, ms_res):
+    def _apply_precond_jacobian_dye_sink(self, name, mca, ms_res):
         """apply preconditioner of jacobian of dye_sink fcn"""
 
-        dye_sink_in = ms_in.get_tracer_vals(name)
+        dye_sink_in = self.get_tracer_vals(name)
         rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * dye_sink_in
 
         l_and_u = (1, 1)
@@ -448,15 +422,15 @@ class NewtonFcn(NewtonFcnBase):
 
         ms_res.set_tracer_vals(name, res - dye_sink_in)
 
-    def _apply_precond_jacobian_phosphorus(self, ms_in, mca, ms_res):
+    def _apply_precond_jacobian_phosphorus(self, mca, ms_res):
         """
         apply preconditioner of jacobian of phosphorus fcn
         it is only applied to shadow phosphorus tracers
         """
 
-        po4_s = ms_in.get_tracer_vals("po4_s")
-        dop_s = ms_in.get_tracer_vals("dop_s")
-        pop_s = ms_in.get_tracer_vals("pop_s")
+        po4_s = self.get_tracer_vals("po4_s")
+        dop_s = self.get_tracer_vals("dop_s")
+        pop_s = self.get_tracer_vals("pop_s")
         rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * np.concatenate(
             (po4_s, dop_s, pop_s)
         )

@@ -19,7 +19,6 @@ import numpy as np
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model_state_base import ModelStateBase
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
-from ..newton_fcn_base import NewtonFcnBase
 from ..share import args_replace, common_args, read_cfg_file
 from .tracer_module_state import TracerModuleState
 from ..utils import ann_files_to_mean_file, mon_files_to_mean_file
@@ -79,10 +78,14 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, tracer_module_state_class, fname):
+    def __init__(self, fname):
         logger = logging.getLogger(__name__)
         logger.debug('ModelState, fname="%s"', fname)
-        super().__init__(tracer_module_state_class, fname)
+        super().__init__(fname)
+
+    def tracer_module_state_class(self):
+        """TracerModuleState class compatible with this ModelState class"""
+        return TracerModuleState
 
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
@@ -143,28 +146,14 @@ class ModelState(ModelStateBase):
             with Dataset(matrix_fname, mode="a") as fptr:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 msg = datestamp + ": created by " + matrix_gen_exe
-                fcn_name = __name__ + "NewtonFcn._gen_precond_matrix_files"
+                fcn_name = __name__ + "ModelState._gen_precond_matrix_files"
                 msg = msg + " called from " + fcn_name
                 if hasattr(fptr, "history"):
                     msg = msg + "\n" + getattr(fptr, "history")
                 setattr(fptr, "history", msg)
                 setattr(fptr, "matrix_opts", "\n".join(matrix_opts))
 
-
-################################################################################
-
-
-class NewtonFcn(NewtonFcnBase):
-    """class of methods related to problem being solved with Newton's method"""
-
-    def __init__(self):
-        pass
-
-    def model_state_obj(self, fname):
-        """return a ModelState object compatible with this function"""
-        return ModelState(TracerModuleState, fname)
-
-    def comp_fcn(self, ms_in, res_fname, solver_state, hist_fname=None):
+    def comp_fcn(self, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s", hist_fname="%s"', res_fname, hist_fname)
@@ -172,98 +161,245 @@ class NewtonFcn(NewtonFcnBase):
         fcn_complete_step = "comp_fcn complete for %s" % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(TracerModuleState, res_fname)
+            return ModelState(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state)
+        self._comp_fcn_pre_modelrun(res_fname, solver_state)
 
         _gen_hist(hist_fname)
 
-        ms_res = _comp_fcn_post_modelrun(ms_in)
+        ms_res = self._comp_fcn_post_modelrun()
 
-        caller = __name__ + ".NewtonFcn.comp_fcn"
+        caller = __name__ + ".ModelState.comp_fcn"
         ms_res.comp_fcn_postprocess(res_fname, caller)
 
         solver_state.log_step(fcn_complete_step)
 
         return ms_res
 
-    def apply_precond_jacobian(self, ms_in, precond_fname, res_fname, solver_state):
-        """apply preconditioner of jacobian of comp_fcn to model state object, ms_in"""
+    def _comp_fcn_pre_modelrun(self, res_fname, solver_state):
+        """
+        pre-modelrun step of evaluting the function being solved with Newton's method
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug('res_fname="%s"', res_fname)
+
+        fcn_complete_step = "_comp_fcn_pre_modelrun complete for %s" % res_fname
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning', fcn_complete_step)
+            return
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+        # relative pathname of tracer_ic
+        tracer_ic_fname_rel = "tracer_ic.nc"
+        fname = os.path.join(cime_xmlquery("RUNDIR"), tracer_ic_fname_rel)
+        caller = __name__ + "._comp_fcn_pre_modelrun"
+        self.dump(fname, caller)
+
+        # ensure certain env xml vars are set properly
+        cime_xmlchange("POP_PASSIVE_TRACER_RESTART_OVERRIDE", tracer_ic_fname_rel)
+        cime_xmlchange("CONTINUE_RUN", "FALSE")
+
+        # copy rpointer files to rundir
+        rundir = cime_xmlquery("RUNDIR")
+        for src in glob.glob(os.path.join(get_modelinfo("rpointer_dir"), "rpointer.*")):
+            shutil.copy(src, rundir)
+
+        # generate post-modelrun script and point POSTRUN_SCRIPT to it
+        # this will propagate cfg_fname and hist_fname across model run
+        post_modelrun_script_fname = os.path.join(
+            solver_state.get_workdir(), "post_modelrun.sh"
+        )
+        _gen_post_modelrun_script(post_modelrun_script_fname)
+        cime_xmlchange("POSTRUN_SCRIPT", post_modelrun_script_fname)
+
+        # set model duration parameters
+        for xml_varname in ["STOP_OPTION", "STOP_N", "RESUBMIT"]:
+            cime_xmlchange(xml_varname, get_modelinfo(xml_varname))
+
+        # submit the model run and exit
+        cime_case_submit()
+
+        solver_state.log_step(fcn_complete_step)
+
+        logger.debug("raising SystemExit")
+        raise SystemExit
+
+    def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
+        """apply preconditioner of jacobian of comp_fcn to model state object, self"""
         logger = logging.getLogger(__name__)
         logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
         fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return ModelState(TracerModuleState, res_fname)
+            return ModelState(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state)
+        self._apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state)
 
         lin_eqns_soln_fname = os.path.join(
             os.path.dirname(res_fname), "lin_eqns_soln_" + os.path.basename(res_fname)
         )
-        ms_res = _apply_precond_jacobian_solve_lin_eqns(
-            ms_in, precond_fname, lin_eqns_soln_fname, solver_state
+        ms_res = self._apply_precond_jacobian_solve_lin_eqns(
+            precond_fname, lin_eqns_soln_fname, solver_state
         )
 
-        ms_res -= ms_in
+        ms_res -= self
 
         solver_state.log_step(fcn_complete_step)
 
-        caller = __name__ + ".NewtonFcn.apply_precond_jacobian"
+        caller = __name__ + ".ModelState.apply_precond_jacobian"
         return ms_res.dump(res_fname, caller)
+
+    def _comp_fcn_post_modelrun(self):
+        """
+        post-modelrun step of evaluting the function being solved with Newton's method
+        """
+
+        # determine name of end of run restart file from POP's rpointer file
+        rpointer_fname = os.path.join(cime_xmlquery("RUNDIR"), "rpointer.ocn.restart")
+        with open(rpointer_fname, mode="r") as fptr:
+            rest_file_fname_rel = fptr.readline().strip()
+        fname = os.path.join(cime_xmlquery("RUNDIR"), rest_file_fname_rel)
+
+        return ModelState(fname) - self
+
+    def _apply_precond_jacobian_pre_solve_lin_eqns(self, res_fname, solver_state):
+        """
+        pre-solve_lin_eqns step of apply_precond_jacobian
+        produce computing environment for solve_lin_eqns
+        If batch_cmd_precond is non-empty, submit a batch job using that command and exit.
+        Otherwise, just return.
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug('res_fname="%s"', res_fname)
+
+        fcn_complete_step = (
+            "_apply_precond_jacobian_pre_solve_lin_eqns complete for %s" % res_fname
+        )
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning', fcn_complete_step)
+            return
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+        if get_modelinfo("batch_cmd_precond"):
+            # precond_task_cnt = int(get_modelinfo("precond_task_cnt"))
+            # precond_cpus_per_node = int(get_modelinfo("precond_cpus_per_node"))
+            # precond_node_cnt = int(math.ceil(precond_task_cnt / precond_cpus_per_node))
+
+            # determine node_cnt and cpus_per_node
+            ocn_grid = cime_xmlquery("OCN_GRID")
+            gigabyte_per_node = int(get_modelinfo("gigabyte_per_node"))
+            cpus_per_node_max = int(get_modelinfo("cpus_per_node_max"))
+
+            cpus_per_node_list = []
+            for matrix_name in self.precond_matrix_list():
+                matrix_def = get_precond_matrix_def(matrix_name)
+                matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
+                # account for 1 task/node having increased memory usage (25%)
+                gigabyte_per_task = matrix_solve_opts["gigabyte_per_task"]
+                cpus_per_node = int(gigabyte_per_node / gigabyte_per_task - 0.25)
+                cpus_per_node = min(cpus_per_node_max, cpus_per_node)
+                cpus_per_node_list.append(cpus_per_node)
+            cpus_per_node = min(cpus_per_node_list)
+
+            # round down to nearest power of 2
+            # seems to have (unexplained) performance benefit
+            cpus_per_node = 2 ** int(math.log2(cpus_per_node))
+
+            node_cnt_list = []
+            for matrix_name in self.precond_matrix_list():
+                matrix_def = get_precond_matrix_def(matrix_name)
+                matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
+                task_cnt = matrix_solve_opts["task_cnt"]
+                node_cnt = int(math.ceil(task_cnt / cpus_per_node))
+                node_cnt_list.append(node_cnt)
+            node_cnt = max(node_cnt_list)
+
+            opt_str_subs = {"node_cnt": node_cnt, "cpus_per_node": cpus_per_node}
+            batch_cmd = (
+                get_modelinfo("batch_cmd_precond").replace("\n", " ").replace("\r", " ")
+            )
+            cmd = "%s %s --resume" % (
+                batch_cmd.format(**opt_str_subs),
+                get_modelinfo("invoker_script_fname"),
+            )
+            logger.info('cmd="%s"', cmd)
+            subprocess.run(cmd, check=True, shell=True)
+            solver_state.log_step(fcn_complete_step)
+            logger.debug("raising SystemExit")
+            raise SystemExit
+
+        solver_state.log_step(fcn_complete_step)
+
+    def _apply_precond_jacobian_solve_lin_eqns(
+        self, precond_fname, res_fname, solver_state
+    ):
+        """
+        solve_lin_eqns step of apply_precond_jacobian
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
+
+        fcn_complete_step = (
+            "_apply_precond_jacobian_solve_lin_eqns complete for %s" % res_fname
+        )
+        if solver_state.step_logged(fcn_complete_step):
+            logger.debug('"%s" logged, returning result', fcn_complete_step)
+            return ModelState(res_fname)
+        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
+
+        caller = __name__ + "._apply_precond_jacobian_solve_lin_eqns"
+        self.dump(res_fname, caller)
+
+        jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
+
+        tracer_names_all = self.tracer_names()
+
+        ocn_grid = cime_xmlquery("OCN_GRID")
+
+        for (
+            matrix_name,
+            tracer_names_subset,
+        ) in self.tracer_names_per_precond_matrix().items():
+            matrix_def = get_precond_matrix_def(matrix_name)
+            matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
+            task_cnt = matrix_solve_opts["task_cnt"]
+            nprow, npcol = _matrix_block_decomp(task_cnt)
+
+            matrix_fname = os.path.join(
+                solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
+            )
+            # split mpi_cmd, in case it has spaces because of arguments
+            cmd = get_modelinfo("mpi_cmd").split()
+            cmd.extend(
+                [
+                    os.path.join(jacobian_precond_tools_dir, "bin", "solve_ABdist"),
+                    "-D1",
+                    "-n",
+                    "%d,%d" % (nprow, npcol),
+                    "-v",
+                    tracer_names_list_to_str(tracer_names_subset),
+                    matrix_fname,
+                    res_fname,
+                ]
+            )
+            logger.info('cmd="%s"', " ".join(cmd))
+            subprocess.run(cmd, check=True)
+
+            _apply_tracers_sflux_term(
+                tracer_names_subset, tracer_names_all, precond_fname, res_fname
+            )
+
+        ms_res = ModelState(res_fname)
+
+        solver_state.log_step(fcn_complete_step)
+
+        return ms_res
 
 
 ################################################################################
-
-
-def _comp_fcn_pre_modelrun(ms_in, res_fname, solver_state):
-    """pre-modelrun step of evaluting the function being solved with Newton's method"""
-    logger = logging.getLogger(__name__)
-    logger.debug('res_fname="%s"', res_fname)
-
-    fcn_complete_step = "_comp_fcn_pre_modelrun complete for %s" % res_fname
-    if solver_state.step_logged(fcn_complete_step):
-        logger.debug('"%s" logged, returning', fcn_complete_step)
-        return
-    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
-
-    # relative pathname of tracer_ic
-    tracer_ic_fname_rel = "tracer_ic.nc"
-    fname = os.path.join(cime_xmlquery("RUNDIR"), tracer_ic_fname_rel)
-    caller = __name__ + "._comp_fcn_pre_modelrun"
-    ms_in.dump(fname, caller)
-
-    # ensure certain env xml vars are set properly
-    cime_xmlchange("POP_PASSIVE_TRACER_RESTART_OVERRIDE", tracer_ic_fname_rel)
-    cime_xmlchange("CONTINUE_RUN", "FALSE")
-
-    # copy rpointer files to rundir
-    rundir = cime_xmlquery("RUNDIR")
-    for src in glob.glob(os.path.join(get_modelinfo("rpointer_dir"), "rpointer.*")):
-        shutil.copy(src, rundir)
-
-    # generate post-modelrun script and point POSTRUN_SCRIPT to it
-    # this will propagate cfg_fname and hist_fname across model run
-    post_modelrun_script_fname = os.path.join(
-        solver_state.get_workdir(), "post_modelrun.sh"
-    )
-    _gen_post_modelrun_script(post_modelrun_script_fname)
-    cime_xmlchange("POSTRUN_SCRIPT", post_modelrun_script_fname)
-
-    # set model duration parameters
-    for xml_varname in ["STOP_OPTION", "STOP_N", "RESUBMIT"]:
-        cime_xmlchange(xml_varname, get_modelinfo(xml_varname))
-
-    # submit the model run and exit
-    cime_case_submit()
-
-    solver_state.log_step(fcn_complete_step)
-
-    logger.debug("raising SystemExit")
-    raise SystemExit
 
 
 def _gen_post_modelrun_script(script_fname):
@@ -360,153 +496,6 @@ def _gen_hist(hist_fname):
         )
 
 
-def _comp_fcn_post_modelrun(ms_in):
-    """post-modelrun step of evaluting the function being solved with Newton's method"""
-
-    # determine name of end of run restart file from POP's rpointer file
-    rpointer_fname = os.path.join(cime_xmlquery("RUNDIR"), "rpointer.ocn.restart")
-    with open(rpointer_fname, mode="r") as fptr:
-        rest_file_fname_rel = fptr.readline().strip()
-    fname = os.path.join(cime_xmlquery("RUNDIR"), rest_file_fname_rel)
-
-    return ModelState(TracerModuleState, fname) - ms_in
-
-
-def _apply_precond_jacobian_pre_solve_lin_eqns(ms_in, res_fname, solver_state):
-    """
-    pre-solve_lin_eqns step of apply_precond_jacobian
-    produce computing environment for solve_lin_eqns
-    If batch_cmd_precond is non-empty, submit a batch job using that command and exit.
-    Otherwise, just return.
-    """
-    logger = logging.getLogger(__name__)
-    logger.debug('res_fname="%s"', res_fname)
-
-    fcn_complete_step = (
-        "_apply_precond_jacobian_pre_solve_lin_eqns complete for %s" % res_fname
-    )
-    if solver_state.step_logged(fcn_complete_step):
-        logger.debug('"%s" logged, returning', fcn_complete_step)
-        return
-    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
-
-    if get_modelinfo("batch_cmd_precond"):
-        # precond_task_cnt = int(get_modelinfo("precond_task_cnt"))
-        # precond_cpus_per_node = int(get_modelinfo("precond_cpus_per_node"))
-        # precond_node_cnt = int(math.ceil(precond_task_cnt / precond_cpus_per_node))
-
-        # determine node_cnt and cpus_per_node
-        ocn_grid = cime_xmlquery("OCN_GRID")
-        gigabyte_per_node = int(get_modelinfo("gigabyte_per_node"))
-        cpus_per_node_max = int(get_modelinfo("cpus_per_node_max"))
-
-        cpus_per_node_list = []
-        for matrix_name in ms_in.precond_matrix_list():
-            matrix_def = get_precond_matrix_def(matrix_name)
-            matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
-            # account for 1 task/node having increased memory usage (25%)
-            gigabyte_per_task = matrix_solve_opts["gigabyte_per_task"]
-            cpus_per_node = int(gigabyte_per_node / gigabyte_per_task - 0.25)
-            cpus_per_node = min(cpus_per_node_max, cpus_per_node)
-            cpus_per_node_list.append(cpus_per_node)
-        cpus_per_node = min(cpus_per_node_list)
-
-        # round down to nearest power of 2
-        # seems to have (unexplained) performance benefit
-        cpus_per_node = 2 ** int(math.log2(cpus_per_node))
-
-        node_cnt_list = []
-        for matrix_name in ms_in.precond_matrix_list():
-            matrix_def = get_precond_matrix_def(matrix_name)
-            matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
-            task_cnt = matrix_solve_opts["task_cnt"]
-            node_cnt = int(math.ceil(task_cnt / cpus_per_node))
-            node_cnt_list.append(node_cnt)
-        node_cnt = max(node_cnt_list)
-
-        opt_str_subs = {"node_cnt": node_cnt, "cpus_per_node": cpus_per_node}
-        batch_cmd = (
-            get_modelinfo("batch_cmd_precond").replace("\n", " ").replace("\r", " ")
-        )
-        cmd = "%s %s --resume" % (
-            batch_cmd.format(**opt_str_subs),
-            get_modelinfo("invoker_script_fname"),
-        )
-        logger.info('cmd="%s"', cmd)
-        subprocess.run(cmd, check=True, shell=True)
-        solver_state.log_step(fcn_complete_step)
-        logger.debug("raising SystemExit")
-        raise SystemExit
-
-    solver_state.log_step(fcn_complete_step)
-
-
-def _apply_precond_jacobian_solve_lin_eqns(
-    ms_in, precond_fname, res_fname, solver_state
-):
-    """
-    solve_lin_eqns step of apply_precond_jacobian
-    """
-    logger = logging.getLogger(__name__)
-    logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
-
-    fcn_complete_step = (
-        "_apply_precond_jacobian_solve_lin_eqns complete for %s" % res_fname
-    )
-    if solver_state.step_logged(fcn_complete_step):
-        logger.debug('"%s" logged, returning result', fcn_complete_step)
-        return ModelState(TracerModuleState, res_fname)
-    logger.debug('"%s" not logged, proceeding', fcn_complete_step)
-
-    caller = __name__ + "._apply_precond_jacobian_solve_lin_eqns"
-    ms_in.dump(res_fname, caller)
-
-    jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
-
-    tracer_names_all = ms_in.tracer_names()
-
-    ocn_grid = cime_xmlquery("OCN_GRID")
-
-    for (
-        matrix_name,
-        tracer_names_subset,
-    ) in ms_in.tracer_names_per_precond_matrix().items():
-        matrix_def = get_precond_matrix_def(matrix_name)
-        matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
-        task_cnt = matrix_solve_opts["task_cnt"]
-        nprow, npcol = _matrix_block_decomp(task_cnt)
-
-        matrix_fname = os.path.join(
-            solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
-        )
-        # split mpi_cmd, in case it has spaces because of arguments
-        cmd = get_modelinfo("mpi_cmd").split()
-        cmd.extend(
-            [
-                os.path.join(jacobian_precond_tools_dir, "bin", "solve_ABdist"),
-                "-D1",
-                "-n",
-                "%d,%d" % (nprow, npcol),
-                "-v",
-                tracer_names_list_to_str(tracer_names_subset),
-                matrix_fname,
-                res_fname,
-            ]
-        )
-        logger.info('cmd="%s"', " ".join(cmd))
-        subprocess.run(cmd, check=True)
-
-        _apply_tracers_sflux_term(
-            tracer_names_subset, tracer_names_all, precond_fname, res_fname
-        )
-
-    ms_res = ModelState(TracerModuleState, res_fname)
-
-    solver_state.log_step(fcn_complete_step)
-
-    return ms_res
-
-
 def _matrix_block_decomp(precond_task_cnt):
     """determine size of decomposition to be used in matrix factorization"""
     log2_precond_task_cnt = round(math.log2(precond_task_cnt))
@@ -540,7 +529,7 @@ def _apply_tracers_sflux_term(
         precond_fname,
         res_fname,
     )
-    model_state = ModelState(TracerModuleState, res_fname)
+    model_state = ModelState(res_fname)
     term_applied = False
     delta_time = 365.0 * 86400.0 * cime_yr_cnt()
     with Dataset(precond_fname, mode="r") as fptr:

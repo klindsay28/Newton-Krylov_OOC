@@ -68,12 +68,14 @@ def main(args):
 
     ModelConfig(config["modelinfo"], logging.DEBUG if args.resume else logging.INFO)
 
-    # import module with NewtonFcn class
-    logger.debug('newton_fcn_modname="%s"', config["modelinfo"]["newton_fcn_modname"])
-    newton_fcn_mod = importlib.import_module(config["modelinfo"]["newton_fcn_modname"])
+    # import module with ModelState class
+    logger.debug('model_state_modname="%s"', config["modelinfo"]["model_state_modname"])
+    model_state_mod = importlib.import_module(
+        config["modelinfo"]["model_state_modname"]
+    )
 
     newton_solver = NewtonSolver(
-        newton_fcn_obj=newton_fcn_mod.NewtonFcn(),
+        model_state_mod.ModelState,
         solverinfo=solverinfo,
         resume=args.resume,
         rewind=args.rewind,

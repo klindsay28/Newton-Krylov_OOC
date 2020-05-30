@@ -19,7 +19,7 @@ class NewtonSolver:
     class for applying Newton's method to approximate the solution of system of equations
     """
 
-    def __init__(self, newton_fcn_obj, solverinfo, resume, rewind):
+    def __init__(self, model_state_class, solverinfo, resume, rewind):
         """initialize Newton solver"""
         logger = logging.getLogger(__name__)
         logger.debug('NewtonSolver, resume="%r", rewind="%r"', resume, rewind)
@@ -28,18 +28,15 @@ class NewtonSolver:
         workdir = solverinfo["workdir"]
         mkdir_exist_okay(workdir)
 
-        self._newton_fcn_obj = newton_fcn_obj
         self._solverinfo = solverinfo
         self._solver_state = SolverState("Newton", workdir, resume, rewind)
         self._stats_file = StatsFile("Newton", workdir, resume)
 
         # get solver started the first time NewtonSolver is instantiated
         if not resume:
-            iterate = self._newton_fcn_obj.model_state_obj(
-                get_modelinfo("init_iterate_fname")
-            )
+            self._iterate = model_state_class(get_modelinfo("init_iterate_fname"))
             caller = __name__ + ".NewtonSolver.__init__"
-            iterate.copy_real_tracers_to_shadow_tracers().dump(
+            self._iterate.copy_real_tracers_to_shadow_tracers().dump(
                 self._fname("iterate"), caller
             )
             stats_metadata = {
@@ -66,20 +63,17 @@ class NewtonSolver:
                 },
             }
             self._stats_file.def_vars_generic(stats_metadata)
-
-        self._iterate = self._newton_fcn_obj.model_state_obj(self._fname("iterate"))
+        else:
+            self._iterate = model_state_class(self._fname("iterate"))
 
         # for iteration == 0, _fcn needs to be computed
         # for iteration >= 1, _fcn is available and stored when iteration is incremented
         if self._solver_state.get_iteration() == 0:
-            self._fcn = self._newton_fcn_obj.comp_fcn(
-                self._iterate,
-                self._fname("fcn"),
-                self._solver_state,
-                self._fname("hist"),
+            self._fcn = self._iterate.comp_fcn(
+                self._fname("fcn"), self._solver_state, self._fname("hist"),
             )
         else:
-            self._fcn = self._newton_fcn_obj.model_state_obj(self._fname("fcn"))
+            self._fcn = model_state_class(self._fname("fcn"))
 
         step = "def_stats_vars called"
         if not self._solver_state.step_logged(step, per_iteration=False):
@@ -143,9 +137,7 @@ class NewtonSolver:
 
         if self._solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
-            return type(self._iterate)(
-                self._iterate.tracer_module_state_class, self._fname("increment")
-            )
+            return type(self._iterate)(self._fname("increment"))
         logger.debug('"%s" not logged, computing increment', fcn_complete_step)
 
         krylov_dir = os.path.join(
@@ -158,12 +150,7 @@ class NewtonSolver:
         if not resume:
             self.log(append_to_stats_file=True)
         krylov_solver = KrylovSolver(
-            self._newton_fcn_obj,
-            self._iterate,
-            krylov_dir,
-            resume,
-            rewind,
-            self._fname("hist"),
+            self._iterate, krylov_dir, resume, rewind, self._fname("hist"),
         )
         self._solver_state.log_step(step)
         increment = krylov_solver.solve(
@@ -205,14 +192,8 @@ class NewtonSolver:
         if self._solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return (
-                type(self._iterate)(
-                    self._iterate.tracer_module_state_class,
-                    self._fname("prov_Armijo_%02d" % armijo_ind),
-                ),
-                type(self._iterate)(
-                    self._iterate.tracer_module_state_class,
-                    self._fname("prov_fcn_Armijo_%02d" % armijo_ind),
-                ),
+                type(self._iterate)(self._fname("prov_Armijo_%02d" % armijo_ind)),
+                type(self._iterate)(self._fname("prov_fcn_Armijo_%02d" % armijo_ind)),
             )
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
@@ -223,8 +204,7 @@ class NewtonSolver:
             armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
             prov.dump(self._fname("prov_Armijo_%02d" % armijo_ind), caller)
-            prov_fcn = self._newton_fcn_obj.comp_fcn(
-                prov,
+            prov_fcn = prov.comp_fcn(
                 self._fname("prov_fcn_Armijo_%02d" % armijo_ind),
                 self._solver_state,
                 self._fname("prov_hist_Armijo_%02d" % armijo_ind),
@@ -310,8 +290,7 @@ class NewtonSolver:
             # tracers on).
             armijo_ind = self._solver_state.get_value_saved_state("armijo_ind")
             if prov.shadow_tracers_on():
-                prov_fcn = self._newton_fcn_obj.comp_fcn(
-                    prov,
+                prov_fcn = prov.comp_fcn(
                     self._fname("prov_fcn_fp_%02d" % fp_iter),
                     self._solver_state,
                     self._fname("prov_hist_fp_%02d" % fp_iter),
@@ -326,14 +305,8 @@ class NewtonSolver:
             self._solver_state.log_step(step)
         else:
             fp_iter = self._solver_state.get_value_saved_state("fp_iter")
-            prov = type(self._iterate)(
-                self._iterate.tracer_module_state_class,
-                self._fname("prov_fp_%02d" % fp_iter),
-            )
-            prov_fcn = type(self._iterate)(
-                self._iterate.tracer_module_state_class,
-                self._fname("prov_fcn_fp_%02d" % fp_iter),
-            )
+            prov = type(self._iterate)(self._fname("prov_fp_%02d" % fp_iter))
+            prov_fcn = type(self._iterate)(self._fname("prov_fcn_fp_%02d" % fp_iter))
 
         while fp_iter < self._solverinfo.getint("post_newton_fp_iter"):
             step = "prov updated for fp iteration %02d" % fp_iter
@@ -345,12 +318,8 @@ class NewtonSolver:
                 prov.dump(self._fname("prov_fp_%02d" % (fp_iter + 1)), caller)
                 self._solver_state.log_step(step)
             else:
-                prov = type(self._iterate)(
-                    self._iterate.tracer_module_state_class,
-                    self._fname("prov_fp_%02d" % (fp_iter + 1)),
-                )
-            prov_fcn = self._newton_fcn_obj.comp_fcn(
-                prov,
+                prov = type(self._iterate)(self._fname("prov_fp_%02d" % (fp_iter + 1)))
+            prov_fcn = prov.comp_fcn(
                 self._fname("prov_fcn_fp_%02d" % (fp_iter + 1)),
                 self._solver_state,
                 self._fname("prov_hist_fp_%02d" % (fp_iter + 1)),

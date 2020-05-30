@@ -27,7 +27,7 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, newton_fcn_obj, iterate, workdir, resume, rewind, hist_fname):
+    def __init__(self, iterate, workdir, resume, rewind, hist_fname):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug(
@@ -41,7 +41,6 @@ class KrylovSolver:
         # ensure workdir exists
         mkdir_exist_okay(workdir)
 
-        self._newton_fcn_obj = newton_fcn_obj
         self._workdir = workdir
         self._solver_state = SolverState("Krylov", workdir, resume, rewind)
 
@@ -69,8 +68,7 @@ class KrylovSolver:
         fcn_complete_step = "_solve0 complete"
         if not self._solver_state.step_logged(fcn_complete_step):
             # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-            precond_fcn = self._newton_fcn_obj.apply_precond_jacobian(
-                fcn,
+            precond_fcn = fcn.apply_precond_jacobian(
                 self._fname("precond", 0),
                 self._fname("precond_fcn"),
                 self._solver_state,
@@ -106,18 +104,12 @@ class KrylovSolver:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state("h_mat_ndarray")
                 )
-            basis_j = type(iterate)(
-                iterate.tracer_module_state_class, self._fname("basis")
-            )
+            basis_j = type(iterate)(self._fname("basis"))
             w_raw = iterate.comp_jacobian_fcn_state_prod(
-                self._newton_fcn_obj,
-                fcn,
-                basis_j,
-                self._fname("w_raw"),
-                self._solver_state,
+                fcn, basis_j, self._fname("w_raw"), self._solver_state,
             )
-            w_j = self._newton_fcn_obj.apply_precond_jacobian(
-                w_raw, self._fname("precond", 0), self._fname("w"), self._solver_state
+            w_j = w_raw.apply_precond_jacobian(
+                self._fname("precond", 0), self._fname("w"), self._solver_state
             )
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val + 1, self._fname, "basis")
             h_mat[:, -1, -1] = w_j.norm()
@@ -132,7 +124,6 @@ class KrylovSolver:
             # construct approximate solution
             res = lin_comb(
                 type(iterate),
-                iterate.tracer_module_state_class,
                 to_region_scalar_ndarray(coeff_ndarray),
                 self._fname,
                 "basis",

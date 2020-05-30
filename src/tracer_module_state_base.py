@@ -31,7 +31,7 @@ class TracerModuleStateBase:
         if model_config.model_config_obj is None:
             msg = (
                 "model_config.model_config_obj is None, %s must be called before %s"
-                % ("ModelConfig.__init__", "TracerModuleStateBase.__init__",)
+                % ("ModelConfig.__init__", "TracerModuleStateBase.__init__")
             )
             raise RuntimeError(msg)
         self._tracer_module_name = tracer_module_name

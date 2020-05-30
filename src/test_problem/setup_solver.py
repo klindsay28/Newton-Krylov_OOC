@@ -9,8 +9,7 @@ from test_problem.src.spatial_axis import SpatialAxis
 
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from .model_state import ModelState, NewtonFcn
-from .tracer_module_state import TracerModuleState
+from .model_state import ModelState
 from ..share import args_replace, common_args, read_cfg_file
 from ..utils import mkdir_exist_okay
 
@@ -92,7 +91,7 @@ def main(args):
     ModelConfig(modelinfo)
 
     # generate initial condition
-    init_iterate = ModelState(TracerModuleState, fname="gen_init_iterate")
+    init_iterate = ModelState("gen_init_iterate")
 
     # perform fixed point iteration(s) on init_iterate
     if args.fp_cnt > 0:
@@ -100,7 +99,6 @@ def main(args):
         gen_init_iterate_workdir = os.path.join(workdir, "gen_init_iterate")
         mkdir_exist_okay(gen_init_iterate_workdir)
 
-        newton_fcn = NewtonFcn()
         for fp_iter in range(args.fp_cnt):
             logger.info("fp_iter=%d", fp_iter)
             init_iterate.dump(
@@ -109,8 +107,7 @@ def main(args):
                 ),
                 caller,
             )
-            init_iterate_fcn = newton_fcn.comp_fcn(
-                init_iterate,
+            init_iterate_fcn = init_iterate.comp_fcn(
                 os.path.join(gen_init_iterate_workdir, "fcn_%02d.nc" % fp_iter),
                 None,
                 os.path.join(gen_init_iterate_workdir, "hist_%02d.nc" % fp_iter),
