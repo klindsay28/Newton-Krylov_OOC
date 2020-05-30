@@ -9,7 +9,8 @@ from test_problem.src.spatial_axis import SpatialAxis
 
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from .newton_fcn import ModelState, TracerModuleState, NewtonFcn
+from .model_state import ModelState, NewtonFcn
+from .tracer_module_state import TracerModuleState
 from ..share import args_replace, common_args, read_cfg_file
 from ..utils import mkdir_exist_okay
 

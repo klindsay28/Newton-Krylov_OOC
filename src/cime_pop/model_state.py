@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""cime_pop hooks for Newton-Krylov solver"""
+"""cime_pop model specifics for ModelStateBase"""
 
 from __future__ import division
 
@@ -17,10 +17,11 @@ from netCDF4 import Dataset
 import numpy as np
 
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
-from ..model import ModelStateBase, TracerModuleStateBase
+from ..model_state_base import ModelStateBase
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..newton_fcn_base import NewtonFcnBase
 from ..share import args_replace, common_args, read_cfg_file
+from .tracer_module_state import TracerModuleState
 from ..utils import ann_files_to_mean_file, mon_files_to_mean_file
 
 
@@ -148,85 +149,6 @@ class ModelState(ModelStateBase):
                     msg = msg + "\n" + getattr(fptr, "history")
                 setattr(fptr, "history", msg)
                 setattr(fptr, "matrix_opts", "\n".join(matrix_opts))
-
-
-################################################################################
-
-
-class TracerModuleState(TracerModuleStateBase):
-    """
-    Derived class for representing a collection of model tracers.
-    It implements _read_vals and dump.
-    """
-
-    def _read_vals(self, tracer_module_name, fname):
-        """return tracer values and dimension names and lengths, read from fname)"""
-        logger = logging.getLogger(__name__)
-        logger.debug('tracer_module_name="%s", fname="%s"', tracer_module_name, fname)
-        dims = {}
-        suffix = "_CUR"
-        with Dataset(fname, mode="r") as fptr:
-            fptr.set_auto_mask(False)
-            # get dims from first variable
-            dimnames0 = fptr.variables[self.tracer_names()[0] + suffix].dimensions
-            for dimname in dimnames0:
-                dims[dimname] = fptr.dimensions[dimname].size
-            # all tracers are stored in a single array
-            # tracer index is the leading index
-            vals = np.empty((self.tracer_cnt(),) + tuple(dims.values()))
-            # check that all vars have the same dimensions
-            for tracer_name in self.tracer_names():
-                if fptr.variables[tracer_name + suffix].dimensions != dimnames0:
-                    msg = (
-                        "not all vars have same dimensions"
-                        ", tracer_module_name=%s, fname=%s"
-                        % (tracer_module_name, fname)
-                    )
-                    raise ValueError(msg)
-            # read values
-            if len(dims) > 3:
-                msg = (
-                    "ndim too large (for implementation of dot_prod)"
-                    "tracer_module_name=%s, fname=%s, ndim=%s"
-                    % (tracer_module_name, fname, len(dims))
-                )
-                raise ValueError(msg)
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                varid = fptr.variables[tracer_name + suffix]
-                vals[tracer_ind, :] = varid[:]
-        return vals, dims
-
-    def dump(self, fptr, action):
-        """
-        perform an action (define or write) of dumping a TracerModuleState object
-        to an open file
-        """
-        if action == "define":
-            for dimname, dimlen in self._dims.items():
-                try:
-                    if fptr.dimensions[dimname].size != dimlen:
-                        msg = (
-                            "dimname already exists and has wrong size"
-                            "tracer_module_name=%s, dimname=%s"
-                            % (self._tracer_module_name, dimname)
-                        )
-                        raise ValueError(msg)
-                except KeyError:
-                    fptr.createDimension(dimname, dimlen)
-            dimnames = tuple(self._dims.keys())
-            # define all tracers, with _CUR and _OLD suffixes
-            for tracer_name in self.tracer_names():
-                for suffix in ["_CUR", "_OLD"]:
-                    fptr.createVariable(tracer_name + suffix, "f8", dimensions=dimnames)
-        elif action == "write":
-            # write all tracers, with _CUR and _OLD suffixes
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                for suffix in ["_CUR", "_OLD"]:
-                    fptr.variables[tracer_name + suffix][:] = self._vals[tracer_ind, :]
-        else:
-            msg = "unknown action=", action
-            raise ValueError(msg)
-        return self
 
 
 ################################################################################
@@ -418,7 +340,7 @@ def _gen_hist(hist_fname):
     else:
         hist_dir = cime_xmlquery("RUNDIR")
 
-    caller = "src.cime_pop.newton_fcn._gen_hist"
+    caller = "src.cime_pop.model_state._gen_hist"
     if tavg_freq_opt_0 == "nyear":
         fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(
