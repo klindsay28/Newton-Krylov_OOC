@@ -31,45 +31,41 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn):
             varname = tracer_name
             var = fptr.createVariable(varname, "f8", dimensions=("time", "depth"))
             tracer_metadata = ms_in.tracer_metadata(tracer_name)
-            if "attrs" in tracer_metadata:
-                for attr_name, attr_value in tracer_metadata["attrs"].items():
-                    setattr(var, attr_name, attr_value)
+            for attr_name, attr_value in tracer_metadata.get("attrs", {}).items():
+                setattr(var, attr_name, attr_value)
             setattr(var, "cell_methods", "time: point")
 
             varname = tracer_name + "_time_anom"
             var = fptr.createVariable(varname, "f8", dimensions=("time", "depth"))
             tracer_metadata = ms_in.tracer_metadata(tracer_name)
-            if "attrs" in tracer_metadata:
-                for attr_name, attr_value in tracer_metadata["attrs"].items():
-                    if attr_name == "long_name":
-                        setattr(var, attr_name, attr_value + ", anomaly in time")
-                    else:
-                        setattr(var, attr_name, attr_value)
+            for attr_name, attr_value in tracer_metadata.get("attrs", {}).items():
+                if attr_name == "long_name":
+                    setattr(var, attr_name, attr_value + ", anomaly in time")
+                else:
+                    setattr(var, attr_name, attr_value)
             setattr(var, "cell_methods", "time: point")
 
             varname = tracer_name + "_delta"
             var = fptr.createVariable(varname, "f8", dimensions=("depth"))
             tracer_metadata = ms_in.tracer_metadata(tracer_name)
-            if "attrs" in tracer_metadata:
-                for attr_name, attr_value in tracer_metadata["attrs"].items():
-                    if attr_name == "long_name":
-                        setattr(
-                            var, attr_name, attr_value + ", end state minus start state"
-                        )
-                    else:
-                        setattr(var, attr_name, attr_value)
+            for attr_name, attr_value in tracer_metadata.get("attrs", {}).items():
+                if attr_name == "long_name":
+                    setattr(
+                        var, attr_name, attr_value + ", end state minus start state"
+                    )
+                else:
+                    setattr(var, attr_name, attr_value)
 
             varname = tracer_name + "_zint"
             var = fptr.createVariable(varname, "f8", dimensions=("time",))
             tracer_metadata = ms_in.tracer_metadata(tracer_name)
-            if "attrs" in tracer_metadata:
-                for attr_name, attr_value in tracer_metadata["attrs"].items():
-                    if attr_name == "units":
-                        setattr(var, attr_name, _zint_units(attr_value, depth_units))
-                    elif attr_name == "long_name":
-                        setattr(var, attr_name, attr_value + ", vertical integral")
-                    else:
-                        setattr(var, attr_name, attr_value)
+            for attr_name, attr_value in tracer_metadata.get("attrs", {}).items():
+                if attr_name == "units":
+                    setattr(var, attr_name, _zint_units(attr_value, depth_units))
+                elif attr_name == "long_name":
+                    setattr(var, attr_name, attr_value + ", vertical integral")
+                else:
+                    setattr(var, attr_name, attr_value)
             setattr(var, "cell_methods", "time: point")
 
         # setup metadata for non-generic hist vars

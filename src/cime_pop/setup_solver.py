@@ -14,7 +14,12 @@ from ..cime import cime_xmlquery, cime_yr_cnt
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
 from ..share import args_replace, common_args, read_cfg_file
-from ..utils import mkdir_exist_okay, ann_files_to_mean_file, mon_files_to_mean_file
+from ..utils import (
+    mkdir_exist_okay,
+    create_dimension_exist_okay,
+    ann_files_to_mean_file,
+    mon_files_to_mean_file,
+)
 
 
 def _parse_args():
@@ -183,8 +188,7 @@ def gen_grid_weight_file(modelinfo):
 
         # propagate dimension sizes from fptr_in to fptr_out
         for dimind, dimname in enumerate(weight_dimnames):
-            if dimname not in fptr_out.dimensions:
-                fptr_out.createDimension(dimname, weight_shape[dimind])
+            create_dimension_exist_okay(fptr_out, dimname, weight_shape[dimind])
 
         varname = modelinfo["grid_weight_varname"]
         var = fptr_out.createVariable(varname, weight.dtype, dimensions=weight_dimnames)
@@ -237,8 +241,7 @@ def gen_region_mask_file(modelinfo):
 
         # propagate dimension sizes from fptr_in to fptr_out
         for dimind, dimname in enumerate(mask_dimnames):
-            if dimname not in fptr_out.dimensions:
-                fptr_out.createDimension(dimname, mask_shape[dimind])
+            create_dimension_exist_okay(fptr_out, dimname, mask_shape[dimind])
 
         varname = modelinfo["region_mask_varname"]
         var = fptr_out.createVariable(varname, mask.dtype, dimensions=mask_dimnames)

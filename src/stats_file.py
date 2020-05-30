@@ -6,6 +6,7 @@ import os
 from netCDF4 import Dataset
 
 from .model_config import get_modelinfo, get_region_cnt
+from .utils import create_dimension_exist_okay
 
 
 class StatsFile:
@@ -48,10 +49,7 @@ class StatsFile:
             for tracer_module_name in get_modelinfo("tracer_module_names").split(","):
                 fmt = {"tr_mod_name": tracer_module_name}
                 for varname, attrs in vars_metadata.items():
-                    if "_FillValue" in attrs:
-                        fill_value = attrs["_FillValue"]
-                    else:
-                        fill_value = self._fill_value
+                    fill_value = attrs.get("_FillValue", self._fill_value)
                     var = fptr.createVariable(
                         varname.format(**fmt), "f8", dimensions, fill_value=fill_value
                     )
@@ -75,20 +73,11 @@ class StatsFile:
                 else:
                     msg = "dimlen for %s unknown" % dimname
                     raise ValueError(msg)
-                if dimname in fptr.dimensions:
-                    if len(fptr.dimensions[dimname]) != dimlen:
-                        msg = (
-                            "%s already exists in stats file with different length"
-                            % dimname
-                        )
-                        raise ValueError(msg)
-                else:
-                    fptr.createDimension(dimname, dimlen)
+                create_dimension_exist_okay(fptr, dimname, dimlen)
                 if "vals" in metadata:
                     var = fptr.createVariable(dimname, "f8", dimensions=(dimname,))
-                    if "attrs" in metadata:
-                        for attr_name, attr_value in metadata["attrs"].items():
-                            setattr(var, attr_name, attr_value)
+                    for attr_name, attr_value in metadata.get("attrs", {}).items():
+                        setattr(var, attr_name, attr_value)
                     fptr.variables[dimname][:] = metadata["vals"]
 
             # define specific vars
@@ -97,17 +86,14 @@ class StatsFile:
                     dimensions_loc = dimensions + metadata["dimensions_extra"]
                 else:
                     dimensions_loc = dimensions
-                if "attrs" in metadata and "_FillValue" in metadata["attrs"]:
-                    fill_value = metadata["attrs"]["_FillValue"]
-                else:
-                    fill_value = self._fill_value
+                attrs = metadata.get("attrs", {})
+                fill_value = attrs.get("_FillValue", self._fill_value)
                 var = fptr.createVariable(
                     varname, "f8", dimensions_loc, fill_value=fill_value
                 )
-                if "attrs" in metadata:
-                    for attr_name, attr_value in metadata["attrs"].items():
-                        if attr_name != "_FillValue":
-                            setattr(var, attr_name, attr_value)
+                for attr_name, attr_value in attrs.items():
+                    if attr_name != "_FillValue":
+                        setattr(var, attr_name, attr_value)
 
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             varnames = ",".join(vars_metadata)

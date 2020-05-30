@@ -6,6 +6,7 @@ from netCDF4 import Dataset
 import numpy as np
 
 from ..tracer_module_state_base import TracerModuleStateBase
+from ..utils import create_dimension_exist_okay
 
 
 ################################################################################
@@ -21,20 +22,18 @@ class TracerModuleState(TracerModuleStateBase):
         """return tracer values and dimension names and lengths, read from fname)"""
         logger = logging.getLogger(__name__)
         logger.debug('tracer_module_name="%s", fname="%s"', tracer_module_name, fname)
-        dims = {}
         suffix = "_CUR"
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
             # get dims from first variable
-            dimnames0 = fptr.variables[self.tracer_names()[0] + suffix].dimensions
-            for dimname in dimnames0:
-                dims[dimname] = fptr.dimensions[dimname].size
+            var0 = fptr.variables[self.tracer_names()[0] + suffix]
+            dims = {dim.name: dim.size for dim in var0.get_dims()}
             # all tracers are stored in a single array
             # tracer index is the leading index
             vals = np.empty((self.tracer_cnt(),) + tuple(dims.values()))
             # check that all vars have the same dimensions
             for tracer_name in self.tracer_names():
-                if fptr.variables[tracer_name + suffix].dimensions != dimnames0:
+                if fptr.variables[tracer_name + suffix].dimensions != var0.dimensions:
                     msg = (
                         "not all vars have same dimensions"
                         ", tracer_module_name=%s, fname=%s"
@@ -50,8 +49,8 @@ class TracerModuleState(TracerModuleStateBase):
                 )
                 raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                varid = fptr.variables[tracer_name + suffix]
-                vals[tracer_ind, :] = varid[:]
+                var = fptr.variables[tracer_name + suffix]
+                vals[tracer_ind, :] = var[:]
         return vals, dims
 
     def dump(self, fptr, action):
@@ -61,16 +60,7 @@ class TracerModuleState(TracerModuleStateBase):
         """
         if action == "define":
             for dimname, dimlen in self._dims.items():
-                try:
-                    if fptr.dimensions[dimname].size != dimlen:
-                        msg = (
-                            "dimname already exists and has wrong size"
-                            "tracer_module_name=%s, dimname=%s"
-                            % (self._tracer_module_name, dimname)
-                        )
-                        raise ValueError(msg)
-                except KeyError:
-                    fptr.createDimension(dimname, dimlen)
+                create_dimension_exist_okay(fptr, dimname, dimlen)
             dimnames = tuple(self._dims.keys())
             # define all tracers, with _CUR and _OLD suffixes
             for tracer_name in self.tracer_names():

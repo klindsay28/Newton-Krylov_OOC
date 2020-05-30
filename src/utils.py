@@ -23,6 +23,22 @@ def mkdir_exist_okay(path):
             raise
 
 
+def create_dimension_exist_okay(fptr, dimname, dimlen):
+    """
+    Create a dimension in a netCDF4 file
+    It is okay if it already exists, if the existing dimlen matches dimlen.
+    Return dimension object
+    """
+    try:
+        fptr.createDimension(dimname, dimlen)
+    except RuntimeError as msg:
+        if str(msg) != "NetCDF: String match to name in use":
+            raise
+        if fptr.dimensions[dimname].size != dimlen:
+            raise
+    return fptr.dimensions[dimname]
+
+
 def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
     """
     average cnt number of files of annual means

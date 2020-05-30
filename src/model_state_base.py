@@ -12,6 +12,7 @@ import numpy as np
 from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .tracer_module_state_base import TracerModuleStateBase
+from .utils import create_dimension_exist_okay
 
 ################################################################################
 
@@ -579,25 +580,23 @@ def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
             dimnames = hist_var.dimensions
 
         for dimname in dimnames:
-            if dimname not in fptr_out.dimensions:
-                logger.debug('defining dimension="%s"', dimname)
-                fptr_out.createDimension(dimname, fptr_in.dimensions[dimname].size)
-                # if fptr_in has a cooresponding coordinate variable, then
-                # define it, copy attributes from fptr_in, and write it
-                if dimname in fptr_in.variables:
-                    logger.debug('defining variable="%s"', dimname)
-                    fptr_out.createVariable(
-                        dimname,
-                        fptr_in.variables[dimname].datatype,
-                        dimensions=(dimname,),
+            create_dimension_exist_okay(
+                fptr_out, dimname, fptr_in.dimensions[dimname].size
+            )
+            # if fptr_in has a cooresponding coordinate variable, then
+            # define it, copy attributes from fptr_in, and write it
+            if dimname in fptr_in.variables and dimname not in fptr_out.variables:
+                logger.debug('defining variable="%s"', dimname)
+                fptr_out.createVariable(
+                    dimname, fptr_in.variables[dimname].datatype, dimensions=(dimname,),
+                )
+                for att_name in fptr_in.variables[dimname].ncattrs():
+                    setattr(
+                        fptr_out.variables[dimname],
+                        att_name,
+                        getattr(fptr_in.variables[dimname], att_name),
                     )
-                    for att_name in fptr_in.variables[dimname].ncattrs():
-                        setattr(
-                            fptr_out.variables[dimname],
-                            att_name,
-                            getattr(fptr_in.variables[dimname], att_name),
-                        )
-                    fptr_out.variables[dimname][:] = fptr_in.variables[dimname][:]
+                fptr_out.variables[dimname][:] = fptr_in.variables[dimname][:]
 
 
 ################################################################################
