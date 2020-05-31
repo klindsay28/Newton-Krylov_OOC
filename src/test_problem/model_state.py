@@ -10,19 +10,18 @@ import sys
 
 from netCDF4 import Dataset
 import numpy as np
+from scipy.integrate import solve_ivp
 from scipy.linalg import solve_banded, svd
 from scipy.sparse import diags, eye
 from scipy.sparse.linalg import spsolve
-from scipy.integrate import solve_ivp
 
-from test_problem.src.spatial_axis import SpatialAxis
-from test_problem.src.hist import hist_write
-from test_problem.src.vert_mix import VertMix
-
-from ..model_state_base import ModelStateBase
 from ..model_config import ModelConfig, get_modelinfo
+from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
-from .tracer_module_state import TracerModuleState
+
+from .hist import hist_write
+from .spatial_axis import SpatialAxis
+from .vert_mix import VertMix
 
 
 def _parse_args():
@@ -101,11 +100,8 @@ def main(args):
     logger.info("done")
 
 
-################################################################################
-
-
 class ModelState(ModelStateBase):
-    """class for representing the state space of a model"""
+    """test_problem model specifics for ModelStateBase"""
 
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
@@ -130,10 +126,6 @@ class ModelState(ModelStateBase):
         self._dye_sink_surf_flux_vals = np.array([0.0, 2.0, 2.0, 0.0]) / 365.0
         self._dye_sink_surf_flux_time = None
         self._dye_sink_surf_flux_val = 0.0
-
-    def tracer_module_state_class(self):
-        """TracerModuleState class compatible with this ModelState class"""
-        return TracerModuleState
 
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
@@ -539,8 +531,6 @@ class ModelState(ModelStateBase):
         diag_p_1_po4_pop[0] = 0.33  # po4_s restoring conservation balance
         return diag_p_1_po4_pop
 
-
-################################################################################
 
 if __name__ == "__main__":
     main(_parse_args())

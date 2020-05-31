@@ -9,9 +9,6 @@ from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import create_dimension_exist_okay
 
 
-################################################################################
-
-
 class TracerModuleState(TracerModuleStateBase):
     """
     Derived class for representing a collection of model tracers.

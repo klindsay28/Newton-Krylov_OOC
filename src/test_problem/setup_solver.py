@@ -5,13 +5,13 @@ import logging
 import os
 import sys
 
-from test_problem.src.spatial_axis import SpatialAxis
-
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from .model_state import ModelState
 from ..share import args_replace, common_args, read_cfg_file
 from ..utils import mkdir_exist_okay
+
+from .model_state import ModelState
+from .spatial_axis import SpatialAxis
 
 
 def _parse_args():
@@ -121,8 +121,6 @@ def main(args):
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
     init_iterate.dump(init_iterate_fname, caller)
 
-
-################################################################################
 
 if __name__ == "__main__":
     main(_parse_args())

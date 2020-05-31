@@ -32,7 +32,7 @@ def common_args(description, model_name):
     parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default="models/%s/newton_krylov.cfg" % model_name,
+        default="input/%s/newton_krylov.cfg" % model_name,
     )
 
     # add arguments that override cfg file

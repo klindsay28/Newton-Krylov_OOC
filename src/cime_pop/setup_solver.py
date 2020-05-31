@@ -256,7 +256,5 @@ def gen_region_mask_file(modelinfo):
         var[:] = mask[0, :]
 
 
-################################################################################
-
 if __name__ == "__main__":
     main(_parse_args())

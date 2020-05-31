@@ -17,10 +17,9 @@ from netCDF4 import Dataset
 import numpy as np
 
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
-from ..model_state_base import ModelStateBase
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
+from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
-from .tracer_module_state import TracerModuleState
 from ..utils import ann_files_to_mean_file, mon_files_to_mean_file
 
 
@@ -69,11 +68,8 @@ def main(args):
     raise ValueError(msg)
 
 
-################################################################################
-
-
 class ModelState(ModelStateBase):
-    """class for representing the state space of a model"""
+    """cime_pop model specifics for ModelStateBase"""
 
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
@@ -82,10 +78,6 @@ class ModelState(ModelStateBase):
         logger = logging.getLogger(__name__)
         logger.debug('ModelState, fname="%s"', fname)
         super().__init__(fname)
-
-    def tracer_module_state_class(self):
-        """TracerModuleState class compatible with this ModelState class"""
-        return TracerModuleState
 
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
@@ -397,9 +389,6 @@ class ModelState(ModelStateBase):
         solver_state.log_step(fcn_complete_step)
 
         return ms_res
-
-
-################################################################################
 
 
 def _gen_post_modelrun_script(script_fname):

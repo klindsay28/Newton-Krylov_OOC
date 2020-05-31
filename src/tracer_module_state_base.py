@@ -9,9 +9,6 @@ from . import model_config
 from .region_scalars import RegionScalars, to_ndarray
 
 
-################################################################################
-
-
 class TracerModuleStateBase:
     """
     Base class for representing a collection of model tracers.

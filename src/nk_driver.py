@@ -2,14 +2,15 @@
 """driver for Newton-Krylov solver"""
 
 import argparse
-import importlib
 import logging
 import os
 import sys
 
-from src.model_config import ModelConfig
-from src.newton_solver import NewtonSolver
-from src.share import args_replace, common_args, read_cfg_file
+from .model_config import ModelConfig, get_modelinfo
+from .model_state_base import ModelStateBase
+from .newton_solver import NewtonSolver
+from .share import args_replace, common_args, read_cfg_file
+from .utils import get_subclasses
 
 
 def parse_args():
@@ -66,16 +67,19 @@ def main(args):
     # store cfg_fname in modelinfo, to ease access to its values elsewhere
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
 
-    ModelConfig(config["modelinfo"], logging.DEBUG if args.resume else logging.INFO)
+    lvl = logging.DEBUG if args.resume else logging.INFO
+    ModelConfig(config["modelinfo"], lvl)
 
-    # import module with ModelState class
-    logger.debug('model_state_modname="%s"', config["modelinfo"]["model_state_modname"])
-    model_state_mod = importlib.import_module(
-        config["modelinfo"]["model_state_modname"]
+    model_state_class = _model_state_class()
+    logger.log(
+        lvl,
+        "using class %s from %s for model state",
+        model_state_class.__name__,
+        model_state_class.__module__,
     )
 
     newton_solver = NewtonSolver(
-        model_state_mod.ModelState,
+        model_state_class,
         solverinfo=solverinfo,
         resume=args.resume,
         rewind=args.rewind,
@@ -87,6 +91,20 @@ def main(args):
             newton_solver.log(append_to_stats_file=True)
             break
         newton_solver.step()
+
+
+def _model_state_class():
+    """return tracer module stats class for tracer_module_name"""
+
+    model_state_class = ModelStateBase
+
+    # look for model specific derived class
+    mod_name = ".".join(["src", get_modelinfo("model_name"), "model_state"])
+    subclasses = get_subclasses(mod_name, model_state_class)
+    if len(subclasses) > 0:
+        model_state_class = subclasses[0]
+
+    return model_state_class
 
 
 if __name__ == "__main__":

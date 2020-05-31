@@ -27,9 +27,6 @@ def get_modelinfo(key):
     return model_config_obj.modelinfo[key]
 
 
-################################################################################
-
-
 class ModelConfig:
     """class to hold model configuration info"""
 

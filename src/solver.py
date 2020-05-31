@@ -137,9 +137,6 @@ class SolverState:
             self._saved_state = json.load(fptr, object_hook=json_ndarray_decode)
 
 
-################################################################################
-
-
 class NumpyEncoder(json.JSONEncoder):
     """
     extend JSONEncoder to handle numpy ndarray's

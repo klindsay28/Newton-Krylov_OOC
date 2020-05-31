@@ -24,18 +24,13 @@ def gen_invoker_script(args, modelinfo, repo_root):
     with open(invoker_script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
         fptr.write("cd %s\n" % repo_root)
-        fptr.write("source src/newton_krylov_env_cmds\n")
+        fptr.write("source scripts/newton_krylov_env_cmds\n")
         if "mpi_cmd_env_cmds_fname" in modelinfo:
             if modelinfo["mpi_cmd_env_cmds_fname"] is not None:
                 fptr.write("source %s\n" % modelinfo["mpi_cmd_env_cmds_fname"])
-        fptr.write("if [ -z ${PYTHONPATH+x} ]; then\n")
-        fptr.write("    export PYTHONPATH=models\n")
-        fptr.write("else\n")
-        fptr.write("    export PYTHONPATH=models:$PYTHONPATH\n")
-        fptr.write("fi\n")
 
         # construct invocation command
-        line = './nk_driver.py --cfg_fname "%s" ' % modelinfo["cfg_fname"]
+        line = 'python -m src.nk_driver --cfg_fname "%s" ' % modelinfo["cfg_fname"]
         if "model_name" in args:
             line = line + '--model_name "%s" ' % args.model_name
         for argname, metadata in cfg_override_args.items():

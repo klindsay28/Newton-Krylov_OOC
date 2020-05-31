@@ -2,11 +2,28 @@
 
 from datetime import datetime
 import errno
+import importlib
+import inspect
 import logging
 import os
 import subprocess
 
 from netCDF4 import Dataset
+
+
+def get_subclasses(mod_name, base_class):
+    """return list of subclasses of base_class from mod, excluding base_class"""
+    logger = logging.getLogger(__name__)
+    try:
+        mod = importlib.import_module(mod_name)
+    except ModuleNotFoundError:
+        logger.debug("module %s not found", mod_name)
+        return []
+    return [
+        value
+        for (name, value) in inspect.getmembers(mod, inspect.isclass)
+        if issubclass(value, base_class) and value is not base_class
+    ]
 
 
 def mkdir_exist_okay(path):

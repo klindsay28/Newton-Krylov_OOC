@@ -12,9 +12,7 @@ import numpy as np
 from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .tracer_module_state_base import TracerModuleStateBase
-from .utils import create_dimension_exist_okay
-
-################################################################################
+from .utils import get_subclasses, create_dimension_exist_okay
 
 
 class ModelStateBase:
@@ -34,16 +32,18 @@ class ModelStateBase:
             raise RuntimeError(msg)
         self.tracer_module_names = get_modelinfo("tracer_module_names").split(",")
         self._tracer_modules = np.empty(len(self.tracer_module_names), dtype=np.object)
-        for tracer_module_ind, tracer_module_name in enumerate(
-            self.tracer_module_names
-        ):
-            self._tracer_modules[tracer_module_ind] = self.tracer_module_state_class()(
+
+        for ind, tracer_module_name in enumerate(self.tracer_module_names):
+            tracer_module_state_class = _tracer_module_state_class(tracer_module_name)
+            logger.debug(
+                "using class %s from %s for tracer module %s",
+                tracer_module_state_class.__name__,
+                tracer_module_state_class.__module__,
+                tracer_module_name,
+            )
+            self._tracer_modules[ind] = tracer_module_state_class(
                 tracer_module_name, fname
             )
-
-    def tracer_module_state_class(self):
-        """TracerModuleState class compatible with this ModelState class"""
-        return TracerModuleStateBase
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -599,12 +599,31 @@ def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
                 fptr_out.variables[dimname][:] = fptr_in.variables[dimname][:]
 
 
-################################################################################
-
-
 def lin_comb(res_type, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelStateBase objects in files"""
     res = coeff[:, 0] * res_type(fname_fcn(quantity, 0))
     for j_val in range(1, coeff.shape[-1]):
         res += coeff[:, j_val] * res_type(fname_fcn(quantity, j_val))
     return res
+
+
+def _tracer_module_state_class(tracer_module_name):
+    """return tracer module stats class for tracer_module_name"""
+
+    tracer_module_state_class = TracerModuleStateBase
+
+    model_name = get_modelinfo("model_name")
+
+    # look for model specific derived class
+    mod_name = ".".join(["src", model_name, "tracer_module_state"])
+    subclasses = get_subclasses(mod_name, tracer_module_state_class)
+    if len(subclasses) > 0:
+        tracer_module_state_class = subclasses[0]
+
+    # look for tracer module specific derived class
+    mod_name = ".".join(["src", model_name, tracer_module_name])
+    subclasses = get_subclasses(mod_name, tracer_module_state_class)
+    if len(subclasses) > 0:
+        tracer_module_state_class = subclasses[0]
+
+    return tracer_module_state_class

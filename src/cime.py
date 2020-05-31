@@ -37,7 +37,7 @@ def cime_case_submit():
     with open(script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
         fptr.write("cd %s\n" % get_modelinfo("repo_root"))
-        fptr.write("source src/cime_env_cmds\n")
+        fptr.write("source scripts/cime_env_cmds\n")
         fptr.write("cd %s\n" % get_modelinfo("caseroot"))
         fptr.write("./case.submit\n")
 

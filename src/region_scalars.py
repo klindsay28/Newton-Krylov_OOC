@@ -75,9 +75,6 @@ class RegionScalars:
         return res
 
 
-################################################################################
-
-
 def to_ndarray(array_in):
     """
     Create an ndarray, res, from an ndarray of RegionScalars.

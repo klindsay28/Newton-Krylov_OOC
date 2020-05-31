@@ -5,14 +5,11 @@ import logging
 from netCDF4 import Dataset
 import numpy as np
 
-from test_problem.src.spatial_axis import SpatialAxis
-
-from ..tracer_module_state_base import TracerModuleStateBase
 from ..model_config import get_modelinfo
+from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import create_dimension_exist_okay
 
-
-################################################################################
+from .spatial_axis import SpatialAxis
 
 
 class TracerModuleState(TracerModuleStateBase):
