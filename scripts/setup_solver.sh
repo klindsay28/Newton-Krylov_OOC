@@ -9,13 +9,18 @@ source scripts/newton_krylov_env_cmds
 # default model_name
 model_name="test_problem"
 
-# see if model_name is specified in arguments
-# do not alter arguments, e.g. with shift, so that they can be passed along
-for (( j=0; j<$#; j++ )); do
-    if [[ "${!j}" == "--model_name" ]]; then
-        (( j++ ))
-        model_name="${!j}"
+# change model_name if it is specified with arguments
+# do not pass model_name along to src.$model_name.setup_solver
+
+args=()
+while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--model_name" ]]; then
+        shift
+        model_name="$1"
+    else
+        args+=("$1")
     fi
+    shift
 done
 
-python -m src.$model_name.setup_solver "$@"
+python -m src.$model_name.setup_solver "${args[@]}"

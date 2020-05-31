@@ -32,7 +32,8 @@ script:
   # this does perform forward model runs, since fp_cnt=2
   - ./scripts/setup_solver.sh
   # setup and run solver, do with iage only to reduce test time
-  - ./scripts/setup_solver.sh --tracer_module_names iage --persist
+  # also exercises passing --model_name to setup_solver.sh
+  - ./scripts/setup_solver.sh --tracer_module_names iage --model_name test_problem --persist
   - $HOME/test_problem_work/nk_driver.sh
   # setup and run solver for multiple dye_sink tracers
   - ./scripts/setup_solver.sh --tracer_module_names "dye_sink_{suff}:001:010"
