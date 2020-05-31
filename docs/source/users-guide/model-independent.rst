@@ -9,7 +9,7 @@ This section describes details of using the NK solver that are independent of wh
 the solver is being applied to.
 
 Most options for the solver and the application model are in the cfg file.
-The default location of the cfg file is ``$TOP/models/$model/newton_krylov.cfg``, where
+The default location of the cfg file is ``$TOP/input/$model/newton_krylov.cfg``, where
 ``$TOP`` is the toplevel directory of the repo and ``$model`` is the name of the model to
 which the Newton-Krylov solved is being applied.
 
@@ -60,6 +60,8 @@ As the solver progresses, informational messages are written to a log file.
 The path of the log file, which defaults to ``newton_krylov.log`` in the work directory,
 can be modified by changing ``logging_fname`` in the cfg file.
 Setting ``logging_level=DEBUG`` in the cfg file will generate more output in the log file.
+This can also be set via the command line option ``--logging_level DEBUG`` in the scripts
+(e.g., ``src/gen_invoker_script.py`` or the solver's invocation script).
 
 The solver writes summary statistics for each tracer module being run to a netCDF
 formatted stats file.

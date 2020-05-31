@@ -33,7 +33,7 @@ Usage
 -----
 
 Most options for the solver and the cime_pop model are in the cfg file.
-The default location of the cfg file is ``$TOP/models/cime_pop/newton_krylov.cfg``,
+The default location of the cfg file is ``$TOP/input/cime_pop/newton_krylov.cfg``,
 where ``$TOP`` is the toplevel directory of the repo.
 Perform the following steps to spin up tracers in the cime_pop model.
 
@@ -150,9 +150,12 @@ Step 3
 ~~~~~~
 
 Run the following command from ``$TOP`` to set up usage of the solver
-``./models/cime_pop/setup_solver.sh --cfg_fname <cfg_fname>`` where <cfg_fname> is the
-path of the customized cfg file [#f2]_.
-Running ``./models/cime_pop/setup_solver.sh -h`` shows what command line options are
+::
+
+  ./scripts/setup_solver.sh --model_name cime_pop --cfg_fname <cfg_fname>
+
+where <cfg_fname> is the path of the customized cfg file [#f2]_.
+Running ``./scripts/setup_solver.sh -h`` shows what command line options are
 available.
 The ``setup_solver.sh`` script does the following:
 
@@ -161,6 +164,9 @@ The ``setup_solver.sh`` script does the following:
    ``/glade/scratch/$USER/newton_krylov``, is specified by ``workdir`` in the cfg file.
    This is appropriate on NCAR's cheyenne supercomputer.
    The work directory contents for cime_pop are moderate.
+#. Invoke ``gen_invoker_script``, to generate the solver's invocation script.
+   The location of the solver's invocation script, which defaults to a file in the work
+   directory, is specified by ``invoker_script_fname`` in the cfg file.
 #. Create a time mean irf file.
    The location of the irf file, which defaults to a file in the work directory, is
    specified by ``irf_fname`` in the cfg file.
@@ -171,9 +177,6 @@ The ``setup_solver.sh`` script does the following:
    specified by ``grid_weight_fname`` and ``region_mask_fname`` in the cfg file.
    These files are generated from the irf file.
    The solver configuration function is run, to ensure that the generated files are
-#. Invoke ``gen_invoker_script``, to generate the solver's invocation script.
-   The location of the solver's invocation script, which defaults to a file in the work
-   directory, is specified by ``invoker_script_fname`` in the cfg file.
 
 
 ~~~~~~
@@ -203,6 +206,6 @@ The solver's progress can be monitored through examination of the solver's
          login nodes, to reduce computational load on the login nodes. The build can be
          done on batch nodes of cheyenne by running the command ``qcmd -- ./case.build``.
 .. [#f2] On the NCAR/CISL machine cheyenne, the ``setup_solver.sh`` script should be run
-         with the command ``qcmd -- ./models/cime_pop/setup_solver.sh --cfg_fname
+         with the command ``qcmd -- ./scripts/setup_solver.sh --cfg_fname
          <cfg_fname>`` to reduce computational load on login nodes from computing the mean
          of the IRF output.

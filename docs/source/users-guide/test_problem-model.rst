@@ -63,7 +63,7 @@ Usage
 -----
 
 Most options for the solver and the test_problem model are in the cfg file.
-The default location of the cfg file is ``$TOP/models/test_problem/newton_krylov.cfg``,
+The default location of the cfg file is ``$TOP/input/test_problem/newton_krylov.cfg``,
 where ``$TOP`` is the toplevel directory of the repo.
 Perform the following steps to spin up tracers in the test_problem model.
 
@@ -93,10 +93,10 @@ Step 2
 Run the following command from ``$TOP`` to set up usage of the solver
 ::
 
-  ./models/test_problem/setup_solver.sh --cfg_fname <cfg_fname>
+  ./scripts/setup_solver.sh --model_name test_problem --cfg_fname <cfg_fname>
 
 where <cfg_fname> is the path of the customized cfg file.
-Running ``./models/test_problem/setup_solver.sh -h`` shows what command line options are
+Running ``./scripts/setup_solver.sh -h`` shows what command line options are
 available.
 The ``setup_solver.sh`` script does the following:
 
@@ -104,6 +104,9 @@ The ``setup_solver.sh`` script does the following:
    The path of the work directory, which defaults to a subdirectory of the users home
    directory, is specified by ``workdir`` in the cfg file.
    The work directory contents for test_problem are small.
+#. Invoke ``gen_invoker_script``, to generate the solver's invocation script.
+   The location of the solver's invocation script, which defaults to a file in the work
+   directory, is specified by ``invoker_script_fname`` in the cfg file.
 #. Create a vertical grid file.
    The location of the grid file, which defaults to a file in the work directory, is
    specified by ``grid_weight_fname`` in the cfg file.
@@ -121,9 +124,6 @@ The ``setup_solver.sh`` script does the following:
    The number of years run, which defaults to 2, can be modified by with the ``--fp_cnt``
    argument to the ``setup_solver.sh`` script.
    The result of these forward model runs is written to the ``gen_ic`` directory.
-#. Invoke ``gen_invoker_script``, to generate the solver's invocation script.
-   The location of the solver's invocation script, which defaults to a file in the work
-   directory, is specified by ``invoker_script_fname`` in the cfg file.
 
 
 ~~~~~~
