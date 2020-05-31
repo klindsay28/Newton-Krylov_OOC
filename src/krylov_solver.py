@@ -14,12 +14,12 @@ from .utils import mkdir_exist_okay
 
 class KrylovSolver:
     """
-    class for applying Krylov method to approximate the solution of system of linear
+    class for applying a Krylov method to approximate the solution of a system of linear
     equations
 
     The specific Krylov method used is Left-Preconditioned GMRES, algorithm 9.4 of
-    'Iterative Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad, available at
-    https://www-users.cs.umn.edu/~saad/books.html.
+    'Iterative Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad, available
+    at https://www-users.cs.umn.edu/~saad/books.html.
 
     The solver is applied to A x = -fcn, where A is
     comp_jacobian_fcn_state_prod evaluated at iterate.

@@ -261,8 +261,8 @@ class ModelState(ModelStateBase):
         """
         pre-solve_lin_eqns step of apply_precond_jacobian
         produce computing environment for solve_lin_eqns
-        If batch_cmd_precond is non-empty, submit a batch job using that command and exit.
-        Otherwise, just return.
+        If batch_cmd_precond is non-empty, submit a batch job using that command and
+        exit. Otherwise, just return.
         """
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s"', res_fname)
@@ -276,10 +276,6 @@ class ModelState(ModelStateBase):
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         if get_modelinfo("batch_cmd_precond"):
-            # precond_task_cnt = int(get_modelinfo("precond_task_cnt"))
-            # precond_cpus_per_node = int(get_modelinfo("precond_cpus_per_node"))
-            # precond_node_cnt = int(math.ceil(precond_task_cnt / precond_cpus_per_node))
-
             # determine node_cnt and cpus_per_node
             ocn_grid = cime_xmlquery("OCN_GRID")
             gigabyte_per_node = int(get_modelinfo("gigabyte_per_node"))

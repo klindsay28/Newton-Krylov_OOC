@@ -54,7 +54,9 @@ class RegionScalars:
         return self._vals
 
     def recip(self):
-        """return RegionScalars object with reciprocal operator applied to vals in self"""
+        """
+        return RegionScalars object with reciprocal operator applied to vals in self
+        """
         return RegionScalars(1.0 / self._vals)
 
     def sqrt(self):

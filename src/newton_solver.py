@@ -16,7 +16,8 @@ from .utils import mkdir_exist_okay
 
 class NewtonSolver:
     """
-    class for applying Newton's method to approximate the solution of system of equations
+    class for applying Newton's method to approximate the solution of a system of
+    equations
     """
 
     def __init__(self, model_state_class, solverinfo, resume, rewind):
@@ -59,7 +60,9 @@ class NewtonSolver:
                     "long_name": "norm of {tr_mod_name} Newton increment"
                 },
                 "Armijo_Factor_{tr_mod_name}": {
-                    "long_name": "Armijo factor applied to {tr_mod_name} Newton increment"
+                    "long_name": (
+                        "Armijo factor applied to {tr_mod_name} Newton increment"
+                    )
                 },
             }
             self._stats_file.def_vars_generic(stats_metadata)
