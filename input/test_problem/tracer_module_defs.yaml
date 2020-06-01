@@ -5,7 +5,7 @@ tracer_module_defs:
         iage:
             attrs: {long_name: "ideal age", units: "years"}
             init_iterate_val_depths: [125.0, 650.0]
-            init_iterate_vals: [0.0, 830]
+            init_iterate_vals: [0.0, 1000]
     phosphorus:  # module name
         po4:
             attrs: {long_name: "phosphate", units: "mmol m-3"}

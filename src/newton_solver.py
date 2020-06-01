@@ -59,10 +59,12 @@ class NewtonSolver:
             {"iterate": self._iterate, "fcn": self._fcn}, op_vals=["mean", "norm"]
         )
 
-        step = "def_stats_vars called"
-        if not self._solver_state.step_logged(step, per_iteration=False):
-            self._iterate.def_stats_vars(self._stats_file, self._fname("hist"))
-        self._solver_state.log_step(step, per_iteration=False)
+        self._iterate.def_stats_vars(
+            self._stats_file, self._fname("hist"), self._solver_state
+        )
+        self._iterate.put_stats_vars(
+            self._stats_file, self._fname("hist"), self._solver_state
+        )
 
     def _def_stats_vars(self):
         """
@@ -386,4 +388,7 @@ class NewtonSolver:
 
         self._put_stats_vars(
             {"iterate": self._iterate, "fcn": self._fcn}, op_vals=["mean", "norm"]
+        )
+        self._iterate.put_stats_vars(
+            self._stats_file, self._fname("hist"), self._solver_state
         )

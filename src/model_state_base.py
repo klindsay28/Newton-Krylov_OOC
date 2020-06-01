@@ -119,8 +119,12 @@ class ModelStateBase:
         """tuple of dimensions to keep for tracers in stats file"""
         return ()
 
-    def def_stats_vars(self, stats_file, hist_fname):
+    def def_stats_vars(self, stats_file, hist_fname, solver_state):
         """define model specific stats variables"""
+
+        step = "stats vars defined for %s" % class_name(self)
+        if solver_state.step_logged(step, per_iteration=False):
+            return
 
         vars_metadata = {}
 
@@ -151,17 +155,25 @@ class ModelStateBase:
         caller = class_name(self) + ".def_stats_vars"
         stats_file.def_vars(coords_extra, vars_metadata, caller)
 
+        solver_state.log_step(step, per_iteration=False)
+
     def hist_time_mean_weights(self, fptr_hist):
         """return weights for computing time-mean in hist file"""
         timelen = len(fptr_hist.dimensions["time"])
         return np.full(timelen, 1.0 / timelen)
 
-    def put_stats_vars(self, stats_file, iteration, hist_fname):
+    def put_stats_vars(self, stats_file, hist_fname, solver_state):
         """put model specific stats variables"""
+        step = "write to stats file from %s" % class_name(self)
+        if solver_state.step_logged(step):
+            return
+
         grid_weight = model_config.model_config_obj.grid_weight
         dims_keep = self.tracer_dims_keep_in_stats()
 
-        with Dataset(hist_fname) as fptr_hist:
+        name_vals_dict = {}
+
+        with Dataset(hist_fname, mode="r") as fptr_hist:
             fptr_hist.set_auto_mask(False)
             time_weights = self.hist_time_mean_weights(fptr_hist)
             for tracer_name in self.tracer_names():
@@ -175,14 +187,18 @@ class ModelStateBase:
                 )
                 if avg_axes == ():
                     # no averaging to be done
-                    stats_file.put_vars(iteration, {tracer_name: vals_time_mean})
+                    name_vals_dict[tracer_name] = vals_time_mean
                 else:
                     numer = (grid_weight * vals_time_mean).sum(axis=avg_axes)
                     denom = grid_weight.sum(axis=avg_axes)
                     fill_value = stats_file.get_fill_value(tracer_name)
                     vals = np.full(numer.shape, fill_value)
                     np.divide(numer, denom, out=vals, where=(denom != 0.0))
-                    stats_file.put_vars(iteration, {tracer_name: vals})
+                    name_vals_dict[tracer_name] = vals
+
+        stats_file.put_vars(solver_state.get_iteration(), name_vals_dict)
+
+        solver_state.log_step(step)
 
     def __neg__(self):
         """
@@ -594,7 +610,7 @@ def lin_comb(res_type, coeff, fname_fcn, quantity):
 
 
 def _tracer_module_state_class(tracer_module_name):
-    """return tracer module stats class for tracer_module_name"""
+    """return tracer module state class for tracer_module_name"""
 
     tracer_module_state_class = TracerModuleStateBase
 
