@@ -8,7 +8,7 @@ import numpy as np
 from .model_config import get_region_cnt
 from .model_state_base import lin_comb
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
-from .solver import SolverState
+from .solver_state import SolverState
 from .utils import class_name, mkdir_exist_okay
 
 

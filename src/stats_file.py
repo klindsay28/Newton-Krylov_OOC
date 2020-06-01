@@ -5,7 +5,7 @@ import os
 
 from netCDF4 import Dataset
 
-from .model_config import get_modelinfo, get_region_cnt
+from .model_config import get_region_cnt
 from .utils import class_name, create_dimension_exist_okay
 
 
@@ -41,23 +41,12 @@ class StatsFile:
             fill_value = getattr(fptr.variables[varname], "_FillValue")
         return fill_value
 
-    def def_vars_generic(self, vars_metadata):
-        """define vars in stats file that generailize across all tracer modules"""
-        dimensions = ("iteration", "region")
-        with Dataset(self._fname, mode="a") as fptr:
-            for tracer_module_name in get_modelinfo("tracer_module_names").split(","):
-                fmt = {"tr_mod_name": tracer_module_name}
-                for varname, attrs in vars_metadata.items():
-                    fill_value = attrs.get("_FillValue", self._fill_value)
-                    var = fptr.createVariable(
-                        varname.format(**fmt), "f8", dimensions, fill_value=fill_value
-                    )
-                    for attr_name, attr_value in attrs.items():
-                        if attr_name != "_FillValue":
-                            setattr(var, attr_name, attr_value.format(**fmt))
-
-    def def_vars_specific(self, coords_extra, vars_metadata, caller):
-        """define vars in stats file that are specific to one tracer module"""
+    def def_vars(self, coords_extra, vars_metadata, caller=None):
+        """
+        define vars in stats file
+        vars are assumed to implicitly have dimensions ("iteration", "region")
+        coords_extra are any coords required for additional dimensions
+        """
 
         dimensions = ("iteration", "region")
         with Dataset(self._fname, mode="a") as fptr:
@@ -73,11 +62,11 @@ class StatsFile:
                     msg = "dimlen for %s unknown" % dimname
                     raise ValueError(msg)
                 create_dimension_exist_okay(fptr, dimname, dimlen)
-                if "vals" in metadata:
+                if "vals" in metadata and dimname not in fptr.variables:
                     var = fptr.createVariable(dimname, "f8", dimensions=(dimname,))
                     for attr_name, attr_value in metadata.get("attrs", {}).items():
                         setattr(var, attr_name, attr_value)
-                    fptr.variables[dimname][:] = metadata["vals"]
+                    var[:] = metadata["vals"]
 
             # define specific vars
             for varname, metadata in vars_metadata.items():
@@ -94,42 +83,32 @@ class StatsFile:
                     if attr_name != "_FillValue":
                         setattr(var, attr_name, attr_value)
 
-            datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            varnames = ",".join(vars_metadata)
-            fcn_name = class_name(self) + ".def_vars_specific"
-            msg = datestamp + ": " + varnames + " appended by " + fcn_name
-            msg = msg + " called by " + caller
-            msg = msg + "\n" + getattr(fptr, "history")
-            setattr(fptr, "history", msg)
+            if caller is not None:
+                datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                varnames = ",".join(vars_metadata)
+                fcn_name = class_name(self) + ".def_vars"
+                msg = datestamp + ": " + varnames + " appended by " + fcn_name
+                msg = msg + " called by " + caller
+                msg = msg + "\n" + getattr(fptr, "history")
+                setattr(fptr, "history", msg)
 
-    def put_vars_generic(self, iteration, varname, vals):
+    def put_vars(self, iteration, name_vals_dict):
         """
-        put vals to a generic varname with specified iteration index
-        vals is a numpy array of RegionScalars objects
-        the numpy array axis corresponds to tracer modules
+        write values to stats file for a particular iteration index
+        name_vals_dict is a dict of (varname, vals) pairs
+        where vals are specific to this iteration
         """
 
-        tracer_module_names = get_modelinfo("tracer_module_names").split(",")
+        # if there is nothing to write return immediately
+        if name_vals_dict == {}:
+            return
 
         with Dataset(self._fname, mode="a") as fptr:
             if iteration == len(fptr.variables["iteration"]):
                 _grow_iteration(fptr)
 
-            for ind, tracer_module_name in enumerate(tracer_module_names):
-                full_varname = varname.format(tr_mod_name=tracer_module_name)
-                fptr.variables[full_varname][iteration, :] = vals[ind].vals()
-
-    def put_vars_specific(self, iteration, varname, vals):
-        """
-        put vals to a specific varname with specified iteration index
-        vals is a numpy array of values for varname selected in the 1st dim
-        """
-
-        with Dataset(self._fname, mode="a") as fptr:
-            if iteration == len(fptr.variables["iteration"]):
-                _grow_iteration(fptr)
-
-            fptr.variables[varname][iteration, :] = vals
+            for name, vals in name_vals_dict.items():
+                fptr.variables[name][iteration, :] = vals
 
 
 def _grow_iteration(fptr):

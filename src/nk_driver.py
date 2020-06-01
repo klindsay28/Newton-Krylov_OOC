@@ -88,7 +88,7 @@ def main(args):
     while True:
         if newton_solver.converged_flat().all():
             logger.info("convergence criterion satisfied")
-            newton_solver.log(append_to_stats_file=True)
+            newton_solver.log()
             break
         newton_solver.step()
 

@@ -105,7 +105,7 @@ class ModelStateBase:
                 else:
                     tracer_module.log_vals(msg, vals[tracer_module_ind, :])
 
-    def log(self, msg=None, stats_info=None):
+    def log(self, msg=None):
         """write info of the instance to the log"""
         if msg is None:
             msg_full = ["mean", "norm"]
@@ -114,18 +114,6 @@ class ModelStateBase:
         mean_vals = self.mean()
         norm_vals = self.norm()
         self.log_vals(msg_full, np.stack((mean_vals, norm_vals)))
-
-        if stats_info is not None and stats_info["append_vals"]:
-            stats_info["stats_file_obj"].put_vars_generic(
-                stats_info["iteration"],
-                stats_info["varname_root"] + "_mean_{tr_mod_name}",
-                mean_vals,
-            )
-            stats_info["stats_file_obj"].put_vars_generic(
-                stats_info["iteration"],
-                stats_info["varname_root"] + "_norm_{tr_mod_name}",
-                norm_vals,
-            )
 
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
@@ -161,7 +149,7 @@ class ModelStateBase:
                 }
 
         caller = class_name(self) + ".def_stats_vars"
-        stats_file.def_vars_specific(coords_extra, vars_metadata, caller)
+        stats_file.def_vars(coords_extra, vars_metadata, caller)
 
     def hist_time_mean_weights(self, fptr_hist):
         """return weights for computing time-mean in hist file"""
@@ -187,14 +175,14 @@ class ModelStateBase:
                 )
                 if avg_axes == ():
                     # no averaging to be done
-                    stats_file.put_vars_specific(iteration, tracer_name, vals_time_mean)
+                    stats_file.put_vars(iteration, {tracer_name: vals_time_mean})
                 else:
                     numer = (grid_weight * vals_time_mean).sum(axis=avg_axes)
                     denom = grid_weight.sum(axis=avg_axes)
                     fill_value = stats_file.get_fill_value(tracer_name)
                     vals = np.full(numer.shape, fill_value)
                     np.divide(numer, denom, out=vals, where=(denom != 0.0))
-                    stats_file.put_vars_specific(iteration, tracer_name, vals)
+                    stats_file.put_vars(iteration, {tracer_name: vals})
 
     def __neg__(self):
         """

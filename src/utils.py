@@ -12,6 +12,7 @@ from netCDF4 import Dataset
 
 
 def class_name(obj):
+    """return name of class and module that it is define in"""
     return obj.__module__ + "." + type(obj).__name__
 
 
