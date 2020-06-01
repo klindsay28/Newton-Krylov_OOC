@@ -200,8 +200,8 @@ class ModelState(ModelStateBase):
         """compute tendency function"""
         tracer_vals = tracer_vals_flat.reshape((self.tracer_cnt(), -1))
         dtracer_vals_dt = np.empty_like(tracer_vals)
-        for tracer_module_name in self.tracer_module_names:
-            if tracer_module_name == "iage":
+        for tracer_module in self.tracer_modules:
+            if tracer_module.name == "iage":
                 tracer_ind = self.tracer_names().index("iage")
                 self._comp_tend_iage(
                     time,
@@ -209,16 +209,16 @@ class ModelState(ModelStateBase):
                     dtracer_vals_dt[tracer_ind, :],
                     vert_mix,
                 )
-            elif tracer_module_name[:9] == "dye_sink_":
-                tracer_ind = self.tracer_names().index(tracer_module_name)
+            elif tracer_module.name[:9] == "dye_sink_":
+                tracer_ind = self.tracer_names().index(tracer_module.name)
                 self._comp_tend_dye_sink(
-                    tracer_module_name[9:],
+                    tracer_module.name[9:],
                     time,
                     tracer_vals[tracer_ind, :],
                     dtracer_vals_dt[tracer_ind, :],
                     vert_mix,
                 )
-            elif tracer_module_name == "phosphorus":
+            elif tracer_module.name == "phosphorus":
                 tracer_ind0 = self.tracer_names().index("po4")
                 self._comp_tend_phosphorus(
                     time,
@@ -227,7 +227,7 @@ class ModelState(ModelStateBase):
                     vert_mix,
                 )
             else:
-                msg = "unknown tracer module %s" % tracer_module_name
+                msg = "unknown tracer module %s" % tracer_module.name
                 raise ValueError(msg)
         return dtracer_vals_dt.reshape(-1)
 
@@ -353,15 +353,15 @@ class ModelState(ModelStateBase):
             # convert back to model units of m2 d-1
             mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][1:-1]
 
-        for tracer_module_name in self.tracer_module_names:
-            if tracer_module_name == "iage":
+        for tracer_module in self.tracer_modules:
+            if tracer_module.name == "iage":
                 self._apply_precond_jacobian_iage(mca, ms_res)
-            elif tracer_module_name[:9] == "dye_sink_":
-                self._apply_precond_jacobian_dye_sink(tracer_module_name, mca, ms_res)
-            elif tracer_module_name == "phosphorus":
+            elif tracer_module.name[:9] == "dye_sink_":
+                self._apply_precond_jacobian_dye_sink(tracer_module.name, mca, ms_res)
+            elif tracer_module.name == "phosphorus":
                 self._apply_precond_jacobian_phosphorus(mca, ms_res)
             else:
-                msg = "unknown tracer module %s" % tracer_module_name
+                msg = "unknown tracer module %s" % tracer_module.name
                 raise ValueError(msg)
 
         if solver_state is not None:

@@ -30,10 +30,10 @@ class ModelStateBase:
                 % ("ModelConfig.__init__", "ModelStateBase.__init__")
             )
             raise RuntimeError(msg)
-        self.tracer_module_names = get_modelinfo("tracer_module_names").split(",")
-        self.tracer_modules = np.empty(len(self.tracer_module_names), dtype=np.object)
+        tracer_module_names = get_modelinfo("tracer_module_names").split(",")
+        self.tracer_modules = np.empty(len(tracer_module_names), dtype=np.object)
 
-        for ind, tracer_module_name in enumerate(self.tracer_module_names):
+        for ind, tracer_module_name in enumerate(tracer_module_names):
             tracer_module_state_class = _tracer_module_state_class(tracer_module_name)
             logger.debug(
                 "using class %s from %s for tracer module %s",
@@ -352,7 +352,7 @@ class ModelStateBase:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty((len(self.tracer_module_names), basis_cnt), dtype=np.object)
+        h_val = np.empty((len(self.tracer_modules), basis_cnt), dtype=np.object)
         for i_val in range(0, basis_cnt):
             basis_i = type(self)(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)

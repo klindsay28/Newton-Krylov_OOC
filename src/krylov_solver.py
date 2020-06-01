@@ -93,7 +93,7 @@ class KrylovSolver:
             h_mat = to_region_scalar_ndarray(
                 np.zeros(
                     (
-                        len(iterate.tracer_module_names),
+                        len(iterate.tracer_modules),
                         j_val + 2,
                         j_val + 1,
                         get_region_cnt(),

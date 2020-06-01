@@ -113,16 +113,14 @@ class NewtonSolver:
                 }
             },
         }
-        for tracer_module_name in self._iterate.tracer_module_names:
-            repl_dict = {"tr_mod_name": tracer_module_name}
+        for tracer_module in self._iterate.tracer_modules:
+            repl_dict = {"tr_mod_name": tracer_module.name}
             vars_metadata_add = fmt_vals(vars_metadata_template, repl_dict)
             vars_metadata.update(vars_metadata_add)
 
         self._stats_file.def_vars({}, vars_metadata)
 
         self._solver_state.log_step(step, per_iteration=False)
-
-        raise SystemExit
 
     def _put_stats_vars(self, name_root_vals_dict, op_vals):
         """write vals corresponding to names for all tracer modules to stats file"""
@@ -147,9 +145,8 @@ class NewtonSolver:
                     vals_array = name_root_vals_dict[name_root].mean()
                 else:
                     vals_array = name_root_vals_dict[name_root].norm()
-                tracer_module_names = self._iterate.tracer_module_names
-                for ind, tracer_module_name in enumerate(tracer_module_names):
-                    full_name = "_".join([name, tracer_module_name])
+                for ind, tracer_module in enumerate(self._iterate.tracer_modules):
+                    full_name = "_".join([name, tracer_module.name])
                     name_vals_dict[full_name] = vals_array[ind].vals()
                 self._solver_state.log_step(step)
 

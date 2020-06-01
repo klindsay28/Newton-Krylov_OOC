@@ -84,7 +84,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn):
             },
         }
 
-        if "phosphorus" in ms_in.tracer_module_names:
+        if "phosphorus" in [tr_mod.name for tr_mod in ms_in.tracer_modules]:
             po4_units = ms_in.tracer_metadata("po4")["attrs"]["units"]
             hist_var_units = po4_units + " s-1"
             hist_vars_metadata["po4_uptake"] = {
@@ -153,7 +153,7 @@ def hist_write(ms_in, sol, hist_fname, newton_fcn):
                 "mixing_coeff"
             ][time_ind, -2]
 
-        if "phosphorus" in ms_in.tracer_module_names:
+        if "phosphorus" in [tr_mod.name for tr_mod in ms_in.tracer_modules]:
             po4_ind = tracer_names.index("po4")
             for time_ind, time in enumerate(sol.t):
                 po4 = tracer_vals[po4_ind, :, time_ind]
