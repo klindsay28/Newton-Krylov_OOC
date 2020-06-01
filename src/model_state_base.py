@@ -31,7 +31,7 @@ class ModelStateBase:
             )
             raise RuntimeError(msg)
         self.tracer_module_names = get_modelinfo("tracer_module_names").split(",")
-        self._tracer_modules = np.empty(len(self.tracer_module_names), dtype=np.object)
+        self.tracer_modules = np.empty(len(self.tracer_module_names), dtype=np.object)
 
         for ind, tracer_module_name in enumerate(self.tracer_module_names):
             tracer_module_state_class = _tracer_module_state_class(tracer_module_name)
@@ -41,14 +41,14 @@ class ModelStateBase:
                 tracer_module_state_class.__module__,
                 tracer_module_name,
             )
-            self._tracer_modules[ind] = tracer_module_state_class(
+            self.tracer_modules[ind] = tracer_module_state_class(
                 tracer_module_name, fname
             )
 
     def tracer_names(self):
         """return list of tracer names"""
         res = []
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             res.extend(tracer_module.tracer_names())
         return res
 
@@ -62,7 +62,7 @@ class ModelStateBase:
 
     def tracer_metadata(self, tracer_name):
         """return tracer's metadata"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             try:
                 return tracer_module.tracer_metadata(tracer_name)
             except KeyError:
@@ -84,13 +84,13 @@ class ModelStateBase:
                 raise ValueError("caller unknown")
             setattr(fptr, "history", msg)
             for action in ["define", "write"]:
-                for tracer_module in self._tracer_modules:
+                for tracer_module in self.tracer_modules:
                     tracer_module.dump(fptr, action)
         return self
 
     def log_vals(self, msg, vals):
         """write per-tracer module values to the log"""
-        for tracer_module_ind, tracer_module in enumerate(self._tracer_modules):
+        for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
             if isinstance(msg, list):
                 for msg_ind, submsg in enumerate(msg):
                     if vals.ndim == 2:
@@ -190,7 +190,7 @@ class ModelStateBase:
         called to evaluate res = -self
         """
         res = copy.copy(self)
-        res._tracer_modules = -self._tracer_modules
+        res.tracer_modules = -self.tracer_modules
         return res
 
     def __add__(self, other):
@@ -200,7 +200,7 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules + other._tracer_modules
+            res.tracer_modules = self.tracer_modules + other.tracer_modules
         else:
             return NotImplemented
         return res
@@ -218,7 +218,7 @@ class ModelStateBase:
         called to evaluate self += other
         """
         if isinstance(other, ModelStateBase):
-            self._tracer_modules += other._tracer_modules
+            self.tracer_modules += other.tracer_modules
         else:
             return NotImplemented
         return self
@@ -230,7 +230,7 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules - other._tracer_modules
+            res.tracer_modules = self.tracer_modules - other.tracer_modules
         else:
             return NotImplemented
         return res
@@ -241,7 +241,7 @@ class ModelStateBase:
         called to evaluate self -= other
         """
         if isinstance(other, ModelStateBase):
-            self._tracer_modules -= other._tracer_modules
+            self.tracer_modules -= other.tracer_modules
         else:
             return NotImplemented
         return self
@@ -253,11 +253,11 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules * other
+            res.tracer_modules = self.tracer_modules * other
         elif isinstance(other, np.ndarray):
-            res._tracer_modules = self._tracer_modules * other
+            res.tracer_modules = self.tracer_modules * other
         elif isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules * other._tracer_modules
+            res.tracer_modules = self.tracer_modules * other.tracer_modules
         else:
             return NotImplemented
         return res
@@ -275,11 +275,11 @@ class ModelStateBase:
         called to evaluate self *= other
         """
         if isinstance(other, float):
-            self._tracer_modules *= other
+            self.tracer_modules *= other
         elif isinstance(other, np.ndarray):
-            self._tracer_modules *= other
+            self.tracer_modules *= other
         elif isinstance(other, ModelStateBase):
-            self._tracer_modules *= other._tracer_modules
+            self.tracer_modules *= other.tracer_modules
         else:
             return NotImplemented
         return self
@@ -291,11 +291,11 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._tracer_modules = self._tracer_modules * (1.0 / other)
+            res.tracer_modules = self.tracer_modules * (1.0 / other)
         elif isinstance(other, np.ndarray):
-            res._tracer_modules = self._tracer_modules * (1.0 / other)
+            res.tracer_modules = self.tracer_modules * (1.0 / other)
         elif isinstance(other, ModelStateBase):
-            res._tracer_modules = self._tracer_modules / other._tracer_modules
+            res.tracer_modules = self.tracer_modules / other.tracer_modules
         else:
             return NotImplemented
         return res
@@ -307,9 +307,9 @@ class ModelStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, float):
-            res._tracer_modules = other / self._tracer_modules
+            res.tracer_modules = other / self.tracer_modules
         elif isinstance(other, np.ndarray):
-            res._tracer_modules = other / self._tracer_modules
+            res.tracer_modules = other / self.tracer_modules
         else:
             return NotImplemented
         return res
@@ -320,29 +320,27 @@ class ModelStateBase:
         called to evaluate self /= other
         """
         if isinstance(other, float):
-            self._tracer_modules *= 1.0 / other
+            self.tracer_modules *= 1.0 / other
         elif isinstance(other, np.ndarray):
-            self._tracer_modules *= 1.0 / other
+            self.tracer_modules *= 1.0 / other
         elif isinstance(other, ModelStateBase):
-            self._tracer_modules /= other._tracer_modules
+            self.tracer_modules /= other.tracer_modules
         else:
             return NotImplemented
         return self
 
     def mean(self):
         """compute weighted mean of self"""
-        res = np.empty(self._tracer_modules.shape, dtype=np.object)
-        for ind, tracer_module in enumerate(self._tracer_modules):
+        res = np.empty(self.tracer_modules.shape, dtype=np.object)
+        for ind, tracer_module in enumerate(self.tracer_modules):
             res[ind] = tracer_module.mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        res = np.empty(self._tracer_modules.shape, dtype=np.object)
-        for ind, tracer_module in enumerate(self._tracer_modules):
-            res[ind] = tracer_module.dot_prod(
-                other._tracer_modules[ind]  # pylint: disable=protected-access
-            )
+        res = np.empty(self.tracer_modules.shape, dtype=np.object)
+        for ind, tracer_module in enumerate(self.tracer_modules):
+            res[ind] = tracer_module.dot_prod(other.tracer_modules[ind])
         return res
 
     def norm(self):
@@ -375,14 +373,14 @@ class ModelStateBase:
     def precond_matrix_list(self):
         """Return list of precond matrices being used"""
         res = []
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             res.extend(tracer_module.precond_matrix_list())
         return res
 
     def tracer_names_per_precond_matrix(self):
         """Return OrderedDict of tracer names for each precond matrix"""
         res = collections.OrderedDict()
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             tracer_module.append_tracer_names_per_precond_matrix(res)
         return res
 
@@ -507,7 +505,7 @@ class ModelStateBase:
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             try:
                 return tracer_module.get_tracer_vals(tracer_name)
             except ValueError:
@@ -517,7 +515,7 @@ class ModelStateBase:
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             try:
                 tracer_module.set_tracer_vals(tracer_name, vals)
             except ValueError:
@@ -525,32 +523,32 @@ class ModelStateBase:
 
     def shadow_tracers_on(self):
         """are any shadow tracers being run"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             if tracer_module.shadow_tracers_on():
                 return True
         return False
 
     def copy_shadow_tracers_to_real_tracers(self):
         """copy shadow tracers to their real counterparts"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             tracer_module.copy_shadow_tracers_to_real_tracers()
         return self
 
     def copy_real_tracers_to_shadow_tracers(self):
         """overwrite shadow tracers with their real counterparts"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             tracer_module.copy_real_tracers_to_shadow_tracers()
         return self
 
     def zero_extra_tracers(self):
         """set extra tracers (i.e., not being solved for) to zero"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             tracer_module.zero_extra_tracers()
         return self
 
     def apply_region_mask(self):
         """set _vals to zero where region_mask == 0"""
-        for tracer_module in self._tracer_modules:
+        for tracer_module in self.tracer_modules:
             tracer_module.apply_region_mask()
         return self
 

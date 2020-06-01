@@ -11,6 +11,26 @@ import subprocess
 from netCDF4 import Dataset
 
 
+def attr_common(metadata_dict, attr_name):
+    """
+    If there is attribute named attr_name that has a common value for all dict entries,
+    return this common value. Return None otherwise. Note that a return value of None
+    can occur if the value is None for all dict entries.
+    """
+    attr_list = []
+    for metadata in metadata_dict.values():
+        if attr_name not in metadata.get("attrs", {}):
+            return None
+        attr = metadata["attrs"][attr_name]
+        if attr_list == []:
+            attr_list = [attr]
+        else:
+            if attr == attr_list[0]:
+                continue
+            return None
+    return attr_list[0]
+
+
 def class_name(obj):
     """return name of class and module that it is define in"""
     return obj.__module__ + "." + type(obj).__name__

@@ -7,6 +7,7 @@ import numpy as np
 
 from . import model_config
 from .region_scalars import RegionScalars, to_ndarray
+from .utils import attr_common
 
 
 class TracerModuleStateBase:
@@ -31,10 +32,12 @@ class TracerModuleStateBase:
                 % ("ModelConfig.__init__", "TracerModuleStateBase.__init__")
             )
             raise RuntimeError(msg)
-        self._tracer_module_name = tracer_module_name
+        self.name = tracer_module_name
         self._tracer_module_def = model_config.model_config_obj.tracer_module_defs[
             tracer_module_name
         ]
+        # units common to all tracers
+        self.units = attr_common(self._tracer_module_def, "units")
         self._vals, self._dims = self._read_vals(  # pylint: disable=no-member
             tracer_module_name, fname
         )
@@ -75,20 +78,15 @@ class TracerModuleStateBase:
             return
 
         if vals.ndim == 0:
-            logger.info("%s[%s]=%e", msg, self._tracer_module_name, vals)
+            logger.info("%s[%s]=%e", msg, self.name, vals)
         elif vals.ndim == 1:
             for j in range(vals.shape[0]):
-                logger.info("%s[%s,%d]=%e", msg, self._tracer_module_name, j, vals[j])
+                logger.info("%s[%s,%d]=%e", msg, self.name, j, vals[j])
         elif vals.ndim == 2:
             for i in range(vals.shape[0]):
                 for j in range(vals.shape[1]):
                     logger.info(
-                        "%s[%s,%d,%d]=%e",
-                        msg,
-                        self._tracer_module_name,
-                        i,
-                        j,
-                        vals[i, j],
+                        "%s[%s,%d,%d]=%e", msg, self.name, i, j, vals[i, j],
                     )
         else:
             msg = "vals.ndim=%d not handled" % vals.ndim

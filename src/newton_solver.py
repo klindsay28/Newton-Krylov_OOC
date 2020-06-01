@@ -78,40 +78,51 @@ class NewtonSolver:
 
         vars_metadata_template = {
             "iterate_mean_{tr_mod_name}": {
-                "long_name": "mean of {tr_mod_name} iterate"
+                "attrs": {"long_name": "mean of {tr_mod_name} iterate"}
             },
             "iterate_norm_{tr_mod_name}": {
-                "long_name": "norm of {tr_mod_name} iterate"
+                "attrs": {"long_name": "norm of {tr_mod_name} iterate"}
             },
             "fcn_mean_{tr_mod_name}": {
-                "long_name": "mean of fcn applied to {tr_mod_name} iterate"
+                "attrs": {"long_name": "mean of fcn applied to {tr_mod_name} iterate"}
             },
             "fcn_norm_{tr_mod_name}": {
-                "long_name": "norm of fcn applied to {tr_mod_name} iterate"
+                "attrs": {"long_name": "norm of fcn applied to {tr_mod_name} iterate"}
             },
             "increment_mean_{tr_mod_name}": {
-                "long_name": "mean of {tr_mod_name} Newton increment"
+                "attrs": {"long_name": "mean of {tr_mod_name} Newton increment"}
             },
             "increment_norm_{tr_mod_name}": {
-                "long_name": "norm of {tr_mod_name} Newton increment"
+                "attrs": {"long_name": "norm of {tr_mod_name} Newton increment"}
             },
         }
-        for tracer_module_name in self._iterate.tracer_module_names:
-            repl_dict = {"tr_mod_name": tracer_module_name}
-            vars_metadata.update(fmt_vals(vars_metadata_template, repl_dict))
+        for tracer_module in self._iterate.tracer_modules:
+            repl_dict = {"tr_mod_name": tracer_module.name}
+            vars_metadata_add = fmt_vals(vars_metadata_template, repl_dict)
+            if tracer_module.units is not None:
+                for metadata in vars_metadata_add.values():
+                    metadata["attrs"]["units"] = tracer_module.units
+            vars_metadata.update(vars_metadata_add)
 
         vars_metadata_template = {
             "Armijo_Factor_{tr_mod_name}": {
-                "long_name": "Armijo factor applied to {tr_mod_name} Newton increment"
+                "attrs": {
+                    "long_name": (
+                        "Armijo factor applied to {tr_mod_name} Newton increment"
+                    )
+                }
             },
         }
         for tracer_module_name in self._iterate.tracer_module_names:
             repl_dict = {"tr_mod_name": tracer_module_name}
-            vars_metadata.update(fmt_vals(vars_metadata_template, repl_dict))
+            vars_metadata_add = fmt_vals(vars_metadata_template, repl_dict)
+            vars_metadata.update(vars_metadata_add)
 
         self._stats_file.def_vars({}, vars_metadata)
 
         self._solver_state.log_step(step, per_iteration=False)
+
+        raise SystemExit
 
     def _put_stats_vars(self, name_root_vals_dict, op_vals):
         """write vals corresponding to names for all tracer modules to stats file"""
