@@ -12,7 +12,7 @@ import numpy as np
 from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .tracer_module_state_base import TracerModuleStateBase
-from .utils import get_subclasses, create_dimension_exist_okay
+from .utils import class_name, get_subclasses, create_dimension_exist_okay
 
 
 class ModelStateBase:
@@ -76,7 +76,7 @@ class ModelStateBase:
         logger.debug('fname="%s"', fname)
         with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            name = __name__ + ".ModelStateBase.dump"
+            name = class_name(self) + ".dump"
             msg = datestamp + ": created by " + name
             if caller is not None:
                 msg = msg + " called from " + caller
@@ -160,7 +160,7 @@ class ModelStateBase:
                     "attrs": attrs,
                 }
 
-        caller = __name__ + ".ModelState.def_stats_vars"
+        caller = class_name(self) + ".def_stats_vars"
         stats_file.def_vars_specific(coords_extra, vars_metadata, caller)
 
     def hist_time_mean_weights(self, fptr_hist):
@@ -412,7 +412,7 @@ class ModelStateBase:
             precond_fname, "w", format="NETCDF3_64BIT_OFFSET"
         ) as fptr_out:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fcn_name = __name__ + ".ModelStateBase.gen_precond_jacobian"
+            fcn_name = class_name(self) + ".gen_precond_jacobian"
             msg = datestamp + ": created by " + fcn_name
             if hasattr(fptr_in, "history"):
                 msg = msg + "\n" + getattr(fptr_in, "history")
@@ -479,7 +479,7 @@ class ModelStateBase:
         apply postprocessing to comp_fcn result in self that is common to all comp_fcn
         methods
         """
-        fcn_name = __name__ + ".ModelStateBase.comp_fcn_postprocess"
+        fcn_name = class_name(self) + ".comp_fcn_postprocess"
         caller = fcn_name + " called from " + caller
         return self.zero_extra_tracers().apply_region_mask().dump(res_fname, caller)
 
@@ -510,7 +510,7 @@ class ModelStateBase:
         perturb_fcn = perturb_ms.comp_fcn(perturb_fcn_fname, solver_state)
 
         # compute finite difference
-        caller = __name__ + ".ModelStateBase.comp_jacobian_fcn_state_prod"
+        caller = class_name(self) + ".comp_jacobian_fcn_state_prod"
         res = ((perturb_fcn - fcn) / sigma).dump(res_fname, caller)
 
         solver_state.log_step(fcn_complete_step)

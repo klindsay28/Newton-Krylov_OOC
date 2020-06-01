@@ -6,26 +6,23 @@ import os
 from netCDF4 import Dataset
 
 from .model_config import get_modelinfo, get_region_cnt
-from .utils import create_dimension_exist_okay
+from .utils import class_name, create_dimension_exist_okay
 
 
 class StatsFile:
     """class for stats for a solver"""
 
-    def __init__(self, name, workdir, resume, fill_value=-1.0e30):
+    def __init__(self, name, workdir, solver_state):
         self._fname = os.path.join(workdir, name + "_stats.nc")
-        self._fill_value = fill_value  # file-wide default fill_value
+        self._fill_value = -1.0e30  # file-wide default fill_value
 
-        if resume:
-            # verify that stats file exists
-            if not os.path.exists(self._fname):
-                msg = "resume=True but stats file %s doesn't exist" % self._fname
-                raise RuntimeError(msg)
+        step = "stats file %s created" % self._fname
+        if solver_state.step_logged(step, per_iteration=False):
             return
 
         with Dataset(self._fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fcn_name = __name__ + ".StatsFile.__init__"
+            fcn_name = class_name(self) + ".__init__"
             msg = datestamp + ": created by " + fcn_name + " for " + name + " solver"
             setattr(fptr, "history", msg)
 
@@ -35,6 +32,8 @@ class StatsFile:
 
             # define coordinate variables
             fptr.createVariable("iteration", "i", dimensions=("iteration",))
+
+        solver_state.log_step(step, per_iteration=False)
 
     def get_fill_value(self, varname):
         """return _FillValue for varname"""
@@ -97,7 +96,7 @@ class StatsFile:
 
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             varnames = ",".join(vars_metadata)
-            fcn_name = __name__ + ".StatsFile.def_vars_specific"
+            fcn_name = class_name(self) + ".def_vars_specific"
             msg = datestamp + ": " + varnames + " appended by " + fcn_name
             msg = msg + " called by " + caller
             msg = msg + "\n" + getattr(fptr, "history")

@@ -9,7 +9,7 @@ from .model_config import get_region_cnt
 from .model_state_base import lin_comb
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver import SolverState
-from .utils import mkdir_exist_okay
+from .utils import class_name, mkdir_exist_okay
 
 
 class KrylovSolver:
@@ -64,7 +64,7 @@ class KrylovSolver:
         steps of solve that are only performed for iteration 0
         This is step 1 of Saad's alogrithm 9.4.
         """
-        caller = __name__ + ".KrylovSolver._solve0"
+        caller = class_name(self) + "._solve0"
         fcn_complete_step = "_solve0 complete"
         if not self._solver_state.step_logged(fcn_complete_step):
             # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
@@ -86,7 +86,7 @@ class KrylovSolver:
         if self._solver_state.get_iteration() == 0:
             self._solve0(fcn)
 
-        caller = __name__ + ".KrylovSolver.solve"
+        caller = class_name(self) + ".solve"
 
         while True:
             j_val = self._solver_state.get_iteration()

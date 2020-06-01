@@ -11,6 +11,10 @@ import subprocess
 from netCDF4 import Dataset
 
 
+def class_name(obj):
+    return obj.__module__ + "." + type(obj).__name__
+
+
 def get_subclasses(mod_name, base_class):
     """return list of subclasses of base_class from mod, excluding base_class"""
     logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ from .model_config import get_modelinfo
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver import SolverState
 from .stats_file import StatsFile
-from .utils import mkdir_exist_okay
+from .utils import class_name, mkdir_exist_okay
 
 
 class NewtonSolver:
@@ -31,15 +31,21 @@ class NewtonSolver:
 
         self._solverinfo = solverinfo
         self._solver_state = SolverState("Newton", workdir, resume, rewind)
-        self._stats_file = StatsFile("Newton", workdir, resume)
+        self._stats_file = StatsFile("Newton", workdir, self._solver_state)
 
-        # get solver started the first time NewtonSolver is instantiated
-        if not resume:
+        step = "Newton iterate 0 written"
+        if self._solver_state.step_logged(step, per_iteration=False):
+            self._iterate = model_state_class(self._fname("iterate"))
+        else:
             self._iterate = model_state_class(get_modelinfo("init_iterate_fname"))
-            caller = __name__ + ".NewtonSolver.__init__"
+            caller = class_name(self) + ".__init__"
             self._iterate.copy_real_tracers_to_shadow_tracers().dump(
                 self._fname("iterate"), caller
             )
+            self._solver_state.log_step(step, per_iteration=False)
+
+        # get solver started the first time NewtonSolver is instantiated
+        if not resume:
             stats_metadata = {
                 "iterate_mean_{tr_mod_name}": {
                     "long_name": "mean of {tr_mod_name} iterate"
@@ -66,8 +72,6 @@ class NewtonSolver:
                 },
             }
             self._stats_file.def_vars_generic(stats_metadata)
-        else:
-            self._iterate = model_state_class(self._fname("iterate"))
 
         # for iteration == 0, _fcn needs to be computed
         # for iteration >= 1, _fcn is available and stored when iteration is incremented
@@ -200,7 +204,7 @@ class NewtonSolver:
             )
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        caller = __name__ + ".NewtonSolver._comp_next_iterate"
+        caller = class_name(self) + "._comp_next_iterate"
 
         while True:
             # compute provisional candidate for next iterate
@@ -272,7 +276,7 @@ class NewtonSolver:
             msg = "number of maximum Newton iterations exceeded"
             raise RuntimeError(msg)
 
-        caller = __name__ + "NewtonSolver.step"
+        caller = class_name(self) + ".step"
 
         step = "fp iterations started"
         if not self._solver_state.step_logged(step):

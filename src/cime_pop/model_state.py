@@ -20,7 +20,7 @@ from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
-from ..utils import ann_files_to_mean_file, mon_files_to_mean_file
+from ..utils import class_name, ann_files_to_mean_file, mon_files_to_mean_file
 
 
 def _parse_args():
@@ -138,7 +138,7 @@ class ModelState(ModelStateBase):
             with Dataset(matrix_fname, mode="a") as fptr:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 msg = datestamp + ": created by " + matrix_gen_exe
-                fcn_name = __name__ + "ModelState._gen_precond_matrix_files"
+                fcn_name = class_name(self) + "._gen_precond_matrix_files"
                 msg = msg + " called from " + fcn_name
                 if hasattr(fptr, "history"):
                     msg = msg + "\n" + getattr(fptr, "history")
@@ -162,7 +162,7 @@ class ModelState(ModelStateBase):
 
         ms_res = self._comp_fcn_post_modelrun()
 
-        caller = __name__ + ".ModelState.comp_fcn"
+        caller = class_name(self) + ".comp_fcn"
         ms_res.comp_fcn_postprocess(res_fname, caller)
 
         solver_state.log_step(fcn_complete_step)
@@ -241,7 +241,7 @@ class ModelState(ModelStateBase):
 
         solver_state.log_step(fcn_complete_step)
 
-        caller = __name__ + ".ModelState.apply_precond_jacobian"
+        caller = class_name(self) + ".apply_precond_jacobian"
         return ms_res.dump(res_fname, caller)
 
     def _comp_fcn_post_modelrun(self):

@@ -18,6 +18,7 @@ from scipy.sparse.linalg import spsolve
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
+from ..utils import class_name
 
 from .hist import hist_write
 from .spatial_axis import SpatialAxis
@@ -181,7 +182,7 @@ class ModelState(ModelStateBase):
         for tracer_ind, tracer_name in enumerate(self.tracer_names()):
             ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
 
-        caller = __name__ + ".ModelState.comp_fcn"
+        caller = class_name(self) + ".comp_fcn"
         ms_res.comp_fcn_postprocess(res_fname, caller)
 
         if solver_state is not None:
@@ -366,7 +367,7 @@ class ModelState(ModelStateBase):
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
 
-        caller = __name__ + ".ModelState.apply_precond_jacobian"
+        caller = class_name(self) + ".apply_precond_jacobian"
         return ms_res.dump(res_fname, caller)
 
     def _apply_precond_jacobian_iage(self, mca, ms_res):
