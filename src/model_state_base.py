@@ -12,7 +12,12 @@ import numpy as np
 from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .tracer_module_state_base import TracerModuleStateBase
-from .utils import class_name, get_subclasses, create_dimension_exist_okay
+from .utils import (
+    action_step_log_wrap,
+    class_name,
+    get_subclasses,
+    create_dimension_exist_okay,
+)
 
 
 class ModelStateBase:
@@ -119,15 +124,11 @@ class ModelStateBase:
         """tuple of dimensions to keep for tracers in stats file"""
         return ()
 
+    @action_step_log_wrap(step="ModelStateBase.def_stats_vars", per_iteration=False)
     def def_stats_vars(self, stats_file, hist_fname, solver_state):
         """define model specific stats variables"""
 
-        step = "stats vars defined for %s" % class_name(self)
-        if solver_state.step_logged(step, per_iteration=False):
-            return
-
         vars_metadata = {}
-
         with Dataset(hist_fname, mode="r") as fptr_hist:
             fptr_hist.set_auto_mask(False)
             dims_keep = self.tracer_dims_keep_in_stats()
@@ -151,23 +152,17 @@ class ModelStateBase:
                     "dimensions_extra": dims_keep,
                     "attrs": attrs,
                 }
-
         caller = class_name(self) + ".def_stats_vars"
         stats_file.def_vars(coords_extra, vars_metadata, caller)
-
-        solver_state.log_step(step, per_iteration=False)
 
     def hist_time_mean_weights(self, fptr_hist):
         """return weights for computing time-mean in hist file"""
         timelen = len(fptr_hist.dimensions["time"])
         return np.full(timelen, 1.0 / timelen)
 
+    @action_step_log_wrap(step="ModelStateBase.put_stats_vars")
     def put_stats_vars(self, stats_file, hist_fname, solver_state):
         """put model specific stats variables"""
-        step = "write to stats file from %s" % class_name(self)
-        if solver_state.step_logged(step):
-            return
-
         grid_weight = model_config.model_config_obj.grid_weight
         dims_keep = self.tracer_dims_keep_in_stats()
 
@@ -197,8 +192,6 @@ class ModelStateBase:
                     name_vals_dict[tracer_name] = vals
 
         stats_file.put_vars(solver_state.get_iteration(), name_vals_dict)
-
-        solver_state.log_step(step)
 
     def __neg__(self):
         """
@@ -400,7 +393,10 @@ class ModelStateBase:
             tracer_module.append_tracer_names_per_precond_matrix(res)
         return res
 
-    def gen_precond_jacobian(self, hist_fname, precond_fname):
+    @action_step_log_wrap(
+        step="ModelStateBase.gen_precond_jacobian {precond_fname}", per_iteration=False
+    )
+    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
         """
         Generate file(s) needed for preconditioner of jacobian of comp_fcn
         evaluated at self

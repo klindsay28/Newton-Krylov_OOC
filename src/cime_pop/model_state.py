@@ -20,7 +20,12 @@ from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
-from ..utils import class_name, ann_files_to_mean_file, mon_files_to_mean_file
+from ..utils import (
+    action_step_log_wrap,
+    class_name,
+    ann_files_to_mean_file,
+    mon_files_to_mean_file,
+)
 
 
 def _parse_args():
@@ -83,7 +88,10 @@ class ModelState(ModelStateBase):
         """tuple of dimensions to keep for tracers in stats file"""
         return ("z_t", "nlat")
 
-    def gen_precond_jacobian(self, hist_fname, precond_fname):
+    @action_step_log_wrap(
+        step="ModelState.gen_precond_jacobian {precond_fname}", per_iteration=False
+    )
+    def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
         """
         Generate file(s) needed for preconditioner of jacobian of comp_fcn
         evaluated at self
@@ -91,7 +99,9 @@ class ModelState(ModelStateBase):
         logger = logging.getLogger(__name__)
         logger.debug('hist_fname="%s", precond_fname="%s"', hist_fname, precond_fname)
 
-        super().gen_precond_jacobian(hist_fname, precond_fname)
+        super().gen_precond_jacobian(
+            hist_fname, precond_fname=precond_fname, solver_state=solver_state
+        )
 
         self._gen_precond_matrix_files(precond_fname)
 
@@ -156,7 +166,7 @@ class ModelState(ModelStateBase):
             return ModelState(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        self._comp_fcn_pre_modelrun(res_fname, solver_state)
+        self._comp_fcn_pre_modelrun(res_fname=res_fname, solver_state=solver_state)
 
         _gen_hist(hist_fname)
 
@@ -169,18 +179,13 @@ class ModelState(ModelStateBase):
 
         return ms_res
 
+    @action_step_log_wrap("_comp_fcn_pre_modelrun for {res_fname}", post_exit=True)
     def _comp_fcn_pre_modelrun(self, res_fname, solver_state):
         """
         pre-modelrun step of evaluting the function being solved with Newton's method
         """
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s"', res_fname)
-
-        fcn_complete_step = "_comp_fcn_pre_modelrun complete for %s" % res_fname
-        if solver_state.step_logged(fcn_complete_step):
-            logger.debug('"%s" logged, returning', fcn_complete_step)
-            return
-        logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
         # relative pathname of tracer_ic
         tracer_ic_fname_rel = "tracer_ic.nc"
@@ -212,10 +217,7 @@ class ModelState(ModelStateBase):
         # submit the model run and exit
         cime_case_submit()
 
-        solver_state.log_step(fcn_complete_step)
-
-        logger.debug("raising SystemExit")
-        raise SystemExit
+        logger.debug("raising SystemExit (in decorator function)")
 
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, self"""

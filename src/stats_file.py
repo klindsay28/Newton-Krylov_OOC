@@ -6,7 +6,7 @@ import os
 from netCDF4 import Dataset
 
 from .model_config import get_region_cnt
-from .utils import class_name, create_dimension_exist_okay
+from .utils import action_step_log_wrap, class_name, create_dimension_exist_okay
 
 
 class StatsFile:
@@ -16,13 +16,15 @@ class StatsFile:
         self._fname = os.path.join(workdir, name + "_stats.nc")
         self._fill_value = -1.0e30  # file-wide default fill_value
 
-        step = "stats file %s created" % self._fname
-        if solver_state.step_logged(step, per_iteration=False):
-            return
+        self._create_stats_file(name=name, fname=self._fname, solver_state=solver_state)
 
-        with Dataset(self._fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
+    @action_step_log_wrap("_create_stats_file {fname}", per_iteration=False)
+    def _create_stats_file(self, name, fname, solver_state):
+        """create the stats file, along with required dimensions"""
+
+        with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fcn_name = class_name(self) + ".__init__"
+            fcn_name = class_name(self) + "._create_stats_file"
             msg = datestamp + ": created by " + fcn_name + " for " + name + " solver"
             setattr(fptr, "history", msg)
 
@@ -32,8 +34,6 @@ class StatsFile:
 
             # define coordinate variables
             fptr.createVariable("iteration", "i", dimensions=("iteration",))
-
-        solver_state.log_step(step, per_iteration=False)
 
     def get_fill_value(self, varname):
         """return _FillValue for varname"""

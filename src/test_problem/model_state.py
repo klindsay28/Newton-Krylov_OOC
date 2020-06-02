@@ -85,6 +85,7 @@ def main(args):
         ms_in.gen_precond_jacobian(
             _resolve_fname(args.fname_dir, args.hist_fname),
             _resolve_fname(args.fname_dir, args.precond_fname),
+            solver_state=None,
         )
     elif args.cmd == "apply_precond_jacobian":
         ms_in.log("state_in")
