@@ -5,6 +5,7 @@ import argparse
 import logging
 import os
 import stat
+import sys
 
 from .share import args_replace, common_args, read_cfg_file, cfg_override_args
 from .utils import mkdir_exist_okay
@@ -54,7 +55,7 @@ def gen_invoker_script(args, modelinfo, repo_root):
     os.chmod(invoker_script_fname, fstat.st_mode | stat.S_IXUSR)
 
 
-def parse_args():
+def parse_args(args_list_in=None):
     """parse command line arguments"""
 
     # process --model_name so that it can be passed to common_args
@@ -64,7 +65,9 @@ def parse_args():
         help="name of model that solver is being applied to",
         default="test_problem",
     )
-    args, args_remaining = parser.parse_known_args()
+
+    args_list = [] if args_list_in is None else args_list_in
+    args, args_remaining = parser.parse_known_args(args_list)
 
     parser = common_args("generate script for invoking nk_driver.py", args.model_name)
 
@@ -85,4 +88,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(parse_args())
+    main(parse_args(sys.argv[1:]))

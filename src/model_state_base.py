@@ -125,6 +125,7 @@ class ModelStateBase:
         return ()
 
     @action_step_log_wrap(step="ModelStateBase.def_stats_vars", per_iteration=False)
+    # pylint: disable=unused-argument
     def def_stats_vars(self, stats_file, hist_fname, solver_state):
         """define model specific stats variables"""
 
@@ -396,6 +397,7 @@ class ModelStateBase:
     @action_step_log_wrap(
         step="ModelStateBase.gen_precond_jacobian {precond_fname}", per_iteration=False
     )
+    # pylint: disable=unused-argument
     def gen_precond_jacobian(self, hist_fname, precond_fname, solver_state):
         """
         Generate file(s) needed for preconditioner of jacobian of comp_fcn

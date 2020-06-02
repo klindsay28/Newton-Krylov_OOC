@@ -28,3 +28,8 @@ dependencies:
 
 # cime_pop requirements
 - nco
+
+# notebooks
+- jupyterlab
+- matplotlib
+- xarray

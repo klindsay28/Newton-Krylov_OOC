@@ -28,7 +28,7 @@ from ..utils import (
 )
 
 
-def _parse_args():
+def parse_args(args_list_in=None):
     """parse command line arguments"""
     parser = common_args("cime pop hooks for Newton-Krylov solver", "cime_pop")
     parser.add_argument(
@@ -40,7 +40,8 @@ def _parse_args():
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    return args_replace(parser.parse_args(), model_name="cime_pop")
+    args_list = [] if args_list_in is None else args_list_in
+    return args_replace(parser.parse_args(args_list), model_name="cime_pop")
 
 
 def main(args):
@@ -577,4 +578,4 @@ def _get_pop_nl_var(var_name):
 
 
 if __name__ == "__main__":
-    main(_parse_args())
+    main(parse_args(sys.argv[1:]))

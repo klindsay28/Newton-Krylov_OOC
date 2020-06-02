@@ -19,6 +19,7 @@ class StatsFile:
         self._create_stats_file(name=name, fname=self._fname, solver_state=solver_state)
 
     @action_step_log_wrap("_create_stats_file {fname}", per_iteration=False)
+    # pylint: disable=unused-argument
     def _create_stats_file(self, name, fname, solver_state):
         """create the stats file, along with required dimensions"""
 

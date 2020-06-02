@@ -25,7 +25,7 @@ class TracerModuleState(TracerModuleStateBase):
             'tracer_module_name="%s", fname="%s"', tracer_module_name, fname,
         )
         if fname == "gen_init_iterate":
-            depth = SpatialAxis("depth", get_modelinfo("depth_fname"))
+            depth = SpatialAxis(axisname="depth", fname=get_modelinfo("depth_fname"))
             vals = np.empty((len(self._tracer_module_def), depth.nlevs))
             for tracer_ind, tracer_metadata in enumerate(
                 self._tracer_module_def.values()

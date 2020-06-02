@@ -22,7 +22,7 @@ from ..utils import (
 )
 
 
-def _parse_args():
+def parse_args(args_list_in=None):
     """parse command line arguments"""
     parser = common_args("setup cime_pop", "cime_pop")
     parser.add_argument(
@@ -31,7 +31,8 @@ def _parse_args():
         action="store_true",
     )
 
-    return args_replace(parser.parse_args(), model_name="cime_pop")
+    args_list = [] if args_list_in is None else args_list_in
+    return args_replace(parser.parse_args(args_list), model_name="cime_pop")
 
 
 def main(args):
@@ -257,4 +258,4 @@ def gen_region_mask_file(modelinfo):
 
 
 if __name__ == "__main__":
-    main(_parse_args())
+    main(parse_args(sys.argv[1:]))

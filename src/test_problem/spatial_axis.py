@@ -11,7 +11,7 @@ from ..utils import class_name
 class SpatialAxis:
     """class for spatial axis related quantities"""
 
-    def __init__(self, axisname, fname=None, defn_dict=None):
+    def __init__(self, axisname=None, fname=None, defn_dict=None):
         """
         Initialize SpatialAxis object, from a file or a dict defining the axis.
 
@@ -32,13 +32,16 @@ class SpatialAxis:
             delta_ratio_max (float): maximum ratio of layer thicknesses
         """
 
+        if (axisname is None) != (fname is None):
+            msg = "either both or neither of axisname and fname can be passed"
+            raise ValueError(msg)
+
         if (fname is None) == (defn_dict is None):
             msg = "exactly one of fname and defn_dict must be passed"
             raise ValueError(msg)
 
-        self.name = axisname
-
         if fname is not None:
+            self.name = axisname
             with Dataset(fname, mode="r") as fptr:
                 fptr.set_auto_mask(False)
                 self.units = fptr.variables[axisname + "_edges"].units
@@ -46,6 +49,7 @@ class SpatialAxis:
                 if hasattr(fptr, "defn_opts"):
                     self.defn_opts = getattr(fptr, "defn_opts")
         else:
+            self.name = defn_dict["name"]
             self.units = defn_dict["units"]
             self.edges = self._gen_edges(defn_dict)
             defn_list = [key + "=" + "%s" % val for key, val in defn_dict.items()]

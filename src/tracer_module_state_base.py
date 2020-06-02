@@ -272,21 +272,21 @@ class TracerModuleStateBase:
                 "ik,jk,jk",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,  # pylint: disable=W0212
+                other._vals,  # pylint: disable=protected-access
             )
         elif ndim == 2:
             tmp = np.einsum(
                 "ikl,jkl,jkl",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,  # pylint: disable=W0212
+                other._vals,  # pylint: disable=protected-access
             )
         else:
             tmp = np.einsum(
                 "iklm,jklm,jklm",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,  # pylint: disable=W0212
+                other._vals,  # pylint: disable=protected-access
             )
         # return RegionScalars object
         return RegionScalars(tmp)

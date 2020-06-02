@@ -25,7 +25,7 @@ from .spatial_axis import SpatialAxis
 from .vert_mix import VertMix
 
 
-def _parse_args():
+def parse_args(args_list_in=None):
     """parse command line arguments"""
     parser = common_args("test problem for Newton-Krylov solver", "test_problem")
     parser.add_argument(
@@ -43,7 +43,8 @@ def _parse_args():
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    return args_replace(parser.parse_args(), model_name="test_problem")
+    args_list = [] if args_list_in is None else args_list_in
+    return args_replace(parser.parse_args(args_list), model_name="test_problem")
 
 
 def _resolve_fname(fname_dir, fname):
@@ -114,7 +115,7 @@ class ModelState(ModelStateBase):
         super().__init__(fname)
 
         self.time_range = (0.0, 365.0)
-        self.depth = SpatialAxis("depth", get_modelinfo("depth_fname"))
+        self.depth = SpatialAxis(axisname="depth", fname=get_modelinfo("depth_fname"))
 
         self.vert_mix = VertMix(self.depth)
 
@@ -535,4 +536,4 @@ class ModelState(ModelStateBase):
 
 
 if __name__ == "__main__":
-    main(_parse_args())
+    main(parse_args(sys.argv[1:]))

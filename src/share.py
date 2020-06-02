@@ -2,7 +2,8 @@
 
 import argparse
 import configparser
-import os
+from os import path, environ
+from os.path import dirname, realpath
 
 import git
 
@@ -14,6 +15,7 @@ cfg_override_args = {
     "newton_max_iter": {"section": "solverinfo"},
     "newton_rel_tol": {"section": "solverinfo"},
     "tracer_module_names": {"section": "modelinfo"},
+    "init_iterate_fname": {"section": "modelinfo"},
     "persist": {
         "model_name": "test_problem",
         "override_var": "reinvoke",
@@ -29,10 +31,11 @@ def common_args(description, model_name):
     parser = argparse.ArgumentParser(
         description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    repo_root = dirname(dirname(realpath(__file__)))
     parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default="input/%s/newton_krylov.cfg" % model_name,
+        default=path.join(repo_root, "input", model_name, "newton_krylov.cfg"),
     )
 
     # add arguments that override cfg file
@@ -80,7 +83,7 @@ def read_cfg_file(args):
     """
     cfg_fname = args.cfg_fname
 
-    defaults = {key: os.environ[key] for key in ["HOME", "USER"]}
+    defaults = {key: environ[key] for key in ["HOME", "USER"]}
     defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
     config = configparser.ConfigParser(defaults, allow_no_value=True)
     config.read_file(open(cfg_fname))
@@ -118,7 +121,7 @@ def read_cfg_file(args):
     # write cfg contents to a file, if requested
     cfg_out_fname = config["solverinfo"]["cfg_out_fname"]
     if cfg_out_fname is not None:
-        mkdir_exist_okay(os.path.dirname(cfg_out_fname))
+        mkdir_exist_okay(dirname(cfg_out_fname))
         with open(cfg_out_fname, "w") as fptr:
             config.write(fptr)
 

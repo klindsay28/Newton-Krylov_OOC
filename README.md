@@ -60,7 +60,10 @@ avoids the requirement for the solver to remain resident in memory.
 
     scripts/            # directory for scripts that are applicable to multiple models
                         #   (there are no model specific scripts)
+
     input/           
         test_problem/   # directory for input files that are model specific
         cime_pop/       # directory for input files that are model specific
+
+    notebooks/          # jupyter notebooks utilizing the solver
 ```

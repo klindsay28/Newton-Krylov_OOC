@@ -14,29 +14,55 @@ from .model_state import ModelState
 from .spatial_axis import SpatialAxis
 
 
-def _parse_args():
+def depth_defn_dict(trap_unknown=True, **kwargs):
+    """return a defn_dict for depth axis defaults"""
+    defn_dict = {
+        "name": "depth",
+        "units": "m",
+        "nlevs": 30,
+        "edge_start": 0.0,
+        "edge_end": 900.0,
+        "delta_ratio_max": 5.0,
+    }
+    for key, value in kwargs.items():
+        if key in defn_dict:
+            defn_dict[key] = value
+        elif trap_unknown:
+            msg = "unknown key %s" % key
+            raise ValueError(msg)
+    return defn_dict
+
+
+def parse_args(args_list_in=None):
     """parse command line arguments"""
     parser = common_args("setup test_problem", "test_problem")
+    axis_defaults = depth_defn_dict()
     parser.add_argument(
-        "--axisname", help="axis name", default="depth",
+        "--axisname", help="axis name", default=axis_defaults["name"],
     )
     parser.add_argument(
-        "--units", help="axis units", default="m",
+        "--units", help="axis units", default=axis_defaults["units"],
     )
     parser.add_argument(
-        "--nlevs", type=int, help="number of layers", default=30,
+        "--nlevs", type=int, help="number of layers", default=axis_defaults["nlevs"],
     )
     parser.add_argument(
-        "--edge_start", type=float, help="start of edges", default=0.0,
+        "--edge_start",
+        type=float,
+        help="start of edges",
+        default=axis_defaults["edge_start"],
     )
     parser.add_argument(
-        "--edge_end", type=float, help="end of edges", default=900.0,
+        "--edge_end",
+        type=float,
+        help="end of edges",
+        default=axis_defaults["edge_end"],
     )
     parser.add_argument(
         "--delta_ratio_max",
         type=float,
         help="maximum ratio of layer thicknesses",
-        default=5.0,
+        default=axis_defaults["delta_ratio_max"],
     )
     parser.add_argument(
         "--fp_cnt",
@@ -45,7 +71,8 @@ def _parse_args():
         default=2,
     )
 
-    return args_replace(parser.parse_args(), model_name="test_problem")
+    args_list = [] if args_list_in is None else args_list_in
+    return args_replace(parser.parse_args(args_list), model_name="test_problem")
 
 
 def main(args):
@@ -66,15 +93,9 @@ def main(args):
     args.model_name = "test_problem"
     gen_invoker_script.main(args)
 
-    # generate depth axis
-    defn_dict = {
-        "units": args.units,
-        "nlevs": args.nlevs,
-        "edge_start": args.edge_start,
-        "edge_end": args.edge_end,
-        "delta_ratio_max": args.delta_ratio_max,
-    }
-    depth = SpatialAxis(axisname=args.axisname, defn_dict=defn_dict)
+    # generate depth axis from args
+    defn_dict = depth_defn_dict(trap_unknown=False, **(args.__dict__))
+    depth = SpatialAxis(defn_dict=defn_dict)
 
     modelinfo = config["modelinfo"]
 
@@ -123,4 +144,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(_parse_args())
+    main(parse_args(sys.argv[1:],))
