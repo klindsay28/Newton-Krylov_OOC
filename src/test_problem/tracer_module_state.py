@@ -91,10 +91,14 @@ class TracerModuleState(TracerModuleStateBase):
             for dimname, dimlen in self._dims.items():
                 create_dimension_exist_okay(fptr, dimname, dimlen)
             dimnames = tuple(self._dims.keys())
+            if self.depth.name not in fptr.variables:
+                self.depth.dump_def(fptr)
             # define all tracers
             for tracer_name in self.tracer_names():
                 fptr.createVariable(tracer_name, "f8", dimensions=dimnames)
+            fptr.sync()
         elif action == "write":
+            self.depth.dump_write(fptr)
             # write all tracers
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 fptr.variables[tracer_name][:] = self._vals[tracer_ind, :]

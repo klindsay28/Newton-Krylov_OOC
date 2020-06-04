@@ -6,7 +6,7 @@ from cf_units import Unit
 from netCDF4 import Dataset
 import numpy as np
 
-from ..utils import class_name
+from ..utils import class_name, create_dimension_exist_okay
 
 
 class SpatialAxis:
@@ -100,10 +100,6 @@ class SpatialAxis:
     def dump(self, fname, caller):
         """write axis information to a netCDF4 file"""
 
-        bounds_name = self.name + "_bounds"
-        edges_name = self.name + "_edges"
-        delta_name = self.name + "_delta"
-
         with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             name = class_name(self) + ".dump"
@@ -113,34 +109,52 @@ class SpatialAxis:
             if hasattr(self, "defn_opts"):
                 setattr(fptr, "defn_opts", self.defn_opts)
 
-            # define dimensions
-            fptr.createDimension(self.name, self.nlevs)
-            fptr.createDimension("nbnds", 2)
-            fptr.createDimension(edges_name, 1 + self.nlevs)
+            self.dump_def(fptr)
 
-            # define variables
+            self.dump_write(fptr)
 
-            fptr.createVariable(self.name, "f8", dimensions=(self.name,))
-            fptr.variables[self.name].long_name = self.name + " layer midpoints"
-            fptr.variables[self.name].units = self.units
-            fptr.variables[self.name].bounds = bounds_name
+    def dump_def(self, fptr):
+        """define dimensions and variables for dump"""
 
-            fptr.createVariable(bounds_name, "f8", dimensions=(self.name, "nbnds"))
-            fptr.variables[bounds_name].long_name = self.name + " layer bounds"
+        bounds_name = self.name + "_bounds"
+        edges_name = self.name + "_edges"
+        delta_name = self.name + "_delta"
 
-            fptr.createVariable(edges_name, "f8", dimensions=(edges_name,))
-            fptr.variables[edges_name].long_name = self.name + " layer edges"
-            fptr.variables[edges_name].units = self.units
+        # define dimensions
 
-            fptr.createVariable(delta_name, "f8", dimensions=(self.name,))
-            fptr.variables[delta_name].long_name = self.name + " layer thickness"
-            fptr.variables[delta_name].units = self.units
+        create_dimension_exist_okay(fptr, self.name, self.nlevs)
+        create_dimension_exist_okay(fptr, "nbnds", 2)
+        create_dimension_exist_okay(fptr, edges_name, 1 + self.nlevs)
 
-            # write variables
-            fptr.variables[self.name][:] = self.mid
-            fptr.variables[bounds_name][:] = self.bounds
-            fptr.variables[edges_name][:] = self.edges
-            fptr.variables[delta_name][:] = self.delta
+        # define variables
+
+        fptr.createVariable(self.name, "f8", dimensions=(self.name,))
+        fptr.variables[self.name].long_name = self.name + " layer midpoints"
+        fptr.variables[self.name].units = self.units
+        fptr.variables[self.name].bounds = bounds_name
+
+        fptr.createVariable(bounds_name, "f8", dimensions=(self.name, "nbnds"))
+        fptr.variables[bounds_name].long_name = self.name + " layer bounds"
+
+        fptr.createVariable(edges_name, "f8", dimensions=(edges_name,))
+        fptr.variables[edges_name].long_name = self.name + " layer edges"
+        fptr.variables[edges_name].units = self.units
+
+        fptr.createVariable(delta_name, "f8", dimensions=(self.name,))
+        fptr.variables[delta_name].long_name = self.name + " layer thickness"
+        fptr.variables[delta_name].units = self.units
+
+    def dump_write(self, fptr):
+        """write variables for dump"""
+
+        bounds_name = self.name + "_bounds"
+        edges_name = self.name + "_edges"
+        delta_name = self.name + "_delta"
+
+        fptr.variables[self.name][:] = self.mid
+        fptr.variables[bounds_name][:] = self.bounds
+        fptr.variables[edges_name][:] = self.edges
+        fptr.variables[delta_name][:] = self.delta
 
     def int_vals_mid(self, vals):
         """
