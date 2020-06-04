@@ -58,18 +58,16 @@ class ModelStateBase:
                 tracer_module_name, fname, **kwargs
             )
 
+        self.tracer_cnt = sum(
+            tracer_module.tracer_cnt for tracer_module in self.tracer_modules
+        )
+
     def tracer_names(self):
         """return list of tracer names"""
         res = []
         for tracer_module in self.tracer_modules:
             res.extend(tracer_module.tracer_names())
         return res
-
-    def tracer_cnt(self):
-        """return number of tracers"""
-        return sum(
-            [tracer_module.tracer_cnt() for tracer_module in self.tracer_modules]
-        )
 
     def tracer_index(self, tracer_name):
         """return the index of a tracer"""
@@ -89,6 +87,8 @@ class ModelStateBase:
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
         logger.debug('fname="%s"', fname)
+        if fname is None:
+            return self
         with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             name = class_name(self) + ".dump"

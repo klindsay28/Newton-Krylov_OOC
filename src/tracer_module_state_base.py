@@ -36,6 +36,7 @@ class TracerModuleStateBase:
         self._tracer_module_def = model_config.model_config_obj.tracer_module_defs[
             tracer_module_name
         ]
+        self.tracer_cnt = len(self._tracer_module_def["tracers"])
         # units common to all tracers
         self.units = attr_common(self._tracer_module_def["tracers"], "units")
         self._vals, self._dims = self._read_vals(  # pylint: disable=no-member
@@ -45,10 +46,6 @@ class TracerModuleStateBase:
     def tracer_names(self):
         """return list of tracer names"""
         return list(self._tracer_module_def["tracers"])
-
-    def tracer_cnt(self):
-        """return number of tracers"""
-        return len(self._tracer_module_def["tracers"])
 
     def tracer_index(self, tracer_name):
         """return the index of a tracer"""
@@ -374,7 +371,7 @@ class TracerModuleStateBase:
 
     def apply_region_mask(self):
         """set _vals to zero where region_mask == 0"""
-        for tracer_ind in range(self.tracer_cnt()):
+        for tracer_ind in range(self.tracer_cnt):
             self._vals[tracer_ind, :] = np.where(
                 model_config.model_config_obj.region_mask != 0,
                 self._vals[tracer_ind, :],

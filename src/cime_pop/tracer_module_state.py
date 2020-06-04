@@ -27,7 +27,7 @@ class TracerModuleState(TracerModuleStateBase):
             dims = {dim.name: dim.size for dim in var0.get_dims()}
             # all tracers are stored in a single array
             # tracer index is the leading index
-            vals = np.empty((self.tracer_cnt(),) + tuple(dims.values()))
+            vals = np.empty((self.tracer_cnt,) + tuple(dims.values()))
             # check that all vars have the same dimensions
             for tracer_name in self.tracer_names():
                 if fptr.variables[tracer_name + suffix].dimensions != var0.dimensions:

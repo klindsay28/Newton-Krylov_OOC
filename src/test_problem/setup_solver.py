@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """set up files needed to run NK solver for test_problem"""
 
+import cProfile
 import logging
 import os
+import pstats
 import sys
 
 from .. import gen_invoker_script
@@ -75,6 +77,11 @@ def parse_args(args_list_in=None):
         help="number of fixed point iterations to apply to init_iterate",
         default=2,
     )
+    parser.add_argument(
+        "--prof_comp_fcn_fname",
+        help="profile comp_fcn call; write output to provided argument",
+        default=None,
+    )
 
     return args_replace(parser.parse_args(args_remaining))
 
@@ -117,6 +124,17 @@ def main(args):
 
     # generate initial condition
     init_iterate = ModelState("gen_init_iterate")
+
+    if args.prof_comp_fcn_fname is not None:
+        cProfile.runctx(
+            "init_iterate.comp_fcn(res_fname=None, solver_state=None, hist_fname=None)",
+            globals=None,
+            locals={"init_iterate": init_iterate},
+            filename=args.prof_comp_fcn_fname,
+        )
+        stats_obj = pstats.Stats(args.prof_comp_fcn_fname)
+        stats_obj.strip_dirs().sort_stats("time").print_stats(20)
+        return
 
     # perform fixed point iteration(s) on init_iterate
     if args.fp_cnt > 0:

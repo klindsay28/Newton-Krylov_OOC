@@ -134,10 +134,10 @@ class ModelState(ModelStateBase):
 
     def get_tracer_vals_all(self):
         """get all tracer values"""
-        res_vals = np.empty((self.tracer_cnt(), self.depth.nlevs))
+        res_vals = np.empty((self.tracer_cnt, self.depth.nlevs))
         ind0 = 0
         for tracer_module in self.tracer_modules:
-            cnt = tracer_module.tracer_cnt()
+            cnt = tracer_module.tracer_cnt
             res_vals[ind0 : ind0 + cnt, :] = tracer_module.get_tracer_vals_all()
             ind0 = ind0 + cnt
         return res_vals
@@ -150,14 +150,14 @@ class ModelState(ModelStateBase):
             self.tracer_modules = np.empty(len(tracer_modules_orig), dtype=np.object)
             for ind, tracer_module_orig in enumerate(tracer_modules_orig):
                 self.tracer_modules[ind] = copy.copy(tracer_module_orig)
-                cnt = tracer_module_orig.tracer_cnt()
+                cnt = tracer_module_orig.tracer_cnt
                 self.tracer_modules[ind].set_tracer_vals_all(
                     vals[ind0 : ind0 + cnt, :], reseat_vals=reseat_vals
                 )
                 ind0 = ind0 + cnt
         else:
             for tracer_module in self.tracer_modules:
-                cnt = tracer_module.tracer_cnt()
+                cnt = tracer_module.tracer_cnt
                 tracer_module.set_tracer_vals_all(
                     vals[ind0 : ind0 + cnt, :], reseat_vals=reseat_vals
                 )
@@ -219,12 +219,12 @@ class ModelState(ModelStateBase):
     def _comp_tend(self, time, tracer_vals_flat):
         """compute tendency function"""
 
-        tracer_vals = tracer_vals_flat.reshape((self.tracer_cnt(), -1))
+        tracer_vals = tracer_vals_flat.reshape((self.tracer_cnt, -1))
         dtracer_vals_dt = np.empty_like(tracer_vals)
 
         ind0 = 0
         for tracer_module in self.tracer_modules:
-            cnt = tracer_module.tracer_cnt()
+            cnt = tracer_module.tracer_cnt
             tracer_module.comp_tend(
                 time,
                 tracer_vals[ind0 : ind0 + cnt, :],
@@ -300,10 +300,10 @@ class ModelState(ModelStateBase):
                 ][time_ind, -2]
 
             # write tracer module hist vars, providing appropriate segment of sol.y
-            tracer_vals_all = sol.y.reshape((self.tracer_cnt(), self.depth.nlevs, -1))
+            tracer_vals_all = sol.y.reshape((self.tracer_cnt, self.depth.nlevs, -1))
             ind0 = 0
             for tracer_module in self.tracer_modules:
-                cnt = tracer_module.tracer_cnt()
+                cnt = tracer_module.tracer_cnt
                 tracer_module.write_hist_vars(
                     fptr, tracer_vals_all[ind0 : ind0 + cnt, :]
                 )
@@ -339,7 +339,8 @@ class ModelState(ModelStateBase):
         """write netCDF4 coordinate vars relevant to test_problem"""
         fptr.variables["time"][:] = time
         fptr.variables["depth"][:] = self.depth.mid
-        fptr.variables["depth_bounds"][:] = self.depth.bounds
+        fptr.variables["depth_bounds"][:, 0] = self.depth.edges[:-1]
+        fptr.variables["depth_bounds"][:, 1] = self.depth.edges[1:]
         fptr.variables["depth_edges"][:] = self.depth.edges
 
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):

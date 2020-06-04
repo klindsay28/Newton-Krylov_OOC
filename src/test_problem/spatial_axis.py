@@ -21,12 +21,14 @@ class SpatialAxis:
 
         Options for specifying edges are
         1) read them from a file, specified by fname,
-        2) generate them from grid specs in dict, specified by defn_dect.
+        2) generate them from axis specs in dict, specified by defn_dect.
 
         file: assume edges variable in fname is named axis_name+"_edges"
         other fields in the input file are ignored
 
         dict: defn_dict is required to have the following keys
+            name (str): name of axis
+            units (str): units of axis values
             nlevs (int): number of layers
             edge_start (float): first edge value
             edge_end (float): last edge value
@@ -57,17 +59,14 @@ class SpatialAxis:
             self.defn_opts = "\n".join(defn_list)
 
         self.nlevs = len(self.edges) - 1
-        self.bounds = np.empty((self.nlevs, 2))
-        self.bounds[:, 0] = self.edges[:-1]
-        self.bounds[:, 1] = self.edges[1:]
-        self.mid = self.bounds.mean(axis=1)
-        self.delta = self.bounds[:, 1] - self.bounds[:, 0]
+        self.mid = 0.5 * (self.edges[:-1] + self.edges[1:])
+        self.delta = self.edges[1:] - self.edges[:-1]
         self.delta_r = 1.0 / self.delta
         self.delta_mid = np.ediff1d(self.mid)
         self.delta_mid_r = 1.0 / self.delta_mid
 
     def _gen_edges(self, defn_dict):
-        """generate edges from grid specs in defn_dict"""
+        """generate edges from axis specs in defn_dict"""
 
         nlevs = defn_dict["nlevs"]
 
@@ -152,7 +151,8 @@ class SpatialAxis:
         delta_name = self.name + "_delta"
 
         fptr.variables[self.name][:] = self.mid
-        fptr.variables[bounds_name][:] = self.bounds
+        fptr.variables[bounds_name][:, 0] = self.edges[:-1]
+        fptr.variables[bounds_name][:, 1] = self.edges[1:]
         fptr.variables[edges_name][:] = self.edges
         fptr.variables[delta_name][:] = self.delta
 
