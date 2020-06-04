@@ -2,17 +2,19 @@
 
 tracer_module_defs:
     iage:  # module name
-        IAGE:
-            attrs: {units: "years"}
-            precond_matrix: iage_like
+        tracers:
+            IAGE:
+                attrs: {units: "years"}
+                precond_matrix: iage_like
 
     abio_dic_dic14:  # module name
-        ABIO_DIC:
-            attrs: {units: "nmol/cm^3"}
-            precond_matrix: abio_dic
-        ABIO_DIC14:
-            attrs: {units: "nmol/cm^3"}
-            precond_matrix: abio_dic14
+        tracers:
+            ABIO_DIC:
+                attrs: {units: "nmol/cm^3"}
+                precond_matrix: abio_dic
+            ABIO_DIC14:
+                attrs: {units: "nmol/cm^3"}
+                precond_matrix: abio_dic14
 
 precond_matrix_defs:
     base:

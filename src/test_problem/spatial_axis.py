@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+from cf_units import Unit
 from netCDF4 import Dataset
 import numpy as np
 
@@ -147,3 +148,22 @@ class SpatialAxis:
         works for multiple tracer values, assuming vertical axis is last
         """
         return (self.delta * vals).sum(axis=-1)
+
+    def int_vals_mid_units(self, vals_units):
+        """units of int_vals_mid result, assuming units of vals are vals_units"""
+        units_out_list = vals_units.split()
+        for ind, term in enumerate(units_out_list):
+            if _is_power_of(term, self.units):
+                units_out_list[ind] = Unit(term + " " + self.units).format()
+                return " ".join(units_out_list)
+        units_out_list.append(self.units)
+        return " ".join(units_out_list)
+
+
+def _is_power_of(term1, term2):
+    """is term1 convertible from a power of term2"""
+    for power in range(-6, 7):
+        term2_raised = "(%s)%d" % (term2, power)
+        if Unit(term1).is_convertible(term2_raised):
+            return True
+    return False

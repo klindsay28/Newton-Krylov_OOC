@@ -141,7 +141,7 @@ class ModelConfig:
 
         # apply replacement to referenced precond matrices,
         # if their name is parameterized
-        for tracer_metadata in tracer_module_def_root.values():
+        for tracer_metadata in tracer_module_def_root["tracers"].values():
             if "precond_matrix" in tracer_metadata:
                 matrix_name = tracer_metadata["precond_matrix"]
                 matrix_name_new = matrix_name.format(**fmt)
@@ -185,9 +185,9 @@ def check_shadow_tracers(tracer_module_defs, lvl):
         shadowed_tracers = []
         # Verify that shadows is a known tracer names.
         # Verify that no tracer is shadowed multiple times.
-        for tracer_name, tracer_metadata in tracer_module_def.items():
+        for tracer_name, tracer_metadata in tracer_module_def["tracers"].items():
             if "shadows" in tracer_metadata:
-                if tracer_metadata["shadows"] not in tracer_module_def:
+                if tracer_metadata["shadows"] not in tracer_module_def["tracers"]:
                     msg = "shadows value %s for %s in tracer module %s not known" % (
                         tracer_metadata["shadows"],
                         tracer_name,
@@ -225,7 +225,7 @@ def check_tracer_module_suffs(tracer_module_defs):
             msg = "%s: name_has_suff must equal metadata_has_suff" % name
             raise ValueError(msg)
         if name_has_suff:
-            for tracer_name in metadata:
+            for tracer_name in metadata["tracers"]:
                 if tracer_name.format(**fmt) == tracer_name:
                     msg = "%s: tracer %s must have suff" % (name, tracer_name)
                     raise ValueError(msg)

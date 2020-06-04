@@ -80,11 +80,6 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, fname):
-        logger = logging.getLogger(__name__)
-        logger.debug('ModelState, fname="%s"', fname)
-        super().__init__(fname)
-
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
         return ("z_t", "nlat")

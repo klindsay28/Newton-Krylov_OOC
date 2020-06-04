@@ -2,6 +2,7 @@
 """test_problem model specifics for ModelStateBase"""
 
 import copy
+from datetime import datetime
 from distutils.util import strtobool
 import logging
 import os
@@ -11,16 +12,12 @@ import sys
 from netCDF4 import Dataset
 import numpy as np
 from scipy.integrate import solve_ivp
-from scipy.linalg import solve_banded, svd
-from scipy.sparse import diags, eye
-from scipy.sparse.linalg import spsolve
 
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
 from ..utils import class_name
 
-from .hist import hist_write
 from .spatial_axis import SpatialAxis
 from .vert_mix import VertMix
 
@@ -110,25 +107,12 @@ class ModelState(ModelStateBase):
     __array_priority__ = 100
 
     def __init__(self, fname):
-        logger = logging.getLogger(__name__)
-        logger.debug('ModelState, fname="%s"', fname)
-        super().__init__(fname)
-
         self.time_range = (0.0, 365.0)
         self.depth = SpatialAxis(axisname="depth", fname=get_modelinfo("depth_fname"))
 
         self.vert_mix = VertMix(self.depth)
 
-        # light has e-folding decay of 25m
-        self.light_lim = np.exp((-1.0 / 25.0) * self.depth.mid)
-
-        self._sinking_tend_work = np.zeros(1 + self.depth.nlevs)
-
-        # integral of surface flux over year is 1 mol m-2
-        self._dye_sink_surf_flux_times = 365.0 * np.array([0.1, 0.2, 0.6, 0.7])
-        self._dye_sink_surf_flux_vals = np.array([0.0, 2.0, 2.0, 0.0]) / 365.0
-        self._dye_sink_surf_flux_time = None
-        self._dye_sink_surf_flux_val = 0.0
+        super().__init__(fname)
 
     def tracer_dims_keep_in_stats(self):
         """tuple of dimensions to keep for tracers in stats file"""
@@ -143,6 +127,37 @@ class ModelState(ModelStateBase):
         weights[-1] *= 0.5
         return weights
 
+    def get_tracer_vals_all(self):
+        """get all tracer values"""
+        res_vals = np.empty((self.tracer_cnt(), self.depth.nlevs))
+        ind0 = 0
+        for tracer_module in self.tracer_modules:
+            cnt = tracer_module.tracer_cnt()
+            res_vals[ind0 : ind0 + cnt, :] = tracer_module.get_tracer_vals_all()
+            ind0 = ind0 + cnt
+        return res_vals
+
+    def set_tracer_vals_all(self, vals, reseat_vals=False):
+        """set all tracer values"""
+        ind0 = 0
+        if reseat_vals:
+            tracer_modules_orig = self.tracer_modules
+            self.tracer_modules = np.empty(len(tracer_modules_orig), dtype=np.object)
+            for ind, tracer_module_orig in enumerate(tracer_modules_orig):
+                self.tracer_modules[ind] = copy.copy(tracer_module_orig)
+                cnt = tracer_module_orig.tracer_cnt()
+                self.tracer_modules[ind].set_tracer_vals_all(
+                    vals[ind0 : ind0 + cnt, :], reseat_vals=reseat_vals
+                )
+                ind0 = ind0 + cnt
+        else:
+            for tracer_module in self.tracer_modules:
+                cnt = tracer_module.tracer_cnt()
+                tracer_module.set_tracer_vals_all(
+                    vals[ind0 : ind0 + cnt, :], reseat_vals=reseat_vals
+                )
+                ind0 = ind0 + cnt
+
     def comp_fcn(self, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
@@ -155,9 +170,8 @@ class ModelState(ModelStateBase):
                 return ModelState(res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        tracer_vals_init = np.empty((self.tracer_cnt(), self.depth.nlevs))
-        for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-            tracer_vals_init[tracer_ind, :] = self.get_tracer_vals(tracer_name)
+        # memory for result, use it initially for passing initial value to solve_ivp
+        res_vals = self.get_tracer_vals_all()
 
         # solve ODEs, using scipy.integrate
         # get dense output, if requested
@@ -168,24 +182,23 @@ class ModelState(ModelStateBase):
         sol = solve_ivp(
             self._comp_tend,
             self.time_range,
-            tracer_vals_init.reshape(-1),
+            res_vals.reshape(-1),
             "Radau",
             t_eval,
             atol=1.0e-10,
             rtol=1.0e-10,
-            args=(self.vert_mix,),
         )
 
-        if hist_fname is not None:
-            hist_write(self, sol, hist_fname, self)
+        self._gen_hist(sol, hist_fname)
 
-        ms_res = copy.deepcopy(self)
-        res_vals = sol.y[:, -1].reshape(tracer_vals_init.shape) - tracer_vals_init
-        for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-            ms_res.set_tracer_vals(tracer_name, res_vals[tracer_ind, :])
+        res_vals[:] = sol.y[:, -1].reshape(res_vals.shape) - res_vals
+
+        # ModelState instance for result
+        res_ms = copy.copy(self)
+        res_ms.set_tracer_vals_all(res_vals, reseat_vals=True)
 
         caller = class_name(self) + ".comp_fcn"
-        ms_res.comp_fcn_postprocess(res_fname, caller)
+        res_ms.comp_fcn_postprocess(res_fname, caller)
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
@@ -196,145 +209,133 @@ class ModelState(ModelStateBase):
                 subprocess.Popen(cmd)
                 raise SystemExit
 
-        return ms_res
+        return res_ms
 
-    def _comp_tend(self, time, tracer_vals_flat, vert_mix):
+    def _comp_tend(self, time, tracer_vals_flat):
         """compute tendency function"""
+
         tracer_vals = tracer_vals_flat.reshape((self.tracer_cnt(), -1))
         dtracer_vals_dt = np.empty_like(tracer_vals)
+
+        ind0 = 0
         for tracer_module in self.tracer_modules:
-            if tracer_module.name == "iage":
-                tracer_ind = self.tracer_names().index("iage")
-                self._comp_tend_iage(
-                    time,
-                    tracer_vals[tracer_ind, :],
-                    dtracer_vals_dt[tracer_ind, :],
-                    vert_mix,
-                )
-            elif tracer_module.name[:9] == "dye_sink_":
-                tracer_ind = self.tracer_names().index(tracer_module.name)
-                self._comp_tend_dye_sink(
-                    tracer_module.name[9:],
-                    time,
-                    tracer_vals[tracer_ind, :],
-                    dtracer_vals_dt[tracer_ind, :],
-                    vert_mix,
-                )
-            elif tracer_module.name == "phosphorus":
-                tracer_ind0 = self.tracer_names().index("po4")
-                self._comp_tend_phosphorus(
-                    time,
-                    tracer_vals[tracer_ind0 : tracer_ind0 + 6, :],
-                    dtracer_vals_dt[tracer_ind0 : tracer_ind0 + 6, :],
-                    vert_mix,
-                )
-            else:
-                msg = "unknown tracer module %s" % tracer_module.name
-                raise ValueError(msg)
+            cnt = tracer_module.tracer_cnt()
+            tracer_module.comp_tend(
+                time,
+                tracer_vals[ind0 : ind0 + cnt, :],
+                dtracer_vals_dt[ind0 : ind0 + cnt, :],
+                self.vert_mix,
+            )
+            ind0 = ind0 + cnt
         return dtracer_vals_dt.reshape(-1)
 
-    def _comp_tend_iage(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
-        """
-        compute tendency for iage
-        tendency units are tr_units / day
-        """
-        # surface_flux piston velocity = 240 m / day
-        # same as restoring 24 / day over 10 m
-        surf_flux = -240.0 * tracer_vals[0]
-        dtracer_vals_dt[:] = vert_mix.tend(time, tracer_vals, surf_flux)
-        # age 1/year
-        dtracer_vals_dt[:] += 1.0 / 365.0
+    def _gen_hist(self, sol, hist_fname):
+        """write tracer values generated in comp_fcn to hist_fname"""
 
-    def _comp_tend_dye_sink(self, suff, time, tracer_vals, dtracer_vals_dt, vert_mix):
-        """
-        compute tendency for dye_sink tracer
-        tendency units are tr_units / day
-        """
-        surf_flux = self._dye_sink_surf_flux(time)
-        dtracer_vals_dt[:] = vert_mix.tend(time, tracer_vals, surf_flux)
-        # decay (suff / 1000) / y
-        dtracer_vals_dt[:] -= int(suff) * 0.001 / 365.0 * tracer_vals
+        if hist_fname is None:
+            return
 
-    def _dye_sink_surf_flux(self, time):
-        """return surf flux applied to dye_sink tracers"""
-        if time != self._dye_sink_surf_flux_time:
-            self._dye_sink_surf_flux_val = np.interp(
-                time, self._dye_sink_surf_flux_times, self._dye_sink_surf_flux_vals
-            )
-            time = self._dye_sink_surf_flux_time
-        return self._dye_sink_surf_flux_val
+        # generate hist var metadata, starting with tracer module independent vars
+        hist_vars_metadata = {
+            "bldepth": {
+                "dimensions": ("time"),
+                "attrs": {"long_name": "boundary layer depth", "units": "m",},
+            },
+            "mixing_coeff": {
+                "dimensions": ("time", "depth_edges"),
+                "attrs": {
+                    "long_name": "vertical mixing coefficient",
+                    "units": "m2 s-1",
+                },
+            },
+        }
+        # add tracer module hist vars
+        for tracer_module in self.tracer_modules:
+            hist_vars_metadata.update(tracer_module.hist_vars_metadata())
 
-    def _comp_tend_phosphorus(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
-        """
-        compute tendency for phosphorus tracers
-        tendency units are tr_units / day
-        """
+        # create the hist file
+        with Dataset(hist_fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
+            datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            name = __name__ + "._gen_hist"
+            msg = datestamp + ": created by " + name
+            setattr(fptr, "history", msg)
 
-        po4_uptake = self.po4_uptake(tracer_vals[0, :])
+            # define hist dimensions and coordinate vars
+            self._def_dims_hist(fptr)
+            self._def_coord_vars_hist(fptr)
 
-        self._comp_tend_phosphorus_core(
-            time, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :], vert_mix
-        )
-        self._comp_tend_phosphorus_core(
-            time, po4_uptake, tracer_vals[3:6, :], dtracer_vals_dt[3:6, :], vert_mix
-        )
+            # define hist vars
+            for varname, metadata in hist_vars_metadata.items():
+                var = fptr.createVariable(
+                    varname, "f8", dimensions=metadata["dimensions"]
+                )
+                for attr_name, attr_value in metadata["attrs"].items():
+                    setattr(var, attr_name, attr_value)
+                if "time" in metadata["dimensions"]:
+                    setattr(var, "cell_methods", "time: point")
 
-        # restore po4_s to po4, at a rate of 1 / day
-        # compensate equally from and dop and pop,
-        # so that total shadow phosphorus is conserved
-        rest_term = 1.0 * (tracer_vals[0, 0] - tracer_vals[3, 0])
-        dtracer_vals_dt[3, 0] += rest_term
-        dtracer_vals_dt[4, 0] -= 0.67 * rest_term
-        dtracer_vals_dt[5, 0] -= 0.33 * rest_term
+            # write coordinate vars
+            self._write_coord_vars_hist(fptr, sol.t)
 
-    def po4_uptake(self, po4):
-        """return po4_uptake, [mmol m-3 d-1]"""
+            # (re-)compute and write tracer module independent vars
+            days_per_sec = 1.0 / 86400.0
+            for time_ind, time in enumerate(sol.t):
+                fptr.variables["bldepth"][time_ind] = self.vert_mix.bldepth(time)
+                fptr.variables["mixing_coeff"][time_ind, 1:-1] = (
+                    days_per_sec
+                    * self.vert_mix.mixing_coeff(time)
+                    * self.depth.delta_mid
+                )
+                # kludge to avoid missing values
+                fptr.variables["mixing_coeff"][time_ind, 0] = fptr.variables[
+                    "mixing_coeff"
+                ][time_ind, 1]
+                fptr.variables["mixing_coeff"][time_ind, -1] = fptr.variables[
+                    "mixing_coeff"
+                ][time_ind, -2]
 
-        # po4 half-saturation = 0.5
-        # maximum uptake rate = 1 d-1
-        po4_lim = po4 / (po4 + 0.5)
-        return self.light_lim * po4_lim
+            # write tracer module hist vars, providing appropriate segment of sol.y
+            tracer_vals_all = sol.y.reshape((self.tracer_cnt(), self.depth.nlevs, -1))
+            ind0 = 0
+            for tracer_module in self.tracer_modules:
+                cnt = tracer_module.tracer_cnt()
+                tracer_module.write_hist_vars(
+                    fptr, tracer_vals_all[ind0 : ind0 + cnt, :]
+                )
+                ind0 = ind0 + cnt
 
-    def _comp_tend_phosphorus_core(
-        self, time, po4_uptake, tracer_vals, dtracer_vals_dt, vert_mix
-    ):
-        """
-        core fuction for computing tendency for phosphorus tracers
-        tendency units are tr_units / day
-        """
+    def _def_dims_hist(self, fptr):
+        """define netCDF4 dimensions relevant to test_problem"""
+        fptr.createDimension("time", None)
+        fptr.createDimension("depth", self.depth.nlevs)
+        fptr.createDimension("nbnds", 2)
+        fptr.createDimension("depth_edges", 1 + self.depth.nlevs)
 
-        po4 = tracer_vals[0, :]
-        dop = tracer_vals[1, :]
-        pop = tracer_vals[2, :]
+    def _def_coord_vars_hist(self, fptr):
+        """define netCDF4 coordinate vars relevant to test_problem"""
+        fptr.createVariable("time", "f8", dimensions=("time",))
+        fptr.variables["time"].long_name = "time"
+        fptr.variables["time"].units = "days since 0001-01-01"
+        fptr.variables["time"].calendar = "noleap"
 
-        # dop remin rate is 1% / day
-        dop_remin = 0.01 * dop
-        # pop remin rate is 1% / day
-        pop_remin = 0.01 * pop
+        fptr.createVariable("depth", "f8", dimensions=("depth",))
+        fptr.variables["depth"].long_name = "depth layer midpoints"
+        fptr.variables["depth"].units = self.depth.units
+        fptr.variables["depth"].bounds = "depth_bounds"
 
-        sigma = 0.67
+        fptr.createVariable("depth_bounds", "f8", dimensions=("depth", "nbnds"))
+        fptr.variables["depth_bounds"].long_name = "depth layer bounds"
 
-        dtracer_vals_dt[0, :] = (
-            -po4_uptake + dop_remin + pop_remin + vert_mix.tend(time, po4)
-        )
-        dtracer_vals_dt[1, :] = (
-            sigma * po4_uptake - dop_remin + vert_mix.tend(time, dop)
-        )
-        dtracer_vals_dt[2, :] = (
-            (1.0 - sigma) * po4_uptake
-            - pop_remin
-            + vert_mix.tend(time, pop)
-            + self._sinking_tend(pop)
-        )
+        fptr.createVariable("depth_edges", "f8", dimensions=("depth_edges",))
+        fptr.variables["depth_edges"].long_name = "depth layer edges"
+        fptr.variables["depth_edges"].units = self.depth.units
 
-    def _sinking_tend(self, tracer_vals):
-        """tracer tendency from sinking"""
-        self._sinking_tend_work[1:-1] = -tracer_vals[
-            :-1
-        ]  # assume velocity is 1 m / day
-        return (
-            self._sinking_tend_work[1:] - self._sinking_tend_work[:-1]
-        ) * self.depth.delta_r
+    def _write_coord_vars_hist(self, fptr, time):
+        """write netCDF4 coordinate vars relevant to test_problem"""
+        fptr.variables["time"][:] = time
+        fptr.variables["depth"][:] = self.depth.mid
+        fptr.variables["depth_bounds"][:] = self.depth.bounds
+        fptr.variables["depth_edges"][:] = self.depth.edges
 
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, self"""
@@ -348,191 +349,24 @@ class ModelState(ModelStateBase):
                 return ModelState(res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        ms_res = copy.deepcopy(self)
+        # ModelState instance for result
+        res_ms = copy.deepcopy(self)
 
         with Dataset(precond_fname, mode="r") as fptr:
             # hist, and thus precond, files have mixing_coeff in m2 s-1
             # convert back to model units of m2 d-1
             mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][1:-1]
 
-        for tracer_module in self.tracer_modules:
-            if tracer_module.name == "iage":
-                self._apply_precond_jacobian_iage(mca, ms_res)
-            elif tracer_module.name[:9] == "dye_sink_":
-                self._apply_precond_jacobian_dye_sink(tracer_module.name, mca, ms_res)
-            elif tracer_module.name == "phosphorus":
-                self._apply_precond_jacobian_phosphorus(mca, ms_res)
-            else:
-                msg = "unknown tracer module %s" % tracer_module.name
-                raise ValueError(msg)
+        for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
+            tracer_module.apply_precond_jacobian(
+                self.time_range, mca, res_ms.tracer_modules[tracer_module_ind],
+            )
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
 
         caller = class_name(self) + ".apply_precond_jacobian"
-        return ms_res.dump(res_fname, caller)
-
-    def _apply_precond_jacobian_iage(self, mca, ms_res):
-        """apply preconditioner of jacobian of iage fcn"""
-
-        iage_in = self.get_tracer_vals("iage")
-        rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * iage_in
-
-        l_and_u = (1, 1)
-        matrix_diagonals = np.zeros((3, self.depth.nlevs))
-        matrix_diagonals[0, 1:] = mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        matrix_diagonals[1, :-1] -= (
-            mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        )
-        matrix_diagonals[1, 1:] -= mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        matrix_diagonals[2, :-1] = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        matrix_diagonals[1, 0] = -240.0 * self.depth.delta_r[0]
-        matrix_diagonals[0, 1] = 0
-
-        res = solve_banded(l_and_u, matrix_diagonals, rhs)
-
-        ms_res.set_tracer_vals("iage", res - iage_in)
-
-    def _apply_precond_jacobian_dye_sink(self, name, mca, ms_res):
-        """apply preconditioner of jacobian of dye_sink fcn"""
-
-        dye_sink_in = self.get_tracer_vals(name)
-        rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * dye_sink_in
-
-        l_and_u = (1, 1)
-        matrix_diagonals = np.zeros((3, self.depth.nlevs))
-        matrix_diagonals[0, 1:] = mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        matrix_diagonals[1, :-1] -= (
-            mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        )
-        matrix_diagonals[1, 1:] -= mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        matrix_diagonals[2, :-1] = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        matrix_diagonals[0, 1] = 0
-
-        # decay (suff / 1000) / y
-        suff = name[9:]
-        matrix_diagonals[1, :] -= int(suff) * 0.001 / 365.0
-
-        res = solve_banded(l_and_u, matrix_diagonals, rhs)
-
-        ms_res.set_tracer_vals(name, res - dye_sink_in)
-
-    def _apply_precond_jacobian_phosphorus(self, mca, ms_res):
-        """
-        apply preconditioner of jacobian of phosphorus fcn
-        it is only applied to shadow phosphorus tracers
-        """
-
-        po4_s = self.get_tracer_vals("po4_s")
-        dop_s = self.get_tracer_vals("dop_s")
-        pop_s = self.get_tracer_vals("pop_s")
-        rhs = (1.0 / (self.time_range[1] - self.time_range[0])) * np.concatenate(
-            (po4_s, dop_s, pop_s)
-        )
-
-        nlevs = self.depth.nlevs
-
-        matrix = diags(
-            [
-                self._diag_0_phosphorus(mca),
-                self._diag_p_1_phosphorus(mca),
-                self._diag_m_1_phosphorus(mca),
-                self._diag_p_nlevs_phosphorus(),
-                self._diag_m_nlevs_phosphorus(),
-                self._diag_p_2nlevs_phosphorus(),
-                self._diag_m_2nlevs_phosphorus(),
-            ],
-            [0, 1, -1, nlevs, -nlevs, 2 * nlevs, -2 * nlevs],
-            format="csr",
-        )
-
-        matrix_adj = matrix - 1.0e-8 * eye(3 * nlevs)
-        res = spsolve(matrix_adj, rhs)
-
-        _, sing_vals, r_sing_vects = svd(matrix.todense())
-        min_ind = sing_vals.argmin()
-        dz3 = np.concatenate((self.depth.delta, self.depth.delta, self.depth.delta))
-        numer = (res * dz3).sum()
-        denom = (r_sing_vects[min_ind, :] * dz3).sum()
-        res -= numer / denom * r_sing_vects[min_ind, :]
-
-        ms_res.set_tracer_vals("po4_s", res[0:nlevs] - po4_s)
-        ms_res.set_tracer_vals("dop_s", res[nlevs : 2 * nlevs] - dop_s)
-        ms_res.set_tracer_vals("pop_s", res[2 * nlevs : 3 * nlevs] - pop_s)
-
-    def _diag_0_phosphorus(self, mca):
-        """return main diagonal of preconditioner of jacobian of phosphorus fcn"""
-        diag_0_single_tracer = np.zeros(self.depth.nlevs)
-        diag_0_single_tracer[:-1] -= (
-            mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        )
-        diag_0_single_tracer[1:] -= (
-            mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        )
-        diag_0_po4_s = diag_0_single_tracer.copy()
-        diag_0_po4_s[0] -= 1.0  # po4_s restoring in top layer
-        diag_0_dop_s = diag_0_single_tracer.copy()
-        diag_0_dop_s -= 0.01  # dop_s remin
-        diag_0_pop_s = diag_0_single_tracer.copy()
-        diag_0_pop_s -= 0.01  # pop_s remin
-        # pop_s sinking loss to layer below
-        diag_0_pop_s[:-1] -= 1.0 * self.depth.delta_r[:-1]
-        return np.concatenate((diag_0_po4_s, diag_0_dop_s, diag_0_pop_s))
-
-    def _diag_p_1_phosphorus(self, mca):
-        """return +1 upper diagonal of preconditioner of jacobian of phosphorus fcn"""
-        diag_p_1_single_tracer = mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
-        diag_p_1_po4_s = diag_p_1_single_tracer.copy()
-        zero = np.zeros(1)
-        diag_p_1_dop_s = diag_p_1_single_tracer.copy()
-        diag_p_1_pop_s = diag_p_1_single_tracer.copy()
-        return np.concatenate(
-            (diag_p_1_po4_s, zero, diag_p_1_dop_s, zero, diag_p_1_pop_s)
-        )
-
-    def _diag_m_1_phosphorus(self, mca):
-        """return +1 upper diagonal of preconditioner of jacobian of phosphorus fcn"""
-        diag_m_1_single_tracer = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
-        diag_m_1_po4_s = diag_m_1_single_tracer.copy()
-        zero = np.zeros(1)
-        diag_m_1_dop_s = diag_m_1_single_tracer.copy()
-        diag_m_1_pop_s = diag_m_1_single_tracer.copy()
-        # pop_s sinking gain from layer above
-        diag_m_1_pop_s += 1.0 * self.depth.delta_r[1:]
-        return np.concatenate(
-            (diag_m_1_po4_s, zero, diag_m_1_dop_s, zero, diag_m_1_pop_s)
-        )
-
-    def _diag_p_nlevs_phosphorus(self):
-        """
-        return +nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
-        """
-        diag_p_1_dop_po4 = 0.01 * np.ones(self.depth.nlevs)  # dop_s remin
-        diag_p_1_pop_dop = np.zeros(self.depth.nlevs)
-        return np.concatenate((diag_p_1_dop_po4, diag_p_1_pop_dop))
-
-    def _diag_m_nlevs_phosphorus(self):
-        """
-        return -nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
-        """
-        diag_p_1_po4_dop = np.zeros(self.depth.nlevs)
-        diag_p_1_po4_dop[0] = 0.67  # po4_s restoring conservation balance
-        diag_p_1_dop_pop = np.zeros(self.depth.nlevs)
-        return np.concatenate((diag_p_1_po4_dop, diag_p_1_dop_pop))
-
-    def _diag_p_2nlevs_phosphorus(self):
-        """
-        return +2nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
-        """
-        return 0.01 * np.ones(self.depth.nlevs)  # pop_s remin
-
-    def _diag_m_2nlevs_phosphorus(self):
-        """
-        return -2nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
-        """
-        diag_p_1_po4_pop = np.zeros(self.depth.nlevs)
-        diag_p_1_po4_pop[0] = 0.33  # po4_s restoring conservation balance
-        return diag_p_1_po4_pop
+        return res_ms.dump(res_fname, caller)
 
 
 if __name__ == "__main__":

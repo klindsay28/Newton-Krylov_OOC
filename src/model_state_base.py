@@ -3,6 +3,7 @@
 import collections
 import copy
 from datetime import datetime
+from inspect import signature
 import logging
 import os
 
@@ -37,17 +38,28 @@ class ModelStateBase:
             raise RuntimeError(msg)
         tracer_module_names = get_modelinfo("tracer_module_names").split(",")
         self.tracer_modules = np.empty(len(tracer_module_names), dtype=np.object)
+        tracer_module_defs = model_config.model_config_obj.tracer_module_defs
+
+        pos_args = ["self", "tracer_module_name", "fname"]
 
         for ind, tracer_module_name in enumerate(tracer_module_names):
-            tracer_module_state_class = _tracer_module_state_class(tracer_module_name)
+            tracer_module_def = tracer_module_defs[tracer_module_name]
+            tracer_module_state_class = _tracer_module_state_class(
+                tracer_module_name, tracer_module_def
+            )
             logger.debug(
                 "using class %s from %s for tracer module %s",
                 tracer_module_state_class.__name__,
                 tracer_module_state_class.__module__,
                 tracer_module_name,
             )
+            kwargs = {
+                arg: getattr(self, arg)
+                for arg in signature(tracer_module_state_class.__init__).parameters
+                if arg not in pos_args
+            }
             self.tracer_modules[ind] = tracer_module_state_class(
-                tracer_module_name, fname
+                tracer_module_name, fname, **kwargs
             )
 
     def tracer_names(self):
@@ -59,7 +71,9 @@ class ModelStateBase:
 
     def tracer_cnt(self):
         """return number of tracers"""
-        return len(self.tracer_names())
+        return sum(
+            [tracer_module.tracer_cnt() for tracer_module in self.tracer_modules]
+        )
 
     def tracer_index(self, tracer_name):
         """return the index of a tracer"""
@@ -607,7 +621,7 @@ def lin_comb(res_type, coeff, fname_fcn, quantity):
     return res
 
 
-def _tracer_module_state_class(tracer_module_name):
+def _tracer_module_state_class(tracer_module_name, tracer_module_def):
     """return tracer module state class for tracer_module_name"""
 
     tracer_module_state_class = TracerModuleStateBase
@@ -621,7 +635,8 @@ def _tracer_module_state_class(tracer_module_name):
         tracer_module_state_class = subclasses[0]
 
     # look for tracer module specific derived class
-    mod_name = ".".join(["src", model_name, tracer_module_name])
+    py_mod_name = tracer_module_def.get("py_mod_name", tracer_module_name)
+    mod_name = ".".join(["src", model_name, py_mod_name])
     subclasses = get_subclasses(mod_name, tracer_module_state_class)
     if len(subclasses) > 0:
         tracer_module_state_class = subclasses[0]
