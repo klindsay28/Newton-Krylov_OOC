@@ -2,7 +2,6 @@
 
 from datetime import datetime
 import errno
-import functools
 import importlib
 import inspect
 import logging
@@ -10,34 +9,10 @@ import os
 import subprocess
 
 from netCDF4 import Dataset
+import numpy as np
 
-
-def action_step_log_wrap(step, per_iteration=True, post_exit=False):
-    """
-    Decorator for wrapping functions with args inside step_logged/log_step checks.
-    It is for functions that perform actions and don't return values.
-    solver_state is assumed to be a named argument to func.
-    step is the string argument getting passed to sover_state methods.
-    Formatting using .format is applied to step, using the named arguments of func,
-    to enable step to depend on func's arguments.
-    """
-
-    def outer_wrapper(func):
-        @functools.wraps(func)  # to propagate metadata from func through wrapper
-        def inner_wrapper(*args, **kwargs):
-            solver_state = kwargs["solver_state"]
-            if solver_state is not None:
-                if solver_state.step_logged(step.format(**kwargs), per_iteration):
-                    return
-            func(*args, **kwargs)
-            if solver_state is not None:
-                solver_state.log_step(step.format(**kwargs), per_iteration)
-            if post_exit:
-                raise SystemExit
-
-        return inner_wrapper
-
-    return outer_wrapper
+################################################################################
+# utilities related to python built-in types
 
 
 def attr_common(metadata_dict, attr_name):
@@ -80,6 +55,25 @@ def get_subclasses(mod_name, base_class):
     ]
 
 
+def fmt_vals(var, fmt):
+    """apply format substitutions in fmt recursively to vals in var"""
+    if isinstance(var, str):
+        return var.format(**fmt)
+    if isinstance(var, list):
+        return [fmt_vals(item, fmt) for item in var]
+    if isinstance(var, tuple):
+        return tuple(fmt_vals(item, fmt) for item in var)
+    if isinstance(var, set):
+        return {fmt_vals(item, fmt) for item in var}
+    if isinstance(var, dict):
+        return {fmt_vals(key, fmt): fmt_vals(val, fmt) for key, val in var.items()}
+    return var
+
+
+################################################################################
+# utilities related to generic file/path manipulations
+
+
 def mkdir_exist_okay(path):
     """
     Create a directory named path.
@@ -92,6 +86,10 @@ def mkdir_exist_okay(path):
             pass
         else:
             raise
+
+
+################################################################################
+# utilities related to netCDF file operations
 
 
 def create_dimension_exist_okay(fptr, dimname, dimlen):
@@ -197,18 +195,3 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
         msg = datestamp + ": ncra called from " + name + " called from " + caller
         msg = msg + "\n" + getattr(fptr, "history")
         setattr(fptr, "history", msg)
-
-
-def fmt_vals(var, fmt):
-    """apply format substitutions in fmt recursively to vals in var"""
-    if isinstance(var, str):
-        return var.format(**fmt)
-    if isinstance(var, list):
-        return [fmt_vals(item, fmt) for item in var]
-    if isinstance(var, tuple):
-        return tuple(fmt_vals(item, fmt) for item in var)
-    if isinstance(var, set):
-        return {fmt_vals(item, fmt) for item in var}
-    if isinstance(var, dict):
-        return {fmt_vals(key, fmt): fmt_vals(val, fmt) for key, val in var.items()}
-    return var

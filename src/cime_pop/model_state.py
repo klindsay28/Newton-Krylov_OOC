@@ -20,12 +20,8 @@ from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
-from ..utils import (
-    action_step_log_wrap,
-    class_name,
-    ann_files_to_mean_file,
-    mon_files_to_mean_file,
-)
+from ..solver_state import action_step_log_wrap
+from ..utils import class_name, ann_files_to_mean_file, mon_files_to_mean_file
 
 
 def parse_args(args_list_in=None):

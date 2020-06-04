@@ -6,7 +6,8 @@ import os
 from netCDF4 import Dataset
 
 from .model_config import get_region_cnt
-from .utils import action_step_log_wrap, class_name, create_dimension_exist_okay
+from .solver_state import action_step_log_wrap
+from .utils import class_name, create_dimension_exist_okay
 
 
 class StatsFile:

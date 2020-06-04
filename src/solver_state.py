@@ -1,5 +1,6 @@
 """class for representing the state of an iterative solver"""
 
+import functools
 import json
 import logging
 import os
@@ -155,3 +156,31 @@ def json_ndarray_decode(dct):
     if "__ndarray__" in dct:
         return np.asarray(dct["__ndarray__"])
     return dct
+
+
+def action_step_log_wrap(step, per_iteration=True, post_exit=False):
+    """
+    Decorator for wrapping functions with args inside step_logged/log_step checks.
+    It is for functions that perform actions and don't return values.
+    solver_state is assumed to be a named argument to func.
+    step is the string argument getting passed to sover_state methods.
+    Formatting using .format is applied to step, using the named arguments of func,
+    to enable step to depend on func's arguments.
+    """
+
+    def outer_wrapper(func):
+        @functools.wraps(func)  # to propagate metadata from func through wrapper
+        def inner_wrapper(*args, **kwargs):
+            solver_state = kwargs["solver_state"]
+            if solver_state is not None:
+                if solver_state.step_logged(step.format(**kwargs), per_iteration):
+                    return
+            func(*args, **kwargs)
+            if solver_state is not None:
+                solver_state.log_step(step.format(**kwargs), per_iteration)
+            if post_exit:
+                raise SystemExit
+
+        return inner_wrapper
+
+    return outer_wrapper

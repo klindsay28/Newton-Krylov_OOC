@@ -12,13 +12,9 @@ import numpy as np
 
 from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
+from .solver_state import action_step_log_wrap
 from .tracer_module_state_base import TracerModuleStateBase
-from .utils import (
-    action_step_log_wrap,
-    class_name,
-    get_subclasses,
-    create_dimension_exist_okay,
-)
+from .utils import class_name, get_subclasses, create_dimension_exist_okay
 
 
 class ModelStateBase:

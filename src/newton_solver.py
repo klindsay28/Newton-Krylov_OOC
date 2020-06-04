@@ -9,9 +9,9 @@ import numpy as np
 from .krylov_solver import KrylovSolver
 from .model_config import get_modelinfo
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
-from .solver_state import SolverState
+from .solver_state import SolverState, action_step_log_wrap
 from .stats_file import StatsFile
-from .utils import action_step_log_wrap, class_name, mkdir_exist_okay, fmt_vals
+from .utils import class_name, mkdir_exist_okay, fmt_vals
 
 
 class NewtonSolver:
