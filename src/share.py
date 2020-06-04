@@ -26,22 +26,35 @@ cfg_override_args = {
 }
 
 
-def common_args(description, model_name):
+def common_args(description, model_name, args_list):
     """instantiate and return a parser, using common options"""
+
+    # process --model_name so that it can be passed to common_args
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        "--model_name",
+        help="name of the model that solver is being applied to; "
+        "using a non-default value might alter availability of subsequent options",
+        default=model_name,
+    )
+    args, args_remaining = parent_parser.parse_known_args(args_list)
+
     parser = argparse.ArgumentParser(
-        description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=description,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        parents=[parent_parser],
     )
     repo_root = dirname(dirname(realpath(__file__)))
     parser.add_argument(
         "--cfg_fname",
         help="name of configuration file",
-        default=path.join(repo_root, "input", model_name, "newton_krylov.cfg"),
+        default=path.join(repo_root, "input", args.model_name, "newton_krylov.cfg"),
     )
 
     # add arguments that override cfg file
     for argname, metadata in cfg_override_args.items():
         # skip arguments that are model specific for a different model_name
-        if "model_name" in metadata and model_name != metadata["model_name"]:
+        if "model_name" in metadata and args.model_name != metadata["model_name"]:
             continue
         override_var = metadata.get("override_var", argname)
         if "action" not in metadata:
@@ -60,14 +73,12 @@ def common_args(description, model_name):
             msg = "action = %s not implemented" % metadata["action"]
             raise NotImplementedError(msg)
 
-    return parser
+    return parser, args_remaining
 
 
-def args_replace(args, model_name=None):
+def args_replace(args):
     """apply common args replacements/format on string arguments"""
-    model_name_repl = getattr(args, "model_name", model_name)
-    if "model_name" is None:
-        raise ValueError("model_name is None")
+    model_name_repl = args.model_name
     # pass "{suff}" through
     str_subs = {"model_name": model_name_repl, "suff": "{suff}"}
     for arg, value in vars(args).items():

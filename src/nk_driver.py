@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """driver for Newton-Krylov solver"""
 
-import argparse
 import logging
 import os
 import sys
@@ -16,17 +15,10 @@ from .utils import get_subclasses
 def parse_args(args_list_in=None):
     """parse command line arguments"""
 
-    # process --model_name so that it can be passed to common_args
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model_name",
-        help="name of model that solver is being applied to",
-        default="test_problem",
-    )
-
     args_list = [] if args_list_in is None else args_list_in
-    args, args_remaining = parser.parse_known_args(args_list)
-    parser = common_args("invoke Newton-Krylov solver", args.model_name)
+    parser, args_remaining = common_args(
+        "invoke Newton-Krylov solver", "test_problem", args_list
+    )
 
     parser.add_argument(
         "--resume",

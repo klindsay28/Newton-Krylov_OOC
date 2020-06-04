@@ -35,7 +35,12 @@ def depth_defn_dict(trap_unknown=True, **kwargs):
 
 def parse_args(args_list_in=None):
     """parse command line arguments"""
-    parser = common_args("setup test_problem", "test_problem")
+
+    args_list = [] if args_list_in is None else args_list_in
+    parser, args_remaining = common_args(
+        "setup test_problem", "test_problem", args_list
+    )
+
     axis_defaults = depth_defn_dict()
     parser.add_argument(
         "--axisname", help="axis name", default=axis_defaults["name"],
@@ -71,8 +76,7 @@ def parse_args(args_list_in=None):
         default=2,
     )
 
-    args_list = [] if args_list_in is None else args_list_in
-    return args_replace(parser.parse_args(args_list), model_name="test_problem")
+    return args_replace(parser.parse_args(args_remaining))
 
 
 def main(args):

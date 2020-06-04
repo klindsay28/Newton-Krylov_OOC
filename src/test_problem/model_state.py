@@ -24,7 +24,13 @@ from .vert_mix import VertMix
 
 def parse_args(args_list_in=None):
     """parse command line arguments"""
-    parser = common_args("test problem for Newton-Krylov solver", "test_problem")
+
+    args_list = [] if args_list_in is None else args_list_in
+    parser, args_remaining = common_args(
+        "test problem model standalone driver for Newton-Krylov solver",
+        "test_problem",
+        args_list,
+    )
     parser.add_argument(
         "cmd",
         choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian",],
@@ -40,8 +46,7 @@ def parse_args(args_list_in=None):
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    args_list = [] if args_list_in is None else args_list_in
-    return args_replace(parser.parse_args(args_list), model_name="test_problem")
+    return args_replace(parser.parse_args(args_remaining))
 
 
 def _resolve_fname(fname_dir, fname):

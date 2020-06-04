@@ -50,7 +50,7 @@ class NewtonSolver:
         # for iteration >= 1, _fcn is available and stored when iteration is incremented
         if self._solver_state.get_iteration() == 0:
             self._fcn = self._iterate.comp_fcn(
-                self._fname("fcn"), self._solver_state, self._fname("hist"),
+                self._fname("fcn"), self._solver_state, self._fname("hist")
             )
         else:
             self._fcn = model_state_class(self._fname("fcn"))

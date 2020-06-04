@@ -30,18 +30,24 @@ from ..utils import (
 
 def parse_args(args_list_in=None):
     """parse command line arguments"""
-    parser = common_args("cime pop hooks for Newton-Krylov solver", "cime_pop")
+
+    args_list = [] if args_list_in is None else args_list_in
+    parser, args_remaining = common_args(
+        "cime_pop model standalone driver for Newton-Krylov solver",
+        "cime_pop",
+        args_list,
+    )
     parser.add_argument(
         "cmd",
         choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian"],
         help="command to run",
     )
+
     parser.add_argument("--hist_fname", help="name of history file", default=None)
     parser.add_argument("--in_fname", help="name of file with input")
     parser.add_argument("--res_fname", help="name of file for result")
 
-    args_list = [] if args_list_in is None else args_list_in
-    return args_replace(parser.parse_args(args_list), model_name="cime_pop")
+    return args_replace(parser.parse_args(args_remaining))
 
 
 def main(args):

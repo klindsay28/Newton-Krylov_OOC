@@ -24,15 +24,17 @@ from ..utils import (
 
 def parse_args(args_list_in=None):
     """parse command line arguments"""
-    parser = common_args("setup cime_pop", "cime_pop")
+
+    args_list = [] if args_list_in is None else args_list_in
+    parser, args_remaining = common_args("setup cime_pop", "cime_pop", args_list)
+
     parser.add_argument(
         "--skip_irf_gen",
         help="skip generating irf file if it exists, default is to overwrite it",
         action="store_true",
     )
 
-    args_list = [] if args_list_in is None else args_list_in
-    return args_replace(parser.parse_args(args_list), model_name="cime_pop")
+    return args_replace(parser.parse_args(args_remaining))
 
 
 def main(args):
@@ -75,7 +77,6 @@ def main(args):
     mkdir_exist_okay(os.path.dirname(region_mask_fname))
     gen_region_mask_file(modelinfo)
 
-    # confirm that model configuration works with generated file
     ModelConfig(modelinfo)
 
 
