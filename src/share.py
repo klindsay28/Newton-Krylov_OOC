@@ -34,7 +34,7 @@ def common_args(description, model_name, args_list):
     parent_parser.add_argument(
         "--model_name",
         help="name of the model that solver is being applied to; "
-        "using a non-default value might alter availability of subsequent options",
+        "using a non-default value alters subsequent options",
         default=model_name,
     )
     args, args_remaining = parent_parser.parse_known_args(args_list)

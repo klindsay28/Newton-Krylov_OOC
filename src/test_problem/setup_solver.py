@@ -38,7 +38,7 @@ def parse_args(args_list_in=None):
 
     args_list = [] if args_list_in is None else args_list_in
     parser, args_remaining = common_args(
-        "setup test_problem", "test_problem", args_list
+        "setup solver for test_problem model", "test_problem", args_list
     )
 
     axis_defaults = depth_defn_dict()
@@ -148,4 +148,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(parse_args(sys.argv[1:],))
+    main(parse_args(sys.argv[1:]))

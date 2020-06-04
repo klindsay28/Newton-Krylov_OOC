@@ -26,7 +26,9 @@ def parse_args(args_list_in=None):
     """parse command line arguments"""
 
     args_list = [] if args_list_in is None else args_list_in
-    parser, args_remaining = common_args("setup cime_pop", "cime_pop", args_list)
+    parser, args_remaining = common_args(
+        "setup solver for cime_pop model", "cime_pop", args_list
+    )
 
     parser.add_argument(
         "--skip_irf_gen",
