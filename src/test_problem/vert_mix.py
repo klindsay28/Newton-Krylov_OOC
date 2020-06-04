@@ -37,13 +37,14 @@ class VertMix:
         if time == self._mixing_coeff_time:
             return self._mixing_coeff_vals
 
-        # z_lin ranges from 0.0 to 1.0 over span of 40.0 m, is 0.5 at bldepth
-        z_lin = 0.5 + (self._depth.edges[1:-1] - self.bldepth(time)) * (1.0 / 40.0)
-        z_lin = np.maximum(0.0, np.minimum(1.0, z_lin))
+        bldepth = self.bldepth(time)
         res_log10_shallow = 0.0
         res_log10_deep = -5.0
-        res_log10_del = res_log10_deep - res_log10_shallow
-        res_log10 = res_log10_shallow + res_log10_del * z_lin
+        res_log10 = np.interp(
+            self._depth.edges[1:-1],
+            [bldepth - 0.5 * 40, bldepth + 0.5 * 40],
+            [res_log10_shallow, res_log10_deep],
+        )
         self._mixing_coeff_time = time
         self._mixing_coeff_vals = 86400.0 * 10.0 ** res_log10 * self._depth.delta_mid_r
         return self._mixing_coeff_vals
