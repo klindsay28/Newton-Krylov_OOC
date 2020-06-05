@@ -49,8 +49,6 @@ def main(args):
         format=logging_format,
         level=solverinfo["logging_level"],
     )
-    sys.stdout = open(solverinfo["logging_fname"], "a")
-    sys.stderr = open(solverinfo["logging_fname"], "a")
     logger = logging.getLogger(__name__)
 
     if os.path.exists("KILL"):
