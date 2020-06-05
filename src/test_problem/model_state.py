@@ -33,7 +33,7 @@ def parse_args(args_list_in=None):
     )
     parser.add_argument(
         "cmd",
-        choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian",],
+        choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian"],
         help="command to run",
     )
     parser.add_argument(
@@ -244,7 +244,7 @@ class ModelState(ModelStateBase):
         hist_vars_metadata = {
             "bldepth": {
                 "dimensions": ("time"),
-                "attrs": {"long_name": "boundary layer depth", "units": "m",},
+                "attrs": {"long_name": "boundary layer depth", "units": "m"},
             },
             "mixing_coeff": {
                 "dimensions": ("time", "depth_edges"),

@@ -137,6 +137,14 @@ class TracerModuleState(TracerModuleStateBase):
             }
             res[varname]["attrs"]["long_name"] += ", anomaly in time"
 
+            # std dev in time
+            varname = tracer_like_name + "_time_std"
+            res[varname] = {
+                "dimensions": ("depth"),
+                "attrs": tracer_metadata["attrs"].copy(),
+            }
+            res[varname]["attrs"]["long_name"] += ", std dev in time"
+
             # end state minus start state
             varname = tracer_like_name + "_time_delta"
             res[varname] = {
@@ -192,7 +200,13 @@ class TracerModuleState(TracerModuleStateBase):
 
             # anomaly in time
             varname = tracer_like_name + "_time_anom"
-            fptr.variables[varname][:] = tracer_vals - tracer_vals_mean
+            tracer_vals_anom = tracer_vals - tracer_vals_mean
+            fptr.variables[varname][:] = tracer_vals_anom
+
+            # std dev in time
+            varname = tracer_like_name + "_time_std"
+            tracer_vals_var = np.einsum("i,i...", time_weights, tracer_vals_anom ** 2)
+            fptr.variables[varname][:] = np.sqrt(tracer_vals_var)
 
             # end state minus start state
             varname = tracer_like_name + "_time_delta"
