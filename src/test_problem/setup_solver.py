@@ -13,26 +13,7 @@ from ..share import args_replace, common_args, read_cfg_file
 from ..utils import mkdir_exist_okay
 
 from .model_state import ModelState
-from .spatial_axis import SpatialAxis
-
-
-def depth_defn_dict(trap_unknown=True, **kwargs):
-    """return a defn_dict for depth axis defaults"""
-    defn_dict = {
-        "name": "depth",
-        "units": "m",
-        "nlevs": 30,
-        "edge_start": 0.0,
-        "edge_end": 900.0,
-        "delta_ratio_max": 5.0,
-    }
-    for key, value in kwargs.items():
-        if key in defn_dict:
-            defn_dict[key] = value
-        elif trap_unknown:
-            msg = "unknown key %s" % key
-            raise ValueError(msg)
-    return defn_dict
+from .spatial_axis import SpatialAxis, spatial_axis_defn_dict
 
 
 def parse_args(args_list_in=None):
@@ -43,34 +24,12 @@ def parse_args(args_list_in=None):
         "setup solver for test_problem model", "test_problem", args_list
     )
 
-    axis_defaults = depth_defn_dict()
-    parser.add_argument(
-        "--axisname", help="axis name", default=axis_defaults["name"],
-    )
-    parser.add_argument(
-        "--units", help="axis units", default=axis_defaults["units"],
-    )
-    parser.add_argument(
-        "--nlevs", type=int, help="number of layers", default=axis_defaults["nlevs"],
-    )
-    parser.add_argument(
-        "--edge_start",
-        type=float,
-        help="start of edges",
-        default=axis_defaults["edge_start"],
-    )
-    parser.add_argument(
-        "--edge_end",
-        type=float,
-        help="end of edges",
-        default=axis_defaults["edge_end"],
-    )
-    parser.add_argument(
-        "--delta_ratio_max",
-        type=float,
-        help="maximum ratio of layer thicknesses",
-        default=axis_defaults["delta_ratio_max"],
-    )
+    # axis related arguments
+    for key, value in spatial_axis_defn_dict(axisname="depth").items():
+        flag = "--%s" % key
+        parser.add_argument(
+            flag, type=value["type"], help=value["help"], default=value["value"],
+        )
     parser.add_argument(
         "--fp_cnt",
         type=int,
@@ -105,8 +64,9 @@ def main(args):
     gen_invoker_script.main(args)
 
     # generate depth axis from args
-    defn_dict = depth_defn_dict(trap_unknown=False, **(args.__dict__))
-    depth = SpatialAxis(defn_dict=defn_dict)
+    depth = SpatialAxis(
+        defn_dict=spatial_axis_defn_dict(trap_unknown=False, **(args.__dict__))
+    )
 
     modelinfo = config["modelinfo"]
 

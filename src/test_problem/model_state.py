@@ -266,8 +266,7 @@ class ModelState(ModelStateBase):
             setattr(fptr, "history", msg)
 
             # define hist dimensions and coordinate vars
-            self._def_dims_hist(fptr)
-            self._def_coord_vars_hist(fptr)
+            self._def_dims_coord_vars_hist(fptr)
 
             # define hist vars
             for varname, metadata in hist_vars_metadata.items():
@@ -309,39 +308,22 @@ class ModelState(ModelStateBase):
                 )
                 ind0 = ind0 + cnt
 
-    def _def_dims_hist(self, fptr):
-        """define netCDF4 dimensions relevant to test_problem"""
+    def _def_dims_coord_vars_hist(self, fptr):
+        """define netCDF4 dimensions and coordinate vars relevant to test_problem"""
         fptr.createDimension("time", None)
-        fptr.createDimension("depth", self.depth.nlevs)
-        fptr.createDimension("nbnds", 2)
-        fptr.createDimension("depth_edges", 1 + self.depth.nlevs)
 
-    def _def_coord_vars_hist(self, fptr):
-        """define netCDF4 coordinate vars relevant to test_problem"""
         fptr.createVariable("time", "f8", dimensions=("time",))
         fptr.variables["time"].long_name = "time"
         fptr.variables["time"].units = "days since 0001-01-01"
         fptr.variables["time"].calendar = "noleap"
 
-        fptr.createVariable("depth", "f8", dimensions=("depth",))
-        fptr.variables["depth"].long_name = "depth layer midpoints"
-        fptr.variables["depth"].units = self.depth.units
-        fptr.variables["depth"].bounds = "depth_bounds"
-
-        fptr.createVariable("depth_bounds", "f8", dimensions=("depth", "nbnds"))
-        fptr.variables["depth_bounds"].long_name = "depth layer bounds"
-
-        fptr.createVariable("depth_edges", "f8", dimensions=("depth_edges",))
-        fptr.variables["depth_edges"].long_name = "depth layer edges"
-        fptr.variables["depth_edges"].units = self.depth.units
+        self.depth.dump_def(fptr)
 
     def _write_coord_vars_hist(self, fptr, time):
         """write netCDF4 coordinate vars relevant to test_problem"""
         fptr.variables["time"][:] = time
-        fptr.variables["depth"][:] = self.depth.mid
-        fptr.variables["depth_bounds"][:, 0] = self.depth.edges[:-1]
-        fptr.variables["depth_bounds"][:, 1] = self.depth.edges[1:]
-        fptr.variables["depth_edges"][:] = self.depth.edges
+
+        self.depth.dump_write(fptr)
 
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, self"""

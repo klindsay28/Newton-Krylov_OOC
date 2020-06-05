@@ -91,7 +91,7 @@ class TracerModuleState(TracerModuleStateBase):
             for dimname, dimlen in self._dims.items():
                 create_dimension_exist_okay(fptr, dimname, dimlen)
             dimnames = tuple(self._dims.keys())
-            if self.depth.name not in fptr.variables:
+            if self.depth.axisname not in fptr.variables:
                 self.depth.dump_def(fptr)
             # define all tracers
             for tracer_name in self.tracer_names():
