@@ -103,15 +103,15 @@ class TracerModuleState(TracerModuleStateBase):
             del attrs["grid_loc"]
 
             # grid-i average
-            varname = "_".join([tracer_name, "nlon"])
-            res[varname] = {
+            varname_stats = "_".join([tracer_name, "avg", "nlon"])
+            res[varname_stats] = {
                 "dimensions": ("iteration", "region", "z_t", "nlat"),
                 "attrs": attrs,
             }
 
             # grid-ij average
-            varname = "_".join([tracer_name, "nlat", "nlon"])
-            res[varname] = {
+            varname_stats = "_".join([tracer_name, "avg", "nlat", "nlon"])
+            res[varname_stats] = {
                 "dimensions": ("iteration", "region", "z_t"),
                 "attrs": attrs,
             }
@@ -120,7 +120,7 @@ class TracerModuleState(TracerModuleStateBase):
     def stats_vars_vals_iteration_invariant(self, fptr_hist):
         """return iteration-invariant tracer module specific stats variables"""
         res = {}
-        for varname in ["depth"]:
+        for varname in ["z_t"]:
             res[varname] = fptr_hist.variables[varname][:]
         return res
 
@@ -144,14 +144,14 @@ class TracerModuleState(TracerModuleStateBase):
             tracer_vals = tracer[:]
 
             # grid-i average
-            varname = "_".join([tracer_name, "nlon"])
+            varname_stats = "_".join([tracer_name, "avg", "nlon"])
             numer_nlon[:] = (grid_weight * tracer_vals).sum(axis=-1)
             vals_nlon = np.full(numer_nlon.shape, fill_value)
             np.divide(numer_nlon, denom_nlon, out=vals_nlon, where=(denom_nlon != 0.0))
-            res[varname] = vals_nlon
+            res[varname_stats] = vals_nlon
 
             # grid-ij average
-            varname = "_".join([tracer_name, "nlat", "nlon"])
+            varname_stats = "_".join([tracer_name, "avg", "nlat", "nlon"])
             numer_nlat_nlon[:] = (grid_weight * tracer_vals).sum(axis=(-2, -1))
             vals_nlat_nlon = np.full(numer_nlat_nlon.shape, fill_value)
             np.divide(
@@ -160,5 +160,5 @@ class TracerModuleState(TracerModuleStateBase):
                 out=vals_nlat_nlon,
                 where=(denom_nlat_nlon != 0.0),
             )
-            res[varname] = vals_nlat_nlon
+            res[varname_stats] = vals_nlat_nlon
         return res
