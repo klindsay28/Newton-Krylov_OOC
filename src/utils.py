@@ -35,6 +35,41 @@ def attr_common(metadata_dict, attr_name):
     return attr_list[0]
 
 
+def dict_sel(dict_obj, **kwargs):
+    """
+    return dict of (key, value) pairs from dict_obj where value is a dict
+    that matches (sel_key, sel_value) pairs in kwargs
+    """
+    res = dict_obj
+    for sel_key, sel_value in kwargs.items():
+        res = {
+            key: value
+            for key, value in res.items()
+            if isinstance(value, dict) and value.get(sel_key, None) == sel_value
+        }
+    return res
+
+
+def dict_update_verify(dict_in, dict_add):
+    """
+    Add entries of dict_add to dict_in. If a key being added already exists, and the
+    added value differs from the existing value, raise a RuntimeError. The updated
+    dict_in is returned.
+    """
+    for key, value_add in dict_add.items():
+        if key not in dict_in:
+            dict_in[key] = value_add
+        else:
+            if isinstance(value_add, np.ndarray):
+                if np.any(dict_in[key] != value_add):
+                    msg = "dict value mismatch for key = %s" % key
+                    raise RuntimeError(msg)
+            elif dict_in[key] != value_add:
+                msg = "dict value mismatch for key = %s" % key
+                raise RuntimeError(msg)
+    return dict_in
+
+
 def class_name(obj):
     """return name of class and module that it is define in"""
     return obj.__module__ + "." + type(obj).__name__
@@ -92,11 +127,11 @@ def mkdir_exist_okay(path):
 # utilities related to netCDF file operations
 
 
-def create_dimension_exist_okay(fptr, dimname, dimlen):
+def create_dimension_verify(fptr, dimname, dimlen):
     """
-    Create a dimension in a netCDF4 file
-    It is okay if it already exists, if the existing dimlen matches dimlen.
-    Return dimension object
+    Create a dimension in a netCDF4 file. If a dimension with dimname already exists,
+    and dimlen differs from the existing dimension's lenght, raise a RuntimeError.
+    Return the created dimension object.
     """
     try:
         fptr.createDimension(dimname, dimlen)

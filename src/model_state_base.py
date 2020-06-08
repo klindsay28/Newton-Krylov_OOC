@@ -14,7 +14,12 @@ from . import model_config
 from .model_config import get_precond_matrix_def, get_modelinfo
 from .solver_state import action_step_log_wrap
 from .tracer_module_state_base import TracerModuleStateBase
-from .utils import class_name, get_subclasses, create_dimension_exist_okay
+from .utils import (
+    dict_update_verify,
+    class_name,
+    get_subclasses,
+    create_dimension_verify,
+)
 
 
 class ModelStateBase:
@@ -73,16 +78,6 @@ class ModelStateBase:
         """return the index of a tracer"""
         return self.tracer_names().index(tracer_name)
 
-    def tracer_metadata(self, tracer_name):
-        """return tracer's metadata"""
-        for tracer_module in self.tracer_modules:
-            try:
-                return tracer_module.tracer_metadata(tracer_name)
-            except KeyError:
-                pass
-        msg = "unknown tracer_name=%s" % tracer_name
-        raise ValueError(msg)
-
     def dump(self, fname, caller=None):
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
@@ -130,78 +125,55 @@ class ModelStateBase:
         norm_vals = self.norm()
         self.log_vals(msg_full, np.stack((mean_vals, norm_vals)))
 
-    def tracer_dims_keep_in_stats(self):
-        """tuple of dimensions to keep for tracers in stats file"""
-        return ()
-
     @action_step_log_wrap(step="ModelStateBase.def_stats_vars", per_iteration=False)
     # pylint: disable=unused-argument
     def def_stats_vars(self, stats_file, hist_fname, solver_state):
         """define model specific stats variables"""
 
+        dimensions = {}
         vars_metadata = {}
         with Dataset(hist_fname, mode="r") as fptr_hist:
             fptr_hist.set_auto_mask(False)
-            dims_keep = self.tracer_dims_keep_in_stats()
-            coords_extra = {}
-            for dimname in dims_keep:
-                if dimname in fptr_hist.variables:
-                    coords_extra[dimname] = {
-                        "vals": fptr_hist.variables[dimname][:],
-                        "attrs": fptr_hist.variables[dimname].__dict__,
-                    }
-                else:
-                    coords_extra[dimname] = {
-                        "dimlen": len(fptr_hist.dimensions[dimname])
-                    }
-            for tracer_name in self.tracer_names():
-                attrs = fptr_hist.variables[tracer_name].__dict__
-                for attname in ["cell_methods", "coordinates", "grid_loc"]:
-                    if attname in attrs:
-                        del attrs[attname]
-                vars_metadata[tracer_name] = {
-                    "dimensions_extra": dims_keep,
-                    "attrs": attrs,
-                }
-        caller = class_name(self) + ".def_stats_vars"
-        stats_file.def_vars(coords_extra, vars_metadata, caller)
+            for tracer_module in self.tracer_modules:
+                dimensions_to_add = tracer_module.stats_dimensions(fptr_hist)
+                dict_update_verify(dimensions, dimensions_to_add)
+
+                vars_metadata_to_add = tracer_module.stats_vars_metadata(fptr_hist)
+                dict_update_verify(vars_metadata, vars_metadata_to_add)
+
+        stats_file.def_dimensions(dimensions)
+        stats_file.def_vars(vars_metadata)
 
     def hist_time_mean_weights(self, fptr_hist):
         """return weights for computing time-mean in hist file"""
         timelen = len(fptr_hist.dimensions["time"])
         return np.full(timelen, 1.0 / timelen)
 
-    @action_step_log_wrap(step="ModelStateBase.put_stats_vars")
-    def put_stats_vars(self, stats_file, hist_fname, solver_state):
-        """put model specific stats variables"""
-        grid_weight = model_config.model_config_obj.grid_weight
-        dims_keep = self.tracer_dims_keep_in_stats()
-
+    @action_step_log_wrap(
+        step="ModelStateBase.put_stats_vars_iteration_invariant", per_iteration=False
+    )
+    # pylint: disable=unused-argument
+    def put_stats_vars_iteration_invariant(self, stats_file, hist_fname, solver_state):
+        """put values of iteration-invariant stats variables"""
         name_vals_dict = {}
-
         with Dataset(hist_fname, mode="r") as fptr_hist:
             fptr_hist.set_auto_mask(False)
-            time_weights = self.hist_time_mean_weights(fptr_hist)
-            for tracer_name in self.tracer_names():
-                tracer = fptr_hist.variables[tracer_name]
-                vals_time_mean = np.einsum("i,i...", time_weights, tracer[:])
-                # 1+dimind becauase grid_weight has leading region dimension
-                avg_axes = tuple(
-                    1 + dimind
-                    for dimind, dimname in enumerate(tracer.dimensions[1:])
-                    if dimname not in dims_keep
+            for tracer_module in self.tracer_modules:
+                name_vals_to_add = tracer_module.stats_vars_vals_iteration_invariant(
+                    fptr_hist
                 )
-                if avg_axes == ():
-                    # no averaging to be done
-                    name_vals_dict[tracer_name] = vals_time_mean
-                else:
-                    numer = (grid_weight * vals_time_mean).sum(axis=avg_axes)
-                    denom = grid_weight.sum(axis=avg_axes)
-                    fill_value = stats_file.get_fill_value(tracer_name)
-                    vals = np.full(numer.shape, fill_value)
-                    np.divide(numer, denom, out=vals, where=(denom != 0.0))
-                    name_vals_dict[tracer_name] = vals
+                dict_update_verify(name_vals_dict, name_vals_to_add)
+        stats_file.put_vars_iteration_invariant(name_vals_dict)
 
+    @action_step_log_wrap(step="ModelStateBase.put_stats_vars")
+    def put_stats_vars(self, stats_file, hist_fname, solver_state):
+        """put values of stats variables for the current iteration"""
+        name_vals_dict = {}
+        with Dataset(hist_fname, mode="r") as fptr_hist:
+            fptr_hist.set_auto_mask(False)
+            for tracer_module in self.tracer_modules:
+                name_vals_to_add = tracer_module.stats_vars_vals(fptr_hist)
+                dict_update_verify(name_vals_dict, name_vals_to_add)
         stats_file.put_vars(solver_state.get_iteration(), name_vals_dict)
 
     def __neg__(self):
@@ -590,9 +562,7 @@ def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
             dimnames = hist_var.dimensions
 
         for dimname in dimnames:
-            create_dimension_exist_okay(
-                fptr_out, dimname, fptr_in.dimensions[dimname].size
-            )
+            create_dimension_verify(fptr_out, dimname, fptr_in.dimensions[dimname].size)
             # if fptr_in has a cooresponding coordinate variable, then
             # define it, copy attributes from fptr_in, and write it
             if dimname in fptr_in.variables and dimname not in fptr_out.variables:

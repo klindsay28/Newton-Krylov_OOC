@@ -11,9 +11,9 @@ class VertMix:
         self._depth = depth
 
         self._mixing_coeff_time = None
-        self._mixing_coeff_vals = np.zeros(self._depth.nlevs - 1)
+        self._mixing_coeff_vals = np.zeros(len(self._depth) - 1)
 
-        self._tend_work = np.zeros(1 + self._depth.nlevs)
+        self._tend_work = np.zeros(len(self._depth) + 1)
 
     def tend(self, time, tracer_vals, surf_flux=0.0):
         """single tracer tendency from mixing, with surface flux"""

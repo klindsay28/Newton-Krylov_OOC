@@ -6,7 +6,7 @@ from netCDF4 import Dataset
 import numpy as np
 
 from ..tracer_module_state_base import TracerModuleStateBase
-from ..utils import create_dimension_exist_okay
+from ..utils import create_dimension_verify
 
 
 class TracerModuleState(TracerModuleStateBase):
@@ -29,7 +29,7 @@ class TracerModuleState(TracerModuleStateBase):
         )
         if fname == "gen_init_iterate":
             tracers_metadata = self._tracer_module_def["tracers"]
-            vals = np.empty((len(tracers_metadata), self.depth.nlevs))
+            vals = np.empty((len(tracers_metadata), len(self.depth)))
             for tracer_ind, tracer_metadata in enumerate(tracers_metadata.values()):
                 if "init_iterate_vals" in tracer_metadata:
                     vals[tracer_ind, :] = np.interp(
@@ -51,7 +51,7 @@ class TracerModuleState(TracerModuleStateBase):
                         % self.tracer_names()[tracer_ind]
                     )
                     raise ValueError(msg)
-            return vals, {"depth": self.depth.nlevs}
+            return vals, {"depth": len(self.depth)}
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
             # get dims from first variable
@@ -89,7 +89,7 @@ class TracerModuleState(TracerModuleStateBase):
         """
         if action == "define":
             for dimname, dimlen in self._dims.items():
-                create_dimension_exist_okay(fptr, dimname, dimlen)
+                create_dimension_verify(fptr, dimname, dimlen)
             dimnames = tuple(self._dims.keys())
             if self.depth.axisname not in fptr.variables:
                 self.depth.dump_def(fptr)
@@ -215,3 +215,54 @@ class TracerModuleState(TracerModuleStateBase):
             # depth integral
             varname = tracer_like_name + "_depth_int"
             fptr.variables[varname][:] = self.depth.int_vals_mid(tracer_vals)
+
+    def stats_dimensions(self, fptr):
+        """return dimensions to be used in stats file for this tracer module"""
+        dimnames = ["depth"]
+        return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
+
+    def stats_vars_metadata(self, fptr_hist):
+        """
+        return dict of metadata for vars to appear in the stats file for this tracer
+        module
+        """
+        res = {}
+
+        for dimname in ["depth"]:
+            attrs = fptr_hist.variables[dimname].__dict__
+            attrs["_FillValue"] = None
+            res[dimname] = {
+                "dimensions": (dimname,),
+                "attrs": attrs,
+            }
+
+        # add metadata for tracer-like variables
+
+        for tracer_name in self.stats_vars_tracer_like():
+            attrs = fptr_hist.variables[tracer_name].__dict__
+            del attrs["cell_methods"]
+            res[tracer_name] = {
+                "dimensions": ("iteration", "region", "depth"),
+                "attrs": attrs,
+            }
+        return res
+
+    def stats_vars_vals_iteration_invariant(self, fptr_hist):
+        """return iteration-invariant tracer module specific stats variables"""
+        res = {}
+        for varname in ["depth"]:
+            res[varname] = fptr_hist.variables[varname][:]
+        return res
+
+    def stats_vars_vals(self, fptr_hist):
+        """return tracer module specific stats variables for the current iteration"""
+
+        # return values for tracer-like variables
+
+        time_weights = self.hist_time_mean_weights(fptr_hist)
+        res = {}
+        for tracer_name in self.stats_vars_tracer_like():
+            tracer_vals = fptr_hist.variables[tracer_name][:]
+            # assume region dimension has length 1
+            res[tracer_name] = np.einsum("i,i...", time_weights, tracer_vals)
+        return res

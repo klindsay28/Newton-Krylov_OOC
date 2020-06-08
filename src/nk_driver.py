@@ -85,7 +85,7 @@ def main(args):
 
 
 def _model_state_class():
-    """return tracer module stats class for tracer_module_name"""
+    """return tracer module state class for tracer_module_name"""
 
     model_state_class = ModelStateBase
 

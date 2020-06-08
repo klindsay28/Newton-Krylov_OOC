@@ -51,9 +51,11 @@ class TracerModuleStateBase:
         """return the index of a tracer"""
         return self.tracer_names().index(tracer_name)
 
-    def tracer_metadata(self, tracer_name):
-        """return tracer's metadata"""
-        return self._tracer_module_def["tracers"][tracer_name]
+    def stats_vars_tracer_like(self):
+        """
+        return list of tracer-like vars in hist file to be processed for the stats file
+        """
+        return self.tracer_names()
 
     def log_vals(self, msg, vals):
         """write per-tracer module values to the log"""

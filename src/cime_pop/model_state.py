@@ -82,10 +82,6 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def tracer_dims_keep_in_stats(self):
-        """tuple of dimensions to keep for tracers in stats file"""
-        return ("z_t", "nlat")
-
     @action_step_log_wrap(
         step="ModelState.gen_precond_jacobian {precond_fname}", per_iteration=False
     )

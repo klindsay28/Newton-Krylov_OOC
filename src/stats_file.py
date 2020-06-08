@@ -7,7 +7,7 @@ from netCDF4 import Dataset
 
 from .model_config import get_region_cnt
 from .solver_state import action_step_log_wrap
-from .utils import class_name, create_dimension_exist_okay
+from .utils import class_name, create_dimension_verify
 
 
 class StatsFile:
@@ -15,7 +15,10 @@ class StatsFile:
 
     def __init__(self, name, workdir, solver_state):
         self._fname = os.path.join(workdir, name + "_stats.nc")
-        self._fill_value = -1.0e30  # file-wide default fill_value
+
+        # file default _FillValue; needed for when iteration axis grows,
+        # but variable values for new iteration are not yet available
+        self._fill_value = -1.0e30
 
         self._create_stats_file(name=name, fname=self._fname, solver_state=solver_state)
 
@@ -31,60 +34,37 @@ class StatsFile:
             setattr(fptr, "history", msg)
 
             # define dimensions
-            fptr.createDimension("iteration", None)
-            fptr.createDimension("region", get_region_cnt())
+            self._def_dimensions(fptr, {"iteration": None, "region": get_region_cnt()})
 
             # define coordinate variables
-            fptr.createVariable("iteration", "i", dimensions=("iteration",))
+            self._def_vars(
+                fptr,
+                {
+                    "iteration": {
+                        "datatype": "i",
+                        "dimensions": ("iteration",),
+                        "attrs": {
+                            "_FillValue": None,
+                            "long_name": "%s solver iteration" % name,
+                        },
+                    }
+                },
+            )
 
-    def get_fill_value(self, varname):
-        """return _FillValue for varname"""
-        with Dataset(self._fname, mode="r") as fptr:
-            fill_value = getattr(fptr.variables[varname], "_FillValue")
-        return fill_value
-
-    def def_vars(self, coords_extra, vars_metadata, caller=None):
-        """
-        define vars in stats file
-        vars are assumed to implicitly have dimensions ("iteration", "region")
-        coords_extra are any coords required for additional dimensions
-        """
-
-        dimensions = ("iteration", "region")
+    def def_dimensions(self, dimensions):
+        """define dimensions in stats file"""
         with Dataset(self._fname, mode="a") as fptr:
-            # define extra dimensions
-            # if vals are provided, define and write coordinates variables
-            # if vals are not provided, expect dimlen to be in metadata
-            for dimname, metadata in coords_extra.items():
-                if "vals" in metadata:
-                    dimlen = len(metadata["vals"])
-                elif "dimlen" in metadata:
-                    dimlen = metadata["dimlen"]
-                else:
-                    msg = "dimlen for %s unknown" % dimname
-                    raise ValueError(msg)
-                create_dimension_exist_okay(fptr, dimname, dimlen)
-                if "vals" in metadata and dimname not in fptr.variables:
-                    var = fptr.createVariable(dimname, "f8", dimensions=(dimname,))
-                    for attr_name, attr_value in metadata.get("attrs", {}).items():
-                        setattr(var, attr_name, attr_value)
-                    var[:] = metadata["vals"]
+            self._def_dimensions(fptr, dimensions)
 
-            # define specific vars
-            for varname, metadata in vars_metadata.items():
-                if "dimensions_extra" in metadata:
-                    dimensions_loc = dimensions + metadata["dimensions_extra"]
-                else:
-                    dimensions_loc = dimensions
-                attrs = metadata.get("attrs", {})
-                fill_value = attrs.get("_FillValue", self._fill_value)
-                var = fptr.createVariable(
-                    varname, "f8", dimensions_loc, fill_value=fill_value
-                )
-                for attr_name, attr_value in attrs.items():
-                    if attr_name != "_FillValue":
-                        setattr(var, attr_name, attr_value)
+    def _def_dimensions(self, fptr, dimensions):
+        """define dimensions in an open stats file"""
+        for dimname, dimlen in dimensions.items():
+            create_dimension_verify(fptr, dimname, dimlen)
 
+    def def_vars(self, vars_metadata, caller=None):
+        """define vars in stats file"""
+        with Dataset(self._fname, mode="a") as fptr:
+            self._def_vars(fptr, vars_metadata)
             if caller is not None:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 varnames = ",".join(vars_metadata)
@@ -94,22 +74,51 @@ class StatsFile:
                 msg = msg + "\n" + getattr(fptr, "history")
                 setattr(fptr, "history", msg)
 
+    def _def_vars(self, fptr, vars_metadata):
+        """define vars in an open stats file"""
+        # define specific vars
+        for varname, metadata in vars_metadata.items():
+            datatype = metadata.get("datatype", "f8")
+            attrs = metadata.get("attrs", {})
+            fill_value = attrs.get("_FillValue", self._fill_value)
+            var = fptr.createVariable(
+                varname, datatype, metadata["dimensions"], fill_value=fill_value
+            )
+            for attr_name, attr_value in attrs.items():
+                if attr_name != "_FillValue":
+                    setattr(var, attr_name, attr_value)
+
+    def put_vars_iteration_invariant(self, name_vals_dict):
+        """
+        write iteration-invariant values to stats file
+        name_vals_dict is a dict of (varname, vals) pairs
+        """
+        # if there is nothing to write return immediately
+        if name_vals_dict == {}:
+            return
+        with Dataset(self._fname, mode="a") as fptr:
+            for name, vals in name_vals_dict.items():
+                if "iteration" in fptr.variables[name].dimensions:
+                    msg = "iteration is a dimension for %s" % name
+                    raise RuntimeError(msg)
+                fptr.variables[name][:] = vals
+
     def put_vars(self, iteration, name_vals_dict):
         """
         write values to stats file for a particular iteration index
         name_vals_dict is a dict of (varname, vals) pairs
         where vals are specific to this iteration
         """
-
         # if there is nothing to write return immediately
         if name_vals_dict == {}:
             return
-
         with Dataset(self._fname, mode="a") as fptr:
             if iteration == len(fptr.variables["iteration"]):
                 _grow_iteration(fptr)
-
             for name, vals in name_vals_dict.items():
+                if "iteration" not in fptr.variables[name].dimensions:
+                    msg = "iteration is not a dimension for %s" % name
+                    raise RuntimeError(msg)
                 fptr.variables[name][iteration, :] = vals
 
 

@@ -6,7 +6,7 @@ from cf_units import Unit
 from netCDF4 import Dataset
 import numpy as np
 
-from ..utils import class_name, create_dimension_exist_okay
+from ..utils import class_name, create_dimension_verify
 
 
 class SpatialAxis:
@@ -67,12 +67,16 @@ class SpatialAxis:
                 key + "=" + "%s" % value["value"] for key, value in defn_dict.items()
             )
 
-        self.nlevs = len(self.edges) - 1
+        self._nlevs = len(self.edges) - 1
         self.mid = 0.5 * (self.edges[:-1] + self.edges[1:])
         self.delta = self.edges[1:] - self.edges[:-1]
         self.delta_r = 1.0 / self.delta
         self.delta_mid = np.ediff1d(self.mid)
         self.delta_mid_r = 1.0 / self.delta_mid
+
+    def __len__(self):
+        """length of axis, i.e., number of layers"""
+        return self._nlevs
 
     def _gen_edges(self, defn_dict):
         """generate edges from axis specs in defn_dict"""
@@ -132,9 +136,9 @@ class SpatialAxis:
 
         # define dimensions
 
-        create_dimension_exist_okay(fptr, self.axisname, self.nlevs)
-        create_dimension_exist_okay(fptr, "nbnds", 2)
-        create_dimension_exist_okay(fptr, edges_name, 1 + self.nlevs)
+        create_dimension_verify(fptr, self.axisname, len(self))
+        create_dimension_verify(fptr, "nbnds", 2)
+        create_dimension_verify(fptr, edges_name, len(self) + 1)
 
         # define variables
 

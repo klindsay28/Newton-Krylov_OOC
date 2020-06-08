@@ -8,7 +8,7 @@ from scipy.sparse.linalg import spsolve
 from .tracer_module_state import TracerModuleState
 
 
-class Phosphorus(TracerModuleState):
+class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
     """phosphorus tracer module specifics for TracerModuleState"""
 
     def __init__(self, tracer_module_name, fname, depth):
@@ -17,7 +17,7 @@ class Phosphorus(TracerModuleState):
         # light has e-folding decay of 25m
         self.light_lim = np.exp((-1.0 / 25.0) * depth.mid)
 
-        self._sinking_tend_work = np.zeros(1 + depth.nlevs)
+        self._sinking_tend_work = np.zeros(1 + len(depth))
 
     def comp_tend(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
         """
@@ -106,7 +106,7 @@ class Phosphorus(TracerModuleState):
         days_per_sec = 1.0 / 86400.0
 
         # compute po4_uptake
-        po4_uptake = np.empty((1, self.depth.nlevs, tracer_vals_all.shape[-1]))
+        po4_uptake = np.empty((1, len(self.depth), tracer_vals_all.shape[-1]))
         po4_ind = 1
         for time_ind in range(tracer_vals_all.shape[-1]):
             po4 = tracer_vals_all[po4_ind, :, time_ind]
@@ -115,13 +115,21 @@ class Phosphorus(TracerModuleState):
         # append po4_uptake to tracer_vals_all and pass up the class chain
         super().write_hist_vars(fptr, np.concatenate((tracer_vals_all, po4_uptake)))
 
+    def stats_vars_tracer_like(self):
+        """
+        return list of tracer-like vars in hist file to be processed for the stats file
+        """
+        res = super().stats_vars_tracer_like()
+        res.append("po4_uptake")
+        return res
+
     def apply_precond_jacobian(self, time_range, mca, res_tms):
         """
         apply preconditioner of jacobian of phosphorus fcn
         it is only applied to shadow phosphorus tracers [3:6]
         """
 
-        nlevs = self.depth.nlevs
+        nlevs = len(self.depth)
 
         self_vals = self.get_tracer_vals_all()[3:6, :].reshape(-1)
         rhs_vals = (1.0 / (time_range[1] - time_range[0])) * self_vals
@@ -157,7 +165,7 @@ class Phosphorus(TracerModuleState):
 
     def _diag_0_phosphorus(self, mca):
         """return main diagonal of preconditioner of jacobian of phosphorus fcn"""
-        diag_0_single_tracer = np.zeros(self.depth.nlevs)
+        diag_0_single_tracer = np.zeros(len(self.depth))
         diag_0_single_tracer[:-1] -= (
             mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         )
@@ -202,29 +210,29 @@ class Phosphorus(TracerModuleState):
         """
         return +nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        diag_p_1_dop_po4 = 0.01 * np.ones(self.depth.nlevs)  # dop_s remin
-        diag_p_1_pop_dop = np.zeros(self.depth.nlevs)
+        diag_p_1_dop_po4 = 0.01 * np.ones(len(self.depth))  # dop_s remin
+        diag_p_1_pop_dop = np.zeros(len(self.depth))
         return np.concatenate((diag_p_1_dop_po4, diag_p_1_pop_dop))
 
     def _diag_m_nlevs_phosphorus(self):
         """
         return -nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        diag_p_1_po4_dop = np.zeros(self.depth.nlevs)
+        diag_p_1_po4_dop = np.zeros(len(self.depth))
         diag_p_1_po4_dop[0] = 0.67  # po4_s restoring conservation balance
-        diag_p_1_dop_pop = np.zeros(self.depth.nlevs)
+        diag_p_1_dop_pop = np.zeros(len(self.depth))
         return np.concatenate((diag_p_1_po4_dop, diag_p_1_dop_pop))
 
     def _diag_p_2nlevs_phosphorus(self):
         """
         return +2nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        return 0.01 * np.ones(self.depth.nlevs)  # pop_s remin
+        return 0.01 * np.ones(len(self.depth))  # pop_s remin
 
     def _diag_m_2nlevs_phosphorus(self):
         """
         return -2nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        diag_p_1_po4_pop = np.zeros(self.depth.nlevs)
+        diag_p_1_po4_pop = np.zeros(len(self.depth))
         diag_p_1_po4_pop[0] = 0.33  # po4_s restoring conservation balance
         return diag_p_1_po4_pop

@@ -11,6 +11,7 @@ from .utils import fmt_vals
 # model configuration info
 model_config_obj = None
 
+
 # functions to commonly accessed vars in model_config_obj
 def get_region_cnt():
     """return number of regions specified by region_mask"""

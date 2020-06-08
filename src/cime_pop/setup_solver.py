@@ -16,7 +16,7 @@ from ..model_config import ModelConfig
 from ..share import args_replace, common_args, read_cfg_file
 from ..utils import (
     mkdir_exist_okay,
-    create_dimension_exist_okay,
+    create_dimension_verify,
     ann_files_to_mean_file,
     mon_files_to_mean_file,
 )
@@ -192,7 +192,7 @@ def gen_grid_weight_file(modelinfo):
 
         # propagate dimension sizes from fptr_in to fptr_out
         for dimind, dimname in enumerate(weight_dimnames):
-            create_dimension_exist_okay(fptr_out, dimname, weight_shape[dimind])
+            create_dimension_verify(fptr_out, dimname, weight_shape[dimind])
 
         varname = modelinfo["grid_weight_varname"]
         var = fptr_out.createVariable(varname, weight.dtype, dimensions=weight_dimnames)
@@ -245,7 +245,7 @@ def gen_region_mask_file(modelinfo):
 
         # propagate dimension sizes from fptr_in to fptr_out
         for dimind, dimname in enumerate(mask_dimnames):
-            create_dimension_exist_okay(fptr_out, dimname, mask_shape[dimind])
+            create_dimension_verify(fptr_out, dimname, mask_shape[dimind])
 
         varname = modelinfo["region_mask_varname"]
         var = fptr_out.createVariable(varname, mask.dtype, dimensions=mask_dimnames)

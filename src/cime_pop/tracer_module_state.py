@@ -5,8 +5,9 @@ import logging
 from netCDF4 import Dataset
 import numpy as np
 
+from .. import model_config
 from ..tracer_module_state_base import TracerModuleStateBase
-from ..utils import create_dimension_exist_okay
+from ..utils import create_dimension_verify
 
 
 class TracerModuleState(TracerModuleStateBase):
@@ -57,7 +58,7 @@ class TracerModuleState(TracerModuleStateBase):
         """
         if action == "define":
             for dimname, dimlen in self._dims.items():
-                create_dimension_exist_okay(fptr, dimname, dimlen)
+                create_dimension_verify(fptr, dimname, dimlen)
             dimnames = tuple(self._dims.keys())
             # define all tracers, with _CUR and _OLD suffixes
             for tracer_name in self.tracer_names():
@@ -72,3 +73,92 @@ class TracerModuleState(TracerModuleStateBase):
             msg = "unknown action=", action
             raise ValueError(msg)
         return self
+
+    def stats_dimensions(self, fptr):
+        """return dimensions to be used in stats file for this tracer module"""
+        dimnames = ["z_t", "nlat"]
+        return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
+
+    def stats_vars_metadata(self, fptr_hist):
+        """
+        return dict of metadata for vars to appear in the stats file for this tracer
+        module
+        """
+        res = {}
+
+        for dimname in ["z_t"]:
+            attrs = fptr_hist.variables[dimname].__dict__
+            attrs["_FillValue"] = None
+            res[dimname] = {
+                "dimensions": (dimname,),
+                "attrs": attrs,
+            }
+
+        # add metadata for tracer-like variables
+
+        for tracer_name in self.stats_vars_tracer_like():
+            attrs = fptr_hist.variables[tracer_name].__dict__
+            del attrs["cell_methods"]
+            del attrs["coordinates"]
+            del attrs["grid_loc"]
+
+            # grid-i average
+            varname = "_".join([tracer_name, "nlon"])
+            res[varname] = {
+                "dimensions": ("iteration", "region", "z_t", "nlat"),
+                "attrs": attrs,
+            }
+
+            # grid-ij average
+            varname = "_".join([tracer_name, "nlat", "nlon"])
+            res[varname] = {
+                "dimensions": ("iteration", "region", "z_t"),
+                "attrs": attrs,
+            }
+        return res
+
+    def stats_vars_vals_iteration_invariant(self, fptr_hist):
+        """return iteration-invariant tracer module specific stats variables"""
+        res = {}
+        for varname in ["depth"]:
+            res[varname] = fptr_hist.variables[varname][:]
+        return res
+
+    def stats_vars_vals(self, fptr_hist):
+        """return tracer module specific stats variables for the current iteration"""
+
+        # return values for tracer-like variables
+
+        grid_weight = model_config.model_config_obj.grid_weight
+
+        denom_nlon = grid_weight.sum(axis=-1)
+        numer_nlon = np.empty(denom_nlon.shape)
+
+        denom_nlat_nlon = grid_weight.sum(axis=(-2, -1))
+        numer_nlat_nlon = np.empty(denom_nlat_nlon.shape)
+
+        res = {}
+        for tracer_name in self.stats_vars_tracer_like():
+            tracer = fptr_hist.variables[tracer_name]
+            fill_value = getattr(tracer, "_FillValue")
+            tracer_vals = tracer[:]
+
+            # grid-i average
+            varname = "_".join([tracer_name, "nlon"])
+            numer_nlon[:] = (grid_weight * tracer_vals).sum(axis=-1)
+            vals_nlon = np.full(numer_nlon.shape, fill_value)
+            np.divide(numer_nlon, denom_nlon, out=vals_nlon, where=(denom_nlon != 0.0))
+            res[varname] = vals_nlon
+
+            # grid-ij average
+            varname = "_".join([tracer_name, "nlat", "nlon"])
+            numer_nlat_nlon[:] = (grid_weight * tracer_vals).sum(axis=(-2, -1))
+            vals_nlat_nlon = np.full(numer_nlat_nlon.shape, fill_value)
+            np.divide(
+                numer_nlat_nlon,
+                denom_nlat_nlon,
+                out=vals_nlat_nlon,
+                where=(denom_nlat_nlon != 0.0),
+            )
+            res[varname] = vals_nlat_nlon
+        return res

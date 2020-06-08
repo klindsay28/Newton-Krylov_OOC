@@ -119,10 +119,6 @@ class ModelState(ModelStateBase):
 
         super().__init__(fname)
 
-    def tracer_dims_keep_in_stats(self):
-        """tuple of dimensions to keep for tracers in stats file"""
-        return ("depth",)
-
     def hist_time_mean_weights(self, fptr_hist):
         """return weights for computing time-mean in hist file"""
         # downweight endpoints because test_problem writes t=0 and t=365 to hist
@@ -134,7 +130,7 @@ class ModelState(ModelStateBase):
 
     def get_tracer_vals_all(self):
         """get all tracer values"""
-        res_vals = np.empty((self.tracer_cnt, self.depth.nlevs))
+        res_vals = np.empty((self.tracer_cnt, len(self.depth)))
         ind0 = 0
         for tracer_module in self.tracer_modules:
             cnt = tracer_module.tracer_cnt
@@ -299,7 +295,7 @@ class ModelState(ModelStateBase):
                 ][time_ind, -2]
 
             # write tracer module hist vars, providing appropriate segment of sol.y
-            tracer_vals_all = sol.y.reshape((self.tracer_cnt, self.depth.nlevs, -1))
+            tracer_vals_all = sol.y.reshape((self.tracer_cnt, len(self.depth), -1))
             ind0 = 0
             for tracer_module in self.tracer_modules:
                 cnt = tracer_module.tracer_cnt

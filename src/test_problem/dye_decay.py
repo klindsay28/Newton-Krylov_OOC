@@ -6,7 +6,7 @@ from scipy.linalg import solve_banded
 from .tracer_module_state import TracerModuleState
 
 
-class DyeDecay(TracerModuleState):
+class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
     """dye_decay tracer module specifics for TracerModuleState"""
 
     def __init__(self, tracer_module_name, fname, depth):
@@ -47,7 +47,7 @@ class DyeDecay(TracerModuleState):
         rhs_vals = (1.0 / (time_range[1] - time_range[0])) * self_vals
 
         l_and_u = (1, 1)
-        matrix_diagonals = np.zeros((3, self.depth.nlevs))
+        matrix_diagonals = np.zeros((3, len(self.depth)))
         # d tend[k] / d tracer[k-1]
         matrix_diagonals[0, 1:] = mca * self.depth.delta_mid_r * self.depth.delta_r[:-1]
         # d tend[k] / d tracer[k]
