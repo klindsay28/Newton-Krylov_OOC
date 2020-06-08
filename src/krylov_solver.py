@@ -8,7 +8,7 @@ import numpy as np
 from .model_config import get_region_cnt
 from .model_state_base import lin_comb
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
-from .solver_state import SolverState
+from .solver_state import SolverState, action_step_log_wrap
 from .utils import class_name, mkdir_exist_okay
 
 
@@ -60,32 +60,28 @@ class KrylovSolver:
         """is solver converged"""
         return self._solver_state.get_iteration() >= 3
 
-    def _solve0(self, fcn):
+    @action_step_log_wrap(step="KrylovSolver._solve0", per_iteration=False)
+    # pylint: disable=unused-argument
+    def _solve0(self, fcn, solver_state):
         """
         steps of solve that are only performed for iteration 0
         This is step 1 of Saad's alogrithm 9.4.
         """
+        # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
+        precond_fcn = fcn.apply_precond_jacobian(
+            self._fname("precond", 0), self._fname("precond_fcn"), self._solver_state,
+        )
+        beta = precond_fcn.norm()
         caller = class_name(self) + "._solve0"
-        fcn_complete_step = "_solve0 complete"
-        if not self._solver_state.step_logged(fcn_complete_step):
-            # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-            precond_fcn = fcn.apply_precond_jacobian(
-                self._fname("precond", 0),
-                self._fname("precond_fcn"),
-                self._solver_state,
-            )
-            beta = precond_fcn.norm()
-            (-precond_fcn / beta).dump(self._fname("basis"), caller)
-            self._solver_state.set_value_saved_state("beta_ndarray", to_ndarray(beta))
-            self._solver_state.log_step(fcn_complete_step)
+        (-precond_fcn / beta).dump(self._fname("basis"), caller)
+        self._solver_state.set_value_saved_state("beta_ndarray", to_ndarray(beta))
 
     def solve(self, res_fname, iterate, fcn):
         """apply Krylov method"""
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s"', res_fname)
 
-        if self._solver_state.get_iteration() == 0:
-            self._solve0(fcn)
+        self._solve0(fcn, solver_state=self._solver_state)
 
         caller = class_name(self) + ".solve"
 
