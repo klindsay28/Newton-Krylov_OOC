@@ -11,6 +11,15 @@ class RegionScalars:
     def __init__(self, vals):
         self._vals = np.array(vals)
 
+    def __eq__(self, other):
+        """
+        equality operator
+        called to evaluate res == other
+        """
+        if isinstance(other, RegionScalars):
+            return np.all(other._vals == self._vals)
+        return NotImplemented
+
     def __mul__(self, other):
         """
         multiplication operator

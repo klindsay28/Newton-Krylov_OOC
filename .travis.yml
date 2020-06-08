@@ -27,6 +27,7 @@ install:
 
 script:
   - black --check .
+  - pytest
   # setup solver, with default tracer modules
   # persist not needed since driver is not invoked
   # this does perform forward model runs, since fp_cnt=2
