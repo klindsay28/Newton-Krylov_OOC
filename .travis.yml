@@ -27,11 +27,12 @@ install:
 
 script:
   - black --check .
-  - pytest
   # setup solver, with default tracer modules
   # persist not needed since driver is not invoked
   # this does perform forward model runs, since fp_cnt=2
   - ./scripts/setup_solver.sh
+  # now that the workdir is populated, pytest tests have what they need
+  - pytest
   # setup and run solver, do with iage only to reduce test time
   # also exercises passing --model_name to setup_solver.sh
   - ./scripts/setup_solver.sh --tracer_module_names iage --model_name test_problem --persist
