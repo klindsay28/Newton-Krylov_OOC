@@ -4,6 +4,7 @@
 import copy
 from datetime import datetime
 from distutils.util import strtobool
+from inspect import signature
 import logging
 import os
 import subprocess
@@ -333,13 +334,29 @@ class ModelState(ModelStateBase):
         # ModelState instance for result
         res_ms = copy.deepcopy(self)
 
-        with Dataset(precond_fname, mode="r") as fptr:
-            mca = fptr.variables["mixing_coeff_log_avg"][1:-1]
+        pos_args = ["self", "time_range", "res_tms"]
 
-        for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
-            tracer_module.apply_precond_jacobian(
-                self.time_range, mca, res_ms.tracer_modules[tracer_module_ind],
-            )
+        arg_to_hist_dict = {
+            "mca": "mixing_coeff_log_avg",
+            "po4_s_restore_tau_r": "po4_s_restore_tau_r_avg",
+        }
+
+        with Dataset(precond_fname, mode="r") as fptr:
+            for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
+                kwargs = {}
+                for arg in signature(tracer_module.apply_precond_jacobian).parameters:
+                    if arg in pos_args:
+                        continue
+                    hist_varname = arg_to_hist_dict[arg]
+                    hist_var = fptr.variables[hist_varname]
+                    if "depth_edges" in hist_var.dimensions:
+                        kwargs[arg] = hist_var[1:-1]
+                    else:
+                        kwargs[arg] = hist_var[:]
+
+                tracer_module.apply_precond_jacobian(
+                    self.time_range, res_ms.tracer_modules[tracer_module_ind], **kwargs,
+                )
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)

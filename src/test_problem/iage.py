@@ -23,7 +23,7 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         # age 1/year
         dtracer_vals_dt[0, :] += 1.0 / 365.0
 
-    def apply_precond_jacobian(self, time_range, mca, res_tms):
+    def apply_precond_jacobian(self, time_range, res_tms, mca):
         """apply preconditioner of jacobian of iage fcn"""
 
         self_vals = self.get_tracer_vals_all()[0, :]

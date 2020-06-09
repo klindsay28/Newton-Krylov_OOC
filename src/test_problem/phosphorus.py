@@ -19,6 +19,10 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
         self._sinking_tend_work = np.zeros(1 + len(depth))
 
+        # 0: surface layer only, 1 / day
+        # 1: d po4_uptake / d po4
+        self.po4_s_restoring_opt = 1
+
     def comp_tend(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
         """
         compute tendency for phosphorus tracers
@@ -37,10 +41,27 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         # restore po4_s to po4, at a rate of 1 / day
         # compensate equally from and dop and pop,
         # so that total shadow phosphorus is conserved
-        rest_term = 1.0 * (tracer_vals[0, 0] - tracer_vals[3, 0])
-        dtracer_vals_dt[3, 0] += rest_term
-        dtracer_vals_dt[4, 0] -= 0.67 * rest_term
-        dtracer_vals_dt[5, 0] -= 0.33 * rest_term
+        rest_term = self.po4_s_restore_tau_r(tracer_vals[0, :], po4_uptake) * (
+            tracer_vals[0, :] - tracer_vals[3, :]
+        )
+        dtracer_vals_dt[3, :] += rest_term
+        dtracer_vals_dt[4, :] -= 0.67 * rest_term
+        dtracer_vals_dt[5, :] -= 0.33 * rest_term
+
+    def po4_s_restore_tau_r(self, po4, po4_uptake):
+        """inverse timescale for po4_s restoring"""
+
+        if self.po4_s_restoring_opt == 0:
+            # 1 / day in top layer
+            res = np.zeros(po4.shape)
+            res[0] = 1.0
+        else:
+            # finite-difference approximation to d po4_uptake / d po4
+            po4_delta = 1.0e-3 * abs(po4)
+            po4_delta[po4_delta < 1.0e-8] = 1.0e-8
+            res = (self.po4_uptake(po4 + po4_delta) - po4_uptake) / po4_delta
+
+        return res
 
     def po4_uptake(self, po4):
         """return po4_uptake, [mmol m-3 d-1]"""
@@ -98,20 +119,37 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         res["po4_uptake"] = {
             "attrs": {"long_name": "uptake of po4", "units": po4_units + " / d"}
         }
+        res["po4_s_restore_tau_r"] = {
+            "attrs": {
+                "long_name": "inverse timescale for po4_s restoring",
+                "units": "1 / d",
+            }
+        }
         return res
 
     def write_hist_vars(self, fptr, tracer_vals_all):
         """write hist vars"""
 
-        # compute po4_uptake
-        po4_uptake = np.empty((1, len(self.depth), tracer_vals_all.shape[-1]))
+        # compute po4_uptake, po4_s_restore_tau_r
         po4_ind = 1
+        po4_uptake_vals = np.empty((1, len(self.depth), tracer_vals_all.shape[-1]))
+        po4_s_restore_tau_r_vals = np.empty(
+            (1, len(self.depth), tracer_vals_all.shape[-1])
+        )
         for time_ind in range(tracer_vals_all.shape[-1]):
             po4 = tracer_vals_all[po4_ind, :, time_ind]
-            po4_uptake[0, :, time_ind] = self.po4_uptake(po4)
+            po4_uptake_vals[0, :, time_ind] = self.po4_uptake(po4)
+            po4_s_restore_tau_r_vals[0, :, time_ind] = self.po4_s_restore_tau_r(
+                po4, po4_uptake_vals[0, :, time_ind]
+            )
 
         # append po4_uptake to tracer_vals_all and pass up the class chain
-        super().write_hist_vars(fptr, np.concatenate((tracer_vals_all, po4_uptake)))
+        super().write_hist_vars(
+            fptr,
+            np.concatenate(
+                (tracer_vals_all, po4_uptake_vals, po4_s_restore_tau_r_vals)
+            ),
+        )
 
     def stats_vars_tracer_like(self):
         """
@@ -121,7 +159,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         res.append("po4_uptake")
         return res
 
-    def apply_precond_jacobian(self, time_range, mca, res_tms):
+    def apply_precond_jacobian(self, time_range, res_tms, mca, po4_s_restore_tau_r):
         """
         apply preconditioner of jacobian of phosphorus fcn
         it is only applied to shadow phosphorus tracers [3:6]
@@ -134,13 +172,13 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
         matrix = diags(
             [
-                self._diag_0_phosphorus(mca),
+                self._diag_0_phosphorus(mca, po4_s_restore_tau_r),
                 self._diag_p_1_phosphorus(mca),
                 self._diag_m_1_phosphorus(mca),
                 self._diag_p_nlevs_phosphorus(),
-                self._diag_m_nlevs_phosphorus(),
+                self._diag_m_nlevs_phosphorus(po4_s_restore_tau_r),
                 self._diag_p_2nlevs_phosphorus(),
-                self._diag_m_2nlevs_phosphorus(),
+                self._diag_m_2nlevs_phosphorus(po4_s_restore_tau_r),
             ],
             [0, 1, -1, nlevs, -nlevs, 2 * nlevs, -2 * nlevs],
             format="csr",
@@ -161,7 +199,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         res_tms.set_tracer_vals("dop_s", res_vals[nlevs : 2 * nlevs])
         res_tms.set_tracer_vals("pop_s", res_vals[2 * nlevs : 3 * nlevs])
 
-    def _diag_0_phosphorus(self, mca):
+    def _diag_0_phosphorus(self, mca, po4_s_restore_tau_r):
         """return main diagonal of preconditioner of jacobian of phosphorus fcn"""
         diag_0_single_tracer = np.zeros(len(self.depth))
         diag_0_single_tracer[:-1] -= (
@@ -171,7 +209,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
             mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
         )
         diag_0_po4_s = diag_0_single_tracer.copy()
-        diag_0_po4_s[0] -= 1.0  # po4_s restoring in top layer
+        diag_0_po4_s -= po4_s_restore_tau_r  # po4_s restoring
         diag_0_dop_s = diag_0_single_tracer.copy()
         diag_0_dop_s -= 0.01  # dop_s remin
         diag_0_pop_s = diag_0_single_tracer.copy()
@@ -212,12 +250,13 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         diag_p_1_pop_dop = np.zeros(len(self.depth))
         return np.concatenate((diag_p_1_dop_po4, diag_p_1_pop_dop))
 
-    def _diag_m_nlevs_phosphorus(self):
+    def _diag_m_nlevs_phosphorus(self, po4_s_restore_tau_r):
         """
         return -nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        diag_p_1_po4_dop = np.zeros(len(self.depth))
-        diag_p_1_po4_dop[0] = 0.67  # po4_s restoring conservation balance
+        diag_p_1_po4_dop = (
+            0.67 * po4_s_restore_tau_r
+        )  # po4_s restoring conservation balance
         diag_p_1_dop_pop = np.zeros(len(self.depth))
         return np.concatenate((diag_p_1_po4_dop, diag_p_1_dop_pop))
 
@@ -227,10 +266,11 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         """
         return 0.01 * np.ones(len(self.depth))  # pop_s remin
 
-    def _diag_m_2nlevs_phosphorus(self):
+    def _diag_m_2nlevs_phosphorus(self, po4_s_restore_tau_r):
         """
         return -2nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        diag_p_1_po4_pop = np.zeros(len(self.depth))
-        diag_p_1_po4_pop[0] = 0.33  # po4_s restoring conservation balance
+        diag_p_1_po4_pop = (
+            0.33 * po4_s_restore_tau_r
+        )  # po4_s restoring conservation balance
         return diag_p_1_po4_pop

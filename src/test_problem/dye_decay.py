@@ -40,7 +40,7 @@ class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
             time = self._dye_decay_surf_flux_time
         return self._dye_decay_surf_flux_val
 
-    def apply_precond_jacobian(self, time_range, mca, res_tms):
+    def apply_precond_jacobian(self, time_range, res_tms, mca):
         """apply preconditioner of jacobian of dye_decay fcn"""
 
         self_vals = self.get_tracer_vals_all()[0, :]
