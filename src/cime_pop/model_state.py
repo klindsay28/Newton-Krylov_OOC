@@ -452,10 +452,7 @@ def _gen_hist(hist_fname):
         raise NotImplementedError(msg)
 
     # location of history files
-    if cime_xmlquery("DOUT_S") == "TRUE":
-        hist_dir = os.path.join(cime_xmlquery("DOUT_S_ROOT"), "ocn", "hist")
-    else:
-        hist_dir = cime_xmlquery("RUNDIR")
+    hist_dir = cime_xmlquery("RUNDIR")
 
     caller = "src.cime_pop.model_state._gen_hist"
     if tavg_freq_opt_0 == "nyear":
