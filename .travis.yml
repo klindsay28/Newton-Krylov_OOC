@@ -22,11 +22,12 @@ install:
 
   - >
     conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC python=$TRAVIS_PYTHON_VERSION
-    pytest black netCDF4 numpy pyyaml gitpython scipy cf_units
+    pytest black flake8 netCDF4 numpy pyyaml gitpython scipy cf_units
   - conda activate Newton-Krylov_OOC
 
 script:
   - black --check .
+  - flake8
   # setup solver, with default tracer modules
   # persist not needed since driver is not invoked
   # this does perform forward model runs, since fp_cnt=2

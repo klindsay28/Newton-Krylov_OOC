@@ -9,6 +9,7 @@ dependencies:
 - pytest
 - pylint
 - black
+- flake8
 - pre-commit
 
 # documentation

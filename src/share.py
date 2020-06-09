@@ -99,7 +99,22 @@ def read_cfg_file(args):
     config = configparser.ConfigParser(defaults, allow_no_value=True)
     config.read_file(open(cfg_fname))
 
-    # verify that only names in no_value_allowed have no value
+    _check_config_no_values(cfg_fname, config)
+
+    _apply_cfg_override_args(args, config)
+
+    # write cfg contents to a file, if requested
+    cfg_out_fname = config["solverinfo"]["cfg_out_fname"]
+    if cfg_out_fname is not None:
+        mkdir_exist_okay(dirname(cfg_out_fname))
+        with open(cfg_out_fname, "w") as fptr:
+            config.write(fptr)
+
+    return config
+
+
+def _check_config_no_values(cfg_fname, config):
+    """verify that only names in no_value_allowed have no value"""
     # no_value_allowed is allowed to have no value or not be present
     if "no_value_allowed" in config["DEFAULT"]:
         no_value_allowed = config["DEFAULT"]["no_value_allowed"]
@@ -113,7 +128,9 @@ def read_cfg_file(args):
                 msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fname)
                 raise ValueError(msg)
 
-    # apply arguments that override cfg file
+
+def _apply_cfg_override_args(args, config):
+    """apply cfg_override_args to config"""
     for argname, metadata in cfg_override_args.items():
         # skip conditional overrides that were not added
         if argname not in args:
@@ -128,12 +145,3 @@ def read_cfg_file(args):
         elif metadata["action"] == "store_true":
             if getattr(args, argname):
                 config[metadata["section"]][override_var] = metadata["override_val"]
-
-    # write cfg contents to a file, if requested
-    cfg_out_fname = config["solverinfo"]["cfg_out_fname"]
-    if cfg_out_fname is not None:
-        mkdir_exist_okay(dirname(cfg_out_fname))
-        with open(cfg_out_fname, "w") as fptr:
-            config.write(fptr)
-
-    return config
