@@ -246,7 +246,7 @@ class ModelState(ModelStateBase):
                 "dimensions": ("time", "depth_edges"),
                 "attrs": {
                     "long_name": "vertical mixing coefficient",
-                    "units": "m2 s-1",
+                    "units": "m2 / d",
                 },
             },
         }
@@ -278,13 +278,10 @@ class ModelState(ModelStateBase):
             self._write_coord_vars_hist(fptr, sol.t)
 
             # (re-)compute and write tracer module independent vars
-            days_per_sec = 1.0 / 86400.0
             for time_ind, time in enumerate(sol.t):
                 fptr.variables["bldepth"][time_ind] = self.vert_mix.bldepth(time)
                 fptr.variables["mixing_coeff"][time_ind, 1:-1] = (
-                    days_per_sec
-                    * self.vert_mix.mixing_coeff(time)
-                    * self.depth.delta_mid
+                    self.vert_mix.mixing_coeff(time) * self.depth.delta_mid
                 )
                 # kludge to avoid missing values
                 fptr.variables["mixing_coeff"][time_ind, 0] = fptr.variables[
@@ -337,9 +334,7 @@ class ModelState(ModelStateBase):
         res_ms = copy.deepcopy(self)
 
         with Dataset(precond_fname, mode="r") as fptr:
-            # hist, and thus precond, files have mixing_coeff in m2 s-1
-            # convert back to model units of m2 d-1
-            mca = 86400.0 * fptr.variables["mixing_coeff_log_avg"][1:-1]
+            mca = fptr.variables["mixing_coeff_log_avg"][1:-1]
 
         for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
             tracer_module.apply_precond_jacobian(

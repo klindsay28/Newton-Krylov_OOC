@@ -181,10 +181,19 @@ class SpatialAxis:
     def int_vals_mid_units(self, vals_units):
         """units of int_vals_mid result, assuming units of vals are vals_units"""
         units_out_list = vals_units.split()
+        in_denom = False
         for ind, term in enumerate(units_out_list):
+            if term == "/":
+                in_denom = True
+                continue
             if _is_power_of(term, self.units):
-                units_out_list[ind] = Unit(term + " " + self.units).format()
+                if in_denom:
+                    term_prod = " ".join([term, "/", self.units])
+                else:
+                    term_prod = " ".join([term, self.units])
+                units_out_list[ind] = Unit(term_prod).format()
                 return " ".join(units_out_list)
+            in_denom = False
         units_out_list.append(self.units)
         return " ".join(units_out_list)
 

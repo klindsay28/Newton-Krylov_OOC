@@ -96,21 +96,19 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         res = super().hist_vars_metadata_tracer_like()
         po4_units = res["po4"]["attrs"]["units"]
         res["po4_uptake"] = {
-            "attrs": {"long_name": "uptake of po4", "units": po4_units + " s-1"}
+            "attrs": {"long_name": "uptake of po4", "units": po4_units + " / d"}
         }
         return res
 
     def write_hist_vars(self, fptr, tracer_vals_all):
         """write hist vars"""
 
-        days_per_sec = 1.0 / 86400.0
-
         # compute po4_uptake
         po4_uptake = np.empty((1, len(self.depth), tracer_vals_all.shape[-1]))
         po4_ind = 1
         for time_ind in range(tracer_vals_all.shape[-1]):
             po4 = tracer_vals_all[po4_ind, :, time_ind]
-            po4_uptake[0, :, time_ind] = days_per_sec * self.po4_uptake(po4)
+            po4_uptake[0, :, time_ind] = self.po4_uptake(po4)
 
         # append po4_uptake to tracer_vals_all and pass up the class chain
         super().write_hist_vars(fptr, np.concatenate((tracer_vals_all, po4_uptake)))
