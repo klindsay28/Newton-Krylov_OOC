@@ -17,3 +17,15 @@ template that can be followed.
 ------------------------------------------------
 Tracer Module Definition File Format Description
 ------------------------------------------------
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Preconditioner Matrix Definition Description
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+----------------------------------------------------------------
+Adding Tracer Module Specific Variables to the Solver Stats File
+----------------------------------------------------------------
+
+~~~~~~~~~~~~~~~~~~~~~
+Tracer-like Variables
+~~~~~~~~~~~~~~~~~~~~~

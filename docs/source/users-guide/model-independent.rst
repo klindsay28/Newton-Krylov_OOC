@@ -46,7 +46,7 @@ itself after a forward model run and exit.
 The latter approach is necessary when the computing environment does not allow for the
 driver task to persist in memory for the amount of time that it takes to perform multiple
 forward model runs.
-The ``cime_pop`` model is implemented such that the solver exits immediately after
+The cime_pop model is implemented such that the solver exits immediately after
 submitting the forward model run to a batch job submission system, reducing the amount of
 time that the solver resides in memory.
 
@@ -65,10 +65,17 @@ This can also be set via the command line option ``--logging_level DEBUG`` in th
 
 The solver writes summary statistics for each tracer module being run to a netCDF
 formatted stats file.
-The stats file includes mean and norm of the Newton iterates, their function evaluations,
-and the increments applied in Newton's method.
-The path of the stats file, which defaults to ``newton_solver_stats.nc`` in the work
-directory, can be modified by changing ``newton_solver_stats_fname`` in the cfg file.
+The path of the stats file is ``Newton_stats.nc`` in the work directory.
+The stats file includes mean and norm of the Newton iterates, their function
+evaluations, and the increments applied in Newton's method.
+The stats file also includes dimensionally reduced tracers values from history file
+created from the function evaluation.
+The dimensional reduction is model specific.
+For example, the cime_pop model generates reductions along ``(nlat,)`` and ``(nlat,
+nlon)`` dimension tuples.
+There are also tracer module specific variables added to the stats file.
+For example, the cime_pop model adds integrated air-sea CO2 gas flux for the
+``abio_dic_dic14`` tracer module.
 
 --------------
 Shadow Tracers
