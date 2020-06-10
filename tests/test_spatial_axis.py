@@ -1,6 +1,5 @@
 """test functions in spatial_axis.py"""
 
-import numpy as np
 import pytest
 
 from src.test_problem.spatial_axis import (
