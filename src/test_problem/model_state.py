@@ -247,7 +247,7 @@ class ModelState(ModelStateBase):
                 "dimensions": ("time", "depth_edges"),
                 "attrs": {
                     "long_name": "vertical mixing coefficient",
-                    "units": "m2 / d",
+                    "units": "m^2 / d",
                 },
             },
         }

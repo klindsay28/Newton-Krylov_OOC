@@ -25,7 +25,7 @@ dependencies:
 
 # test_problem requirements
 - scipy
-- cf_units
+- pint
 
 # cime_pop requirements
 - nco

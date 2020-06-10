@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from cf_units import Unit
+from pint import UnitRegistry
 from netCDF4 import Dataset
 import numpy as np
 
@@ -179,32 +179,22 @@ class SpatialAxis:
         return (self.delta * vals).sum(axis=-1)
 
     def int_vals_mid_units(self, vals_units):
-        """units of int_vals_mid result, assuming units of vals are vals_units"""
-        units_out_list = vals_units.split()
-        in_denom = False
-        for ind, term in enumerate(units_out_list):
-            if term == "/":
-                in_denom = True
-                continue
-            if _is_power_of(term, self.units):
-                if in_denom:
-                    term_prod = " ".join([term, "/", self.units])
-                else:
-                    term_prod = " ".join([term, self.units])
-                units_out_list[ind] = Unit(term_prod).format()
-                return " ".join(units_out_list)
-            in_denom = False
-        units_out_list.append(self.units)
-        return " ".join(units_out_list)
-
-
-def _is_power_of(term1, term2):
-    """is term1 convertible from a power of term2"""
-    for power in range(-6, 7):
-        term2_raised = "(%s)%d" % (term2, power)
-        if Unit(term1).is_convertible(term2_raised):
-            return True
-    return False
+        """
+        units of int_vals_mid result, assuming units of vals are vals_units
+        parsing is very primitive
+        """
+        ureg = UnitRegistry()
+        res = "{:~}".format(ureg(" ".join([self.units, vals_units])).units)
+        # do some replacements
+        term_repl = {"a": "years"}
+        res = " ".join([term_repl.get(term, term) for term in res.split()])
+        res = res.replace(" ** ", "^")
+        res = res.replace(" * ", " ")
+        # some reordering
+        res_split = res.split(" / ")
+        if len(res_split) == 3 and (res_split[1] in ["d", "s"]):
+            res = " / ".join([res_split[0], res_split[2], res_split[1]])
+        return res
 
 
 def spatial_axis_defn_dict(axisname="depth", trap_unknown=True, **kwargs):

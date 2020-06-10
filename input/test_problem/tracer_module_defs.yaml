@@ -12,42 +12,42 @@ tracer_module_defs:
             po4:
                 attrs:
                     long_name: "phosphate"
-                    units: "mmol / m3"
+                    units: "mmol / m^3"
                 init_iterate_val_depths: [125.0, 375.0]
                 init_iterate_vals: [0.0, 4.1]
                 precond_matrix: phosphorus
             dop:
                 attrs:
                     long_name: "dissolved organic phosphorus"
-                    units: "mmol / m3"
+                    units: "mmol / m^3"
                 init_iterate_val_depths: [100.0, 250.0]
                 init_iterate_vals: [7.3e-2, 0]
             pop:
                 attrs:
                     long_name: "particulate organic phosphorus"
-                    units: "mmol / m3"
+                    units: "mmol / m^3"
                 init_iterate_val_depths: [175.0, 425.0]
                 init_iterate_vals: [1.8e-2, 0.0]
             po4_s:
                 attrs:
                     long_name: "shadow phosphate"
-                    units: "mmol / m3"
+                    units: "mmol / m^3"
                 shadows: po4
             dop_s:
                 attrs:
                     long_name: "shadow dissolved organic phosphorus"
-                    units: "mmol / m3"
+                    units: "mmol / m^3"
                 shadows: dop
             pop_s:
                 attrs:
                     long_name: "shadow particulate organic phosphorus"
-                    units: "mmol / m3"
+                    units: "mmol / m^3"
                 shadows: pop
     dye_decay_{suff}:  # root module name
         py_mod_name: "dye_decay"
         tracers:
             dye_decay_{suff}:
-                attrs: {long_name: "dye sink {suff}", units: "mol / m3"}
+                attrs: {long_name: "dye sink {suff}", units: "mol / m^3"}
                 init_iterate_val_depths: [150.0]
                 init_iterate_vals: [0.0]
 

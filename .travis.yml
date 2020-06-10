@@ -3,6 +3,7 @@ python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "3.6"
   - "3.7"
+  - "3.8"
 install:
   - sudo apt-get update
   # We do this conditionally because it saves us some downloading if the
@@ -22,7 +23,7 @@ install:
 
   - >
     conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC python=$TRAVIS_PYTHON_VERSION
-    pytest black flake8 netCDF4 numpy pyyaml gitpython scipy cf_units
+    pytest black flake8 netCDF4 numpy pyyaml gitpython scipy pint
   - conda activate Newton-Krylov_OOC
 
 script:
