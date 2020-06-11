@@ -1,5 +1,7 @@
 """test functions in region_scalars.py"""
 
+import os
+
 import numpy as np
 import pytest
 
@@ -11,7 +13,9 @@ from src.share import common_args, read_cfg_file
 @pytest.mark.parametrize("ndim", [0, 1, 2, 3])
 def test_to_ndarray(ndim):
     """test to_ndarray for different arg_in ranks"""
-    parser, args_remaining = common_args("test_model_config", "test_problem", [])
+    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
+    args_list = ["--workdir", workdir]
+    parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
     args = parser.parse_args(args_remaining)
     config = read_cfg_file(args)
     ModelConfig(config["modelinfo"])
@@ -29,7 +33,9 @@ def test_to_ndarray(ndim):
 @pytest.mark.parametrize("ndim", [0, 1, 2, 3])
 def test_to_region_scalar_ndarray(ndim):
     """test to_region_scalar_ndarray for different arg_in ranks"""
-    parser, args_remaining = common_args("test_model_config", "test_problem", [])
+    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
+    args_list = ["--workdir", workdir]
+    parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
     args = parser.parse_args(args_remaining)
     config = read_cfg_file(args)
     ModelConfig(config["modelinfo"])

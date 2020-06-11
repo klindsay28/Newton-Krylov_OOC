@@ -1,5 +1,7 @@
 """test functions in share.py"""
 
+import os
+
 import pytest
 
 from src.share import common_args, read_cfg_file
@@ -18,6 +20,8 @@ def test_parse_args():
 def test_read_cfg_file(args_list):
     """run read_cfg_file function and confirm a setting from each section"""
     model_name = "test_problem"
+    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
+    args_list.extend(["--workdir", workdir])
     parser, args_remaining = common_args("test_share", model_name, args_list)
     args = parser.parse_args(args_remaining)
     config = read_cfg_file(args)

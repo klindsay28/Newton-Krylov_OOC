@@ -24,22 +24,7 @@ install:
   - >
     conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC python=$TRAVIS_PYTHON_VERSION
     pytest black flake8 netCDF4 numpy pyyaml gitpython scipy pint
-  - conda activate Newton-Krylov_OOC
 
 script:
-  - black --check .
-  - flake8
-  # setup solver, with default tracer modules
-  # persist not needed since driver is not invoked
-  # this does perform forward model runs, since fp_cnt=2
-  - ./scripts/setup_solver.sh
-  # now that the workdir is populated, pytest tests have what they need
-  - pytest
-  # setup and run solver, do with iage only to reduce test time
-  # also exercises passing --model_name to setup_solver.sh
-  - ./scripts/setup_solver.sh --tracer_module_names iage --model_name test_problem --persist
-  - $HOME/test_problem_work/nk_driver.sh
-  # setup and run solver for multiple dye_decay tracers
-  - ./scripts/setup_solver.sh --tracer_module_names "dye_decay_{suff}:001:010"
-    --newton_max_iter 4 --newton_rel_tol 1.0e-6 --persist
-  - $HOME/test_problem_work/nk_driver.sh
+  - ./scripts/travis_short.sh
+  - ./scripts/travis_long.sh
