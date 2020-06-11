@@ -47,7 +47,7 @@ tracer_module_defs:
         py_mod_name: "dye_decay"
         tracers:
             dye_decay_{suff}:
-                attrs: {long_name: "dye sink {suff}", units: "mol / m^3"}
+                attrs: {long_name: "dye decay {suff}", units: "mol / m^3"}
                 init_iterate_val_depths: [150.0]
                 init_iterate_vals: [0.0]
 
