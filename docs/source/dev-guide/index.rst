@@ -9,5 +9,6 @@ Newton-Krylov_OOC Developer's Guide
     :caption: Contents:
 
     coding_practices.rst
+    documentation.rst
     add_modules_test_problem.rst
     add_modules_cime_pop.rst
