@@ -8,7 +8,7 @@ Newton-Krylov_OOC Developer's Guide
     :maxdepth: 1
     :caption: Contents:
 
-    coding_practices.rst
+    testing_coding_practices.rst
     documentation.rst
     add_modules_test_problem.rst
     add_modules_cime_pop.rst
