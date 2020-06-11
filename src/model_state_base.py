@@ -408,11 +408,7 @@ class ModelStateBase:
                 hist_var = fptr_in.variables[hist_var_name]
                 logger.debug('hist_var_name="%s"', hist_var_name)
 
-                fill_value = (
-                    getattr(hist_var, "_FillValue")
-                    if hasattr(hist_var, "_FillValue")
-                    else None
-                )
+                fill_value = getattr(hist_var, "_FillValue", None)
 
                 if time_op == "avg":
                     precond_var_name = hist_var_name + "_avg"

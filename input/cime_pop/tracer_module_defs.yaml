@@ -40,16 +40,16 @@ precond_matrix_defs:
 
     abio_dic:
         hist_to_precond_var_names:
-            - 'd_SF_ABIO_DIC_d_ABIO_DIC:avg'
+            - d_SF_ABIO_DIC_d_ABIO_DIC
         precond_matrices_opts:
             - tracer_fname {precond_fname}
-            - sf d_SF_ABIO_DIC_d_ABIO_DIC_avg
+            - sf d_SF_ABIO_DIC_d_ABIO_DIC
 
     abio_dic14:
         hist_to_precond_var_names:
-            - 'd_SF_ABIO_DIC14_d_ABIO_DIC14:avg'
-            - 'd_SF_ABIO_DIC14_d_ABIO_DIC:avg'
+            - d_SF_ABIO_DIC14_d_ABIO_DIC14
+            - d_SF_ABIO_DIC14_d_ABIO_DIC
         precond_matrices_opts:
             - tracer_fname {precond_fname}
             - sink_type const 1.21e-4
-            - sf d_SF_ABIO_DIC14_d_ABIO_DIC14_avg
+            - sf d_SF_ABIO_DIC14_d_ABIO_DIC14
