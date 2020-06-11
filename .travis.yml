@@ -27,4 +27,5 @@ install:
 
 script:
   - ./scripts/travis_short.sh
-  - ./scripts/travis_long.sh
+  - ./scripts/travis_long_iage.sh
+  - ./scripts/travis_long_dye_decay.sh
