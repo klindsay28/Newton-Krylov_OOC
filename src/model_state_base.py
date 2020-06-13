@@ -18,7 +18,8 @@ from .utils import (
     dict_update_verify,
     class_name,
     get_subclasses,
-    create_dimension_verify,
+    extract_dimensions,
+    create_dimensions_verify,
 )
 
 
@@ -550,15 +551,14 @@ def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
     logger = logging.getLogger(__name__)
     for hist_var in hist_vars:
         hist_var_name, _, time_op = hist_var.partition(":")
-        hist_var = fptr_in.variables[hist_var_name]
 
+        dimensions = extract_dimensions(fptr_in, hist_var_name)
         if time_op in ("avg", "log_avg"):
-            dimnames = hist_var.dimensions[1:]
-        else:
-            dimnames = hist_var.dimensions
+            del dimensions["time"]
 
-        for dimname in dimnames:
-            create_dimension_verify(fptr_out, dimname, fptr_in.dimensions[dimname].size)
+        create_dimensions_verify(fptr_out, dimensions)
+
+        for dimname in dimensions:
             # if fptr_in has a cooresponding coordinate variable, then
             # define it, copy attributes from fptr_in, and write it
             if dimname in fptr_in.variables and dimname not in fptr_out.variables:

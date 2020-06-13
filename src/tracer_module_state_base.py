@@ -39,7 +39,7 @@ class TracerModuleStateBase:
         self.tracer_cnt = len(self._tracer_module_def["tracers"])
         # units common to all tracers
         self.units = attr_common(self._tracer_module_def["tracers"], "units")
-        self._vals, self._dims = self._read_vals(  # pylint: disable=no-member
+        self._vals, self._dimensions = self._read_vals(  # pylint: disable=no-member
             tracer_module_name, fname
         )
 
@@ -239,7 +239,7 @@ class TracerModuleStateBase:
 
     def mean(self):
         """compute weighted mean of self"""
-        ndim = len(self._dims)
+        ndim = len(self._dimensions)
         # i: region dimension
         # j: tracer dimension
         # k,l,m : grid dimensions
@@ -261,7 +261,7 @@ class TracerModuleStateBase:
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        ndim = len(self._dims)
+        ndim = len(self._dimensions)
         # i: region dimension
         # j: tracer dimension
         # k,l,m : grid dimensions

@@ -16,7 +16,8 @@ from ..model_config import ModelConfig
 from ..share import args_replace, common_args, read_cfg_file
 from ..utils import (
     mkdir_exist_okay,
-    create_dimension_verify,
+    extract_dimensions,
+    create_dimensions_verify,
     ann_files_to_mean_file,
     mon_files_to_mean_file,
 )
@@ -156,8 +157,6 @@ def gen_irf_file(modelinfo):
 def gen_grid_weight_file(modelinfo):
     """generate weight file from irf file, based on modelinfo"""
 
-    weight_dimnames = ("z_t", "nlat", "nlon")
-
     with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
         if hasattr(fptr_in, "history"):
             history_in = getattr(fptr_in, "history")
@@ -173,11 +172,9 @@ def gen_grid_weight_file(modelinfo):
         if strtobool(modelinfo["include_black_sea"]):
             surf_mask = surf_mask | (region_mask == -13)
 
-        weight_shape = tuple(
-            fptr_in.dimensions[dimname].size for dimname in weight_dimnames
-        )
-        weight = np.empty(weight_shape)
-        for k in range(weight_shape[0]):
+        weight_dimensions = extract_dimensions(fptr_in, ["dz", "TAREA"])
+        weight = np.empty(tuple(weight_dimensions.values()))
+        for k in range(weight.shape[0]):
             weight[k, :, :] = thickness[k] * np.where((k < kmt) & surf_mask, area, 0.0)
 
     with Dataset(
@@ -191,11 +188,12 @@ def gen_grid_weight_file(modelinfo):
         setattr(fptr_out, "history", msg)
 
         # propagate dimension sizes from fptr_in to fptr_out
-        for dimind, dimname in enumerate(weight_dimnames):
-            create_dimension_verify(fptr_out, dimname, weight_shape[dimind])
+        create_dimensions_verify(fptr_out, weight_dimensions)
 
         varname = modelinfo["grid_weight_varname"]
-        var = fptr_out.createVariable(varname, weight.dtype, dimensions=weight_dimnames)
+        var = fptr_out.createVariable(
+            varname, weight.dtype, dimensions=tuple(weight_dimensions)
+        )
         setattr(var, "long_name", "Ocean Grid-Cell Volume")
         setattr(var, "units", "m3")
 
@@ -205,23 +203,19 @@ def gen_grid_weight_file(modelinfo):
 def gen_region_mask_file(modelinfo):
     """generate region_mask file from irf file, based on modelinfo"""
 
-    mask_dimnames = ("z_t", "nlat", "nlon")
-
     with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
         history_in = getattr(fptr_in, "history")
         # generate mask
         kmt = fptr_in.variables["KMT"][:]
         region_mask = fptr_in.variables["REGION_MASK"][:]
 
-        mask_shape = tuple(
-            fptr_in.dimensions[dimname].size for dimname in mask_dimnames
-        )
-        mask = np.empty(mask_shape, dtype=kmt.dtype)
-        for k in range(mask_shape[0]):
+        mask_dimensions = extract_dimensions(fptr_in, ["z_t", "KMT"])
+        mask = np.empty(tuple(mask_dimensions.values()), dtype=kmt.dtype)
+        for k in range(mask.shape[0]):
             mask[k, :] = np.where((k < kmt) & (region_mask > 0), 1, 0)
 
         if strtobool(modelinfo["include_black_sea"]):
-            for k in range(mask_shape[0]):
+            for k in range(mask.shape[0]):
                 mask[k, :] = np.where((k < kmt) & (region_mask == -13), 2, mask[k, :])
 
     mode_out = (
@@ -244,17 +238,20 @@ def gen_region_mask_file(modelinfo):
         setattr(fptr_out, "history", msg)
 
         # propagate dimension sizes from fptr_in to fptr_out
-        for dimind, dimname in enumerate(mask_dimnames):
-            create_dimension_verify(fptr_out, dimname, mask_shape[dimind])
+        create_dimensions_verify(fptr_out, mask_dimensions)
 
         varname = modelinfo["region_mask_varname"]
-        var = fptr_out.createVariable(varname, mask.dtype, dimensions=mask_dimnames)
+        var = fptr_out.createVariable(
+            varname, mask.dtype, dimensions=tuple(mask_dimensions)
+        )
         setattr(var, "long_name", "Region Mask")
 
         var[:] = mask
 
         varname = "DYN_REGMASK"
-        var = fptr_out.createVariable(varname, mask.dtype, dimensions=mask_dimnames[1:])
+        var = fptr_out.createVariable(
+            varname, mask.dtype, dimensions=tuple(mask_dimensions)[1:]
+        )
         setattr(var, "long_name", "Region Mask")
 
         var[:] = mask[0, :]

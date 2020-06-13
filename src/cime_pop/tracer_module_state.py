@@ -7,7 +7,7 @@ import numpy as np
 
 from .. import model_config
 from ..tracer_module_state_base import TracerModuleStateBase
-from ..utils import create_dimension_verify
+from ..utils import extract_dimensions, create_dimensions_verify
 
 
 class TracerModuleState(TracerModuleStateBase):
@@ -23,15 +23,15 @@ class TracerModuleState(TracerModuleStateBase):
         suffix = "_CUR"
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
-            # get dims from first variable
-            var0 = fptr.variables[self.tracer_names()[0] + suffix]
-            dims = {dim.name: dim.size for dim in var0.get_dims()}
+            # get dimensions from first variable
+            varname = self.tracer_names()[0] + suffix
+            dimensions = extract_dimensions(fptr, varname)
             # all tracers are stored in a single array
             # tracer index is the leading index
-            vals = np.empty((self.tracer_cnt,) + tuple(dims.values()))
+            vals = np.empty((self.tracer_cnt,) + tuple(dimensions.values()))
             # check that all vars have the same dimensions
             for tracer_name in self.tracer_names():
-                if fptr.variables[tracer_name + suffix].dimensions != var0.dimensions:
+                if extract_dimensions(fptr, tracer_name + suffix) != dimensions:
                     msg = (
                         "not all vars have same dimensions"
                         ", tracer_module_name=%s, fname=%s"
@@ -39,17 +39,17 @@ class TracerModuleState(TracerModuleStateBase):
                     )
                     raise ValueError(msg)
             # read values
-            if len(dims) > 3:
+            if len(dimensions) > 3:
                 msg = (
                     "ndim too large (for implementation of dot_prod)"
                     "tracer_module_name=%s, fname=%s, ndim=%s"
-                    % (tracer_module_name, fname, len(dims))
+                    % (tracer_module_name, fname, len(dimensions))
                 )
                 raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 var = fptr.variables[tracer_name + suffix]
                 vals[tracer_ind, :] = var[:]
-        return vals, dims
+        return vals, dimensions
 
     def dump(self, fptr, action):
         """
@@ -57,9 +57,8 @@ class TracerModuleState(TracerModuleStateBase):
         to an open file
         """
         if action == "define":
-            for dimname, dimlen in self._dims.items():
-                create_dimension_verify(fptr, dimname, dimlen)
-            dimnames = tuple(self._dims.keys())
+            create_dimensions_verify(fptr, self._dimensions)
+            dimnames = tuple(self._dimensions.keys())
             # define all tracers, with _CUR and _OLD suffixes
             for tracer_name in self.tracer_names():
                 for suffix in ["_CUR", "_OLD"]:

@@ -17,7 +17,7 @@ from scipy.integrate import solve_ivp
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file
-from ..utils import class_name
+from ..utils import class_name, create_dimensions_verify
 
 from .spatial_axis import SpatialAxis
 from .vert_mix import VertMix
@@ -305,6 +305,7 @@ class ModelState(ModelStateBase):
     def _def_dims_coord_vars_hist(self, fptr):
         """define netCDF4 dimensions and coordinate vars relevant to test_problem"""
         fptr.createDimension("time", None)
+        create_dimensions_verify(fptr, self.depth.dump_dimensions())
 
         fptr.createVariable("time", "f8", dimensions=("time",))
         fptr.variables["time"].long_name = "time"

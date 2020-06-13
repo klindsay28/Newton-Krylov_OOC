@@ -6,7 +6,7 @@ from pint import UnitRegistry
 from netCDF4 import Dataset
 import numpy as np
 
-from ..utils import class_name, create_dimension_verify
+from ..utils import class_name, create_dimensions_verify
 
 
 class SpatialAxis:
@@ -74,6 +74,12 @@ class SpatialAxis:
         self.delta_mid = np.ediff1d(self.mid)
         self.delta_mid_r = 1.0 / self.delta_mid
 
+        self.dump_names = {
+            "bounds": self.axisname + "_bounds",
+            "edges": self.axisname + "_edges",
+            "delta": self.axisname + "_delta",
+        }
+
     def __len__(self):
         """length of axis, i.e., number of layers"""
         return self._nlevs
@@ -123,53 +129,51 @@ class SpatialAxis:
             if hasattr(self, "defn_dict_values"):
                 setattr(fptr, "defn_dict_values", self.defn_dict_values)
 
+            create_dimensions_verify(fptr, self.dump_dimensions())
+
             self.dump_def(fptr)
 
             self.dump_write(fptr)
 
+    def dump_dimensions(self):
+        """return dictionary of dimensions for dumping self to a netCDF4 file"""
+
+        return {
+            self.axisname: len(self),
+            "nbnds": 2,
+            self.dump_names["edges"]: len(self) + 1,
+        }
+
     def dump_def(self, fptr):
-        """define dimensions and variables for dump"""
-
-        bounds_name = self.axisname + "_bounds"
-        edges_name = self.axisname + "_edges"
-        delta_name = self.axisname + "_delta"
-
-        # define dimensions
-
-        create_dimension_verify(fptr, self.axisname, len(self))
-        create_dimension_verify(fptr, "nbnds", 2)
-        create_dimension_verify(fptr, edges_name, len(self) + 1)
-
-        # define variables
+        """define variables for dump"""
 
         fptr.createVariable(self.axisname, "f8", dimensions=(self.axisname,))
         fptr.variables[self.axisname].long_name = self.axisname + " layer midpoints"
         fptr.variables[self.axisname].units = self.units
-        fptr.variables[self.axisname].bounds = bounds_name
+        fptr.variables[self.axisname].bounds = self.dump_names["bounds"]
 
-        fptr.createVariable(bounds_name, "f8", dimensions=(self.axisname, "nbnds"))
-        fptr.variables[bounds_name].long_name = self.axisname + " layer bounds"
+        varname = self.dump_names["bounds"]
+        fptr.createVariable(varname, "f8", dimensions=(self.axisname, "nbnds"))
+        fptr.variables[varname].long_name = self.axisname + " layer bounds"
 
-        fptr.createVariable(edges_name, "f8", dimensions=(edges_name,))
-        fptr.variables[edges_name].long_name = self.axisname + " layer edges"
-        fptr.variables[edges_name].units = self.units
+        varname = self.dump_names["edges"]
+        fptr.createVariable(varname, "f8", dimensions=(varname,))
+        fptr.variables[varname].long_name = self.axisname + " layer edges"
+        fptr.variables[varname].units = self.units
 
-        fptr.createVariable(delta_name, "f8", dimensions=(self.axisname,))
-        fptr.variables[delta_name].long_name = self.axisname + " layer thickness"
-        fptr.variables[delta_name].units = self.units
+        varname = self.dump_names["delta"]
+        fptr.createVariable(varname, "f8", dimensions=(self.axisname,))
+        fptr.variables[varname].long_name = self.axisname + " layer thickness"
+        fptr.variables[varname].units = self.units
 
     def dump_write(self, fptr):
         """write variables for dump"""
 
-        bounds_name = self.axisname + "_bounds"
-        edges_name = self.axisname + "_edges"
-        delta_name = self.axisname + "_delta"
-
         fptr.variables[self.axisname][:] = self.mid
-        fptr.variables[bounds_name][:, 0] = self.edges[:-1]
-        fptr.variables[bounds_name][:, 1] = self.edges[1:]
-        fptr.variables[edges_name][:] = self.edges
-        fptr.variables[delta_name][:] = self.delta
+        fptr.variables[self.dump_names["bounds"]][:, 0] = self.edges[:-1]
+        fptr.variables[self.dump_names["bounds"]][:, 1] = self.edges[1:]
+        fptr.variables[self.dump_names["edges"]][:] = self.edges
+        fptr.variables[self.dump_names["delta"]][:] = self.delta
 
     def int_vals_mid(self, vals):
         """

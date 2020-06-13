@@ -7,7 +7,7 @@ from netCDF4 import Dataset
 
 from .model_config import get_region_cnt
 from .solver_state import action_step_log_wrap
-from .utils import class_name, create_dimension_verify
+from .utils import class_name, create_dimensions_verify
 
 
 class StatsFile:
@@ -34,7 +34,9 @@ class StatsFile:
             setattr(fptr, "history", msg)
 
             # define dimensions
-            self._def_dimensions(fptr, {"iteration": None, "region": get_region_cnt()})
+            create_dimensions_verify(
+                fptr, {"iteration": None, "region": get_region_cnt()}
+            )
 
             # define coordinate variables
             self._def_vars(
@@ -54,12 +56,7 @@ class StatsFile:
     def def_dimensions(self, dimensions):
         """define dimensions in stats file"""
         with Dataset(self._fname, mode="a") as fptr:
-            self._def_dimensions(fptr, dimensions)
-
-    def _def_dimensions(self, fptr, dimensions):
-        """define dimensions in an open stats file"""
-        for dimname, dimlen in dimensions.items():
-            create_dimension_verify(fptr, dimname, dimlen)
+            create_dimensions_verify(fptr, dimensions)
 
     def def_vars(self, vars_metadata, caller=None):
         """define vars in stats file"""

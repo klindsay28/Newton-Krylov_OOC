@@ -21,6 +21,8 @@ def attr_common(metadata_dict, attr_name):
     return this common value. Return None otherwise. Note that a return value of None
     can occur if the value is None for all dict entries.
     """
+    if not isinstance(metadata_dict, dict):
+        raise TypeError("metadata_dict must be a dict, not %s" % type(metadata_dict))
     attr_list = []
     for metadata in metadata_dict.values():
         if attr_name not in metadata.get("attrs", {}):
@@ -40,6 +42,8 @@ def dict_sel(dict_obj, **kwargs):
     return dict of (key, value) pairs from dict_obj where value is a dict
     that matches (sel_key, sel_value) pairs in kwargs
     """
+    if not isinstance(dict_obj, dict):
+        raise TypeError("dict_obj must be a dict, not %s" % type(dict_obj))
     res = dict_obj
     for sel_key, sel_value in kwargs.items():
         res = {
@@ -127,20 +131,44 @@ def mkdir_exist_okay(path):
 # utilities related to netCDF file operations
 
 
-def create_dimension_verify(fptr, dimname, dimlen):
+def extract_dimensions(fptr, names):
     """
-    Create a dimension in a netCDF4 file. If a dimension with dimname already exists,
+    Return a dict of dimensions that names are defined on.
+    names is a string containing a dimension or variable name, or a tuple or list of
+    dimension or variable names.
+    Raise a ValueError is a name from names is unknown.
+    """
+    if isinstance(names, str):
+        return extract_dimensions(fptr, [names])
+    if not isinstance(names, (tuple, list)):
+        raise TypeError("names must be a str, tuple, or list, not %s" % type(names))
+    res = {}
+    for name in names:
+        if name in fptr.dimensions:
+            res[name] = len(fptr.dimensions[name])
+        elif name in fptr.variables:
+            res.update(extract_dimensions(fptr, fptr.variables[name].dimensions))
+        else:
+            msg = "unknown name %s" % name
+            raise ValueError(msg)
+    return res
+
+
+def create_dimensions_verify(fptr, dimensions):
+    """
+    Create dimensions in a netCDF4 file. If a dimension with dimname already exists,
     and dimlen differs from the existing dimension's lenght, raise a RuntimeError.
-    Return the created dimension object.
     """
-    try:
-        fptr.createDimension(dimname, dimlen)
-    except RuntimeError as msg:
-        if str(msg) != "NetCDF: String match to name in use":
-            raise
-        if fptr.dimensions[dimname].size != dimlen:
-            raise
-    return fptr.dimensions[dimname]
+    if not isinstance(dimensions, dict):
+        raise TypeError("dimensions must be a dict, not %s" % type(dimensions))
+    for dimname, dimlen in dimensions.items():
+        try:
+            fptr.createDimension(dimname, dimlen)
+        except RuntimeError as msg:
+            if str(msg) != "NetCDF: String match to name in use":
+                raise
+            if len(fptr.dimensions[dimname]) != dimlen:
+                raise
 
 
 def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
