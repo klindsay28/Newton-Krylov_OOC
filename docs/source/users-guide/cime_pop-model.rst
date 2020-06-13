@@ -19,11 +19,15 @@ In order to perform forward model runs with perturbed tracer initial conditions,
 The cime_pop utilizes the xml variable ``POP_PASSIVE_TRACER_RESTART_OVERRIDE`` to do this.
 The following tracer modules in CESM2 support this feature: ``iage``, ``abio_dic_dic14``, ``ecosys``.
 
+The implementation of the cime_pop model in the solver includes supports the tracer modules ``iage`` and ``abio_dic_dic14``.
+Information on adding support for other tracer modules is included in the :ref:`developer's guide <add-tracer-module-cime_pop>`.
+
+
 -----
 Usage
 -----
 
-Most options for the solver and the cime_pop model are in the cfg file.
+User-configurable options for the solver and the cime_pop model are in the cfg file.
 The default location of the cfg file is ``$TOP/input/cime_pop/newton_krylov.cfg``, where ``$TOP`` is the toplevel directory of the repo.
 Perform the following steps to spin up tracers in the cime_pop model.
 
@@ -97,7 +101,7 @@ The following variables are the most likely to need to be set by the user:
 * ``newton_rel_tol``: relative tolerance for Newton convergence; The solver is considered converged if :math:`|F(X)| < \text{newton_rel_tol} \cdot |X|` for each tracer module and region.
 * ``newton_max_iter``: maximum number of Newton iterations
 * ``post_newton_fp_iter``: number of fixed-point iterations performed after each Newton iteraton
-* ``tracer_module_names``: which tracer modules the solver is applied to
+* ``tracer_module_names``: a comma separated string of tracer modules names that the solver is applied to
 * ``caseroot``: caseroot directory of the case used by solver for forward model runs
 * ``STOP_OPTION``, ``STOP_N``, ``RESUBMIT``: options for the duration of forward model runs
 * ``rpointer_dir``: directory containing rpointer files used to start forward model runs

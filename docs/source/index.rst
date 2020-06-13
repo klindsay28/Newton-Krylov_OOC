@@ -16,7 +16,7 @@ Documentation is comprised of three documents:
    The intended audience is those using the solver.
 #. :ref:`Developer's Guide <dev-guide>`:
    This document describes software practices and tools that are used in the development of the software.
-   The intended audience is those developing the solver.
+   The intended audience is those developing the solver, including those adding support to the solver for new models or tracer modules.
 
 Please note that the documentation is under development.
 

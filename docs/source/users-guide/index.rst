@@ -5,11 +5,12 @@ Newton-Krylov_OOC User's Guide
 ==============================
 
 .. toctree::
-    :maxdepth: 1
-    :caption: Contents:
+   :maxdepth: 2
+   :caption: Contents:
 
-    getting-setup.rst
-    model-independent.rst
-    test_problem-model.rst
-    cime_pop-model.rst
-    faq.rst
+   getting-setup.rst
+   model-independent.rst
+   tracer-module-defn-file.rst
+   test_problem-model.rst
+   cime_pop-model.rst
+   faq.rst

@@ -5,10 +5,11 @@ Newton-Krylov_OOC Developer's Guide
 ===================================
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Contents:
 
-    testing_coding_practices.rst
-    documentation.rst
-    add_modules_test_problem.rst
-    add_modules_cime_pop.rst
+    testing-coding-practices.rst
+    documentation-practices.rst
+    add-model.rst
+    add-tracer-module-test_problem.rst
+    add-tracer-module-cime_pop.rst

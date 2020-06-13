@@ -5,7 +5,7 @@ Newton-Krylov_OOC Description
 =============================
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Contents:
 
     background.rst

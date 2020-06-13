@@ -1,3 +1,5 @@
+.. _testing-coding-practices:
+
 ============================
 Testing and Coding Practices
 ============================

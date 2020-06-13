@@ -16,8 +16,8 @@ That is, the solver solves for an initial tracer state such that end state from 
 Vertical mixing coefficients are large, 1 m\ :sup:`2` s\ :sup:`-1`, in a boundary layer region, and small, 10\ :sup:`-5` m\ :sup:`2` s\ :sup:`-1` below the boundary layer, with a transition across the boundary layer depth.
 The boundary layer depth has a sinusoidal dependence on time.
 
-The model has two tracer modules available: ``iage`` and ``phosphorus``.
-Information on adding tracer modules to the test_problem model are included in the :ref:`developer's guide <add_modules_test_problem>`.
+The implementation of the test_problem model in the solver includes supports the tracer modules ``iage``, ``phosphorus``, and ``dye_decay_{suff}``.
+Information on adding support for other tracer modules is included in the :ref:`developer's guide <add-tracer-module-test_problem>`.
 
 The ``iage`` tracer module has a single tracer, ideal age, which has a source term of 1 year/year.
 A surface flux nudging the surface value to 0 with a piston velocity of 240 m day\ :sup:`-1` is applied to keep the surface value close to 0.
@@ -30,6 +30,11 @@ The light-limitation terms is constant in time and decays exponentially with dep
 Uptake of po4 is routed instantaneously to dop and pop, and these remineralize back to po4.
 pop also sinks through the column.
 Total phosphorus, po4+dop+pop, in the model is conserved.
+
+The ``dye_decay_{suff}`` tracer module is a :ref:`parameterized tracer module <parameterized-tracer-module>`.
+These tracers have a surface flux injecting 1 mol/m\ :sup:`2`/year of tracer content, and they have a decay rate
+The ``{suff}`` substring is a 3 character string of digits ``nnn`` prescribing a first-order decay rate of ``nnn/1000``/year.
+It is primarily included to demonstrate the usage of parameterized tracer modules.
 
 --------------
 Shadow Tracers
@@ -46,7 +51,7 @@ The restoring of the po4 shadow tracer to the real po4 tracer keeps the shadow t
 Usage
 -----
 
-Most options for the solver and the test_problem model are in the cfg file.
+User-configurable options for the solver and the test_problem model are in the cfg file.
 The default location of the cfg file is ``$TOP/input/test_problem/newton_krylov.cfg``, where ``$TOP`` is the toplevel directory of the repo.
 Perform the following steps to spin up tracers in the test_problem model.
 
@@ -62,7 +67,7 @@ The following variables are the most commonly set by the user:
 * ``newton_rel_tol``: relative tolerance for Newton convergence; The solver is considered converged if :math:`|F(X)| < \text{newton_rel_tol} \cdot |X|` for each tracer module and region.
 * ``newton_max_iter``: maximum number of Newton iterations
 * ``post_newton_fp_iter``: number of fixed-point iterations performed after each Newton iteraton
-* ``tracer_module_names``: which tracer modules the solver is applied to
+* ``tracer_module_names``: a comma separated string of tracer modules names that the solver is applied to
 
 ~~~~~~
 Step 2
@@ -88,11 +93,11 @@ The ``setup_solver.sh`` script does the following:
    The ratio of the bottom-layer thickness to the top-layer thickness is 5.0, yielding a top-layer thickness of 10 m.
    The defaults can be overwritten with arguments to the ``setup_solver.sh`` script.
 #. Create an initial model state on the generated vertical grid.
-   The initial tracer profiles are linearly interpolated to the vertical grid from the values specified by ``ic_vals`` and ``ic_val_depths`` in the tracer module definition file specified by ``tracer_module_defs_fname`` in the cfg file.
-   The initial state is hard-wired to be written to a subdirectory of the work directory named ``gen_ic``.
+   The initial tracer profiles are linearly interpolated to the vertical grid from the values specified by ``init_iterate_vals`` and ``init_iterate_val_depths`` in the tracer module definition file specified by ``tracer_module_defs_fname`` in the cfg file.
+   The initial state is hard-wired to be written to a subdirectory of the work directory named ``gen_init_iterate``.
 #. Run the model forward from the generated initial state for a number of years.
    The number of years run, which defaults to 2, can be modified by with the ``--fp_cnt`` argument to the ``setup_solver.sh`` script.
-   The result of these forward model runs is written to the ``gen_ic`` directory.
+   The result of these forward model runs is written to ``init_iterate_fname``, which is defined in the cfg file.
 
 
 ~~~~~~
