@@ -53,9 +53,9 @@ tracer_module_defs:
 
 precond_matrix_defs:
     base:
-        hist_to_precond_var_names:
-            - 'mixing_coeff:avg'
-            - 'mixing_coeff:log_avg'
+        hist_to_precond_varnames:
+            - 'mixing_coeff:mean'
+            - 'mixing_coeff:log_mean'
     phosphorus:
-        hist_to_precond_var_names:
-            - 'po4_s_restore_tau_r:avg'
+        hist_to_precond_varnames:
+            - 'po4_s_restore_tau_r:mean'

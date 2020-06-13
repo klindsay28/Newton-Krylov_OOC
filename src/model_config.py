@@ -267,11 +267,11 @@ def check_precond_matrix_defs(precond_matrix_defs):
     logger = logging.getLogger(__name__)
     for precond_matrix_name, precond_matrix_def in precond_matrix_defs.items():
         logger.debug("checking precond_matrix_def for %s", precond_matrix_name)
-        # verify that suffixes in hist_to_precond_var_names are recognized
-        if "hist_to_precond_var_names" in precond_matrix_def:
-            for hist_var in precond_matrix_def["hist_to_precond_var_names"]:
+        # verify that suffixes in hist_to_precond_varnames are recognized
+        if "hist_to_precond_varnames" in precond_matrix_def:
+            for hist_var in precond_matrix_def["hist_to_precond_varnames"]:
                 _, _, time_op = hist_var.partition(":")
-                if time_op not in ["avg", "log_avg", "copy", ""]:
+                if time_op not in ["mean", "log_mean", ""]:
                     msg = "unknown time_op=%s in %s from %s" % (
                         time_op,
                         hist_var,

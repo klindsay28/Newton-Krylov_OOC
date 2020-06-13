@@ -102,14 +102,14 @@ class TracerModuleState(TracerModuleStateBase):
             del attrs["grid_loc"]
 
             # grid-i average
-            varname_stats = "_".join([tracer_name, "avg", "nlon"])
+            varname_stats = "_".join([tracer_name, "mean", "nlon"])
             res[varname_stats] = {
                 "dimensions": ("iteration", "region", "z_t", "nlat"),
                 "attrs": attrs,
             }
 
             # grid-ij average
-            varname_stats = "_".join([tracer_name, "avg", "nlat", "nlon"])
+            varname_stats = "_".join([tracer_name, "mean", "nlat", "nlon"])
             res[varname_stats] = {
                 "dimensions": ("iteration", "region", "z_t"),
                 "attrs": attrs,
@@ -143,14 +143,14 @@ class TracerModuleState(TracerModuleStateBase):
             tracer_vals = tracer[:]
 
             # grid-i average
-            varname_stats = "_".join([tracer_name, "avg", "nlon"])
+            varname_stats = "_".join([tracer_name, "mean", "nlon"])
             numer_nlon[:] = (grid_weight * tracer_vals).sum(axis=-1)
             vals_nlon = np.full(numer_nlon.shape, fill_value)
             np.divide(numer_nlon, denom_nlon, out=vals_nlon, where=(denom_nlon != 0.0))
             res[varname_stats] = vals_nlon
 
             # grid-ij average
-            varname_stats = "_".join([tracer_name, "avg", "nlat", "nlon"])
+            varname_stats = "_".join([tracer_name, "mean", "nlat", "nlon"])
             numer_nlat_nlon[:] = (grid_weight * tracer_vals).sum(axis=(-2, -1))
             vals_nlat_nlon = np.full(numer_nlat_nlon.shape, fill_value)
             np.divide(

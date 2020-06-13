@@ -18,7 +18,7 @@ tracer_module_defs:
 
 precond_matrix_defs:
     base:
-        hist_to_precond_var_names: [KMT, REGION_MASK, TLONG, TLAT, z_t, dz]
+        hist_to_precond_varnames: [KMT, REGION_MASK, TLONG, TLAT, z_t, dz]
         precond_matrices_opts:
             - day_cnt {day_cnt}
             - reg_fname {reg_fname}
@@ -39,14 +39,14 @@ precond_matrix_defs:
             - sink_type const_shallow 8760.0 10.0e2
 
     abio_dic:
-        hist_to_precond_var_names:
+        hist_to_precond_varnames:
             - d_SF_ABIO_DIC_d_ABIO_DIC
         precond_matrices_opts:
             - tracer_fname {precond_fname}
             - sf d_SF_ABIO_DIC_d_ABIO_DIC
 
     abio_dic14:
-        hist_to_precond_var_names:
+        hist_to_precond_varnames:
             - d_SF_ABIO_DIC14_d_ABIO_DIC14
             - d_SF_ABIO_DIC14_d_ABIO_DIC
         precond_matrices_opts:

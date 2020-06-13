@@ -338,8 +338,8 @@ class ModelState(ModelStateBase):
         pos_args = ["self", "time_range", "res_tms"]
 
         arg_to_hist_dict = {
-            "mca": "mixing_coeff_log_avg",
-            "po4_s_restore_tau_r": "po4_s_restore_tau_r_avg",
+            "mca": "mixing_coeff_log_mean",
+            "po4_s_restore_tau_r": "po4_s_restore_tau_r_mean",
         }
 
         with Dataset(precond_fname, mode="r") as fptr:

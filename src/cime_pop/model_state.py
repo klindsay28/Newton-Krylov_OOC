@@ -517,12 +517,12 @@ def _apply_tracers_sflux_term(
                 tracer_names_all.index(tracer_name_src) + 1, len(tracer_names_all)
             ):
                 tracer_name_dst = tracer_names_all[tracer_name_dst_ind]
-                partial_deriv_var_name = (
-                    "d_SF_" + tracer_name_dst + "_d_" + tracer_name_src + "_avg"
+                partial_deriv_varname = (
+                    "d_SF_" + tracer_name_dst + "_d_" + tracer_name_src
                 )
-                if partial_deriv_var_name in fptr.variables:
-                    logger.info('applying "%s"', partial_deriv_var_name)
-                    partial_deriv = fptr.variables[partial_deriv_var_name]
+                if partial_deriv_varname in fptr.variables:
+                    logger.info('applying "%s"', partial_deriv_varname)
+                    partial_deriv = fptr.variables[partial_deriv_varname]
                     # get values, replacing _FillValue values with 0.0
                     if hasattr(partial_deriv, "_FillValue"):
                         fill_value = getattr(partial_deriv, "_FillValue")
@@ -544,25 +544,25 @@ def _apply_tracers_sflux_term(
         model_state.dump(res_fname, caller)
 
 
-def _pop_nl_var_exists(var_name):
+def _pop_nl_var_exists(varname):
     """
-    does var_name exist as a variable in the pop namelist
+    does varname exist as a variable in the pop namelist
     """
     nl_fname = os.path.join(get_modelinfo("caseroot"), "CaseDocs", "pop_in")
-    cmd = ["grep", "-q", "^ *" + var_name + " *=", nl_fname]
+    cmd = ["grep", "-q", "^ *" + varname + " *=", nl_fname]
     return subprocess.call(cmd) == 0
 
 
-def _get_pop_nl_var(var_name):
+def _get_pop_nl_var(varname):
     """
     extract the value(s) of a pop namelist variable
     return contents to the right of the '=' character,
         after stripping leading and trailing whitespace, and replacing ',' with ' '
     can lead to unexpected results if the rhs has strings with commas
-    does not handle multiple matches of var_name in pop_in
+    does not handle multiple matches of varname in pop_in
     """
     nl_fname = os.path.join(get_modelinfo("caseroot"), "CaseDocs", "pop_in")
-    cmd = ["grep", "^ *" + var_name + " *=", nl_fname]
+    cmd = ["grep", "^ *" + varname + " *=", nl_fname]
     line = subprocess.check_output(cmd).decode()
     return line.split("=")[1].strip().replace(",", " ")
 

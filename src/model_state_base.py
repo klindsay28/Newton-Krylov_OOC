@@ -357,10 +357,10 @@ class ModelStateBase:
         res = []
         for matrix_name in self.precond_matrix_list() + ["base"]:
             precond_matrix_def = get_precond_matrix_def(matrix_name)
-            if "hist_to_precond_var_names" in precond_matrix_def:
-                for var_name in precond_matrix_def["hist_to_precond_var_names"]:
-                    if var_name not in res:
-                        res.append(var_name)
+            if "hist_to_precond_varnames" in precond_matrix_def:
+                for varname in precond_matrix_def["hist_to_precond_varnames"]:
+                    if varname not in res:
+                        res.append(varname)
         return res
 
     def precond_matrix_list(self):
@@ -405,45 +405,49 @@ class ModelStateBase:
 
             # define output vars
             for hist_var in hist_vars:
-                hist_var_name, _, time_op = hist_var.partition(":")
-                hist_var = fptr_in.variables[hist_var_name]
-                logger.debug('hist_var_name="%s"', hist_var_name)
+                hist_varname, _, time_op = hist_var.partition(":")
+                hist_var = fptr_in.variables[hist_varname]
+                logger.debug('hist_varname="%s"', hist_varname)
 
                 fill_value = getattr(hist_var, "_FillValue", None)
 
-                if time_op == "avg":
-                    precond_var_name = hist_var_name + "_avg"
-                    if precond_var_name not in fptr_out.variables:
+                dimensions = _precond_dimensions_for_hist_var(
+                    fptr_in, hist_varname, time_op
+                )
+
+                if time_op == "mean":
+                    precond_varname = hist_varname + "_mean"
+                    if precond_varname not in fptr_out.variables:
                         precond_var = fptr_out.createVariable(
-                            hist_var_name + "_avg",
+                            hist_varname + "_mean",
                             hist_var.datatype,
-                            dimensions=hist_var.dimensions[1:],
+                            dimensions=tuple(dimensions),
                             fill_value=fill_value,
                         )
                         precond_var.long_name = (
-                            hist_var.long_name + ", avg over time dim"
+                            hist_var.long_name + ", mean over time dim"
                         )
                         precond_var[:] = hist_var[:].mean(axis=0)
-                elif time_op == "log_avg":
-                    precond_var_name = hist_var_name + "_log_avg"
-                    if precond_var_name not in fptr_out.variables:
+                elif time_op == "log_mean":
+                    precond_varname = hist_varname + "_log_mean"
+                    if precond_varname not in fptr_out.variables:
                         precond_var = fptr_out.createVariable(
-                            hist_var_name + "_log_avg",
+                            hist_varname + "_log_mean",
                             hist_var.datatype,
-                            dimensions=hist_var.dimensions[1:],
+                            dimensions=tuple(dimensions),
                             fill_value=fill_value,
                         )
                         precond_var.long_name = (
-                            hist_var.long_name + ", log avg over time dim"
+                            hist_var.long_name + ", log mean over time dim"
                         )
                         precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
                 else:
-                    precond_var_name = hist_var_name
-                    if precond_var_name not in fptr_out.variables:
+                    precond_varname = hist_varname
+                    if precond_varname not in fptr_out.variables:
                         precond_var = fptr_out.createVariable(
-                            hist_var_name,
+                            hist_varname,
                             hist_var.datatype,
-                            dimensions=hist_var.dimensions,
+                            dimensions=tuple(dimensions),
                             fill_value=fill_value,
                         )
                         precond_var.long_name = hist_var.long_name
@@ -550,11 +554,9 @@ def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
     """define netCDF4 dimensions needed for hist_vars from hist_fname"""
     logger = logging.getLogger(__name__)
     for hist_var in hist_vars:
-        hist_var_name, _, time_op = hist_var.partition(":")
+        hist_varname, _, time_op = hist_var.partition(":")
 
-        dimensions = extract_dimensions(fptr_in, hist_var_name)
-        if time_op in ("avg", "log_avg"):
-            del dimensions["time"]
+        dimensions = _precond_dimensions_for_hist_var(fptr_in, hist_varname, time_op)
 
         create_dimensions_verify(fptr_out, dimensions)
 
@@ -573,6 +575,20 @@ def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
                         getattr(fptr_in.variables[dimname], att_name),
                     )
                 fptr_out.variables[dimname][:] = fptr_in.variables[dimname][:]
+
+
+def _precond_dimensions_for_hist_var(fptr_hist, hist_varname, time_op):
+    """
+    return dict of dimensions for hist_varname's representation in the precond file
+    """
+    dimensions = extract_dimensions(fptr_hist, hist_varname)
+    # drop time if dimensional reduction will be applied
+    if time_op in ("mean", "log_mean"):
+        del dimensions["time"]
+    # drop singleton time dimension
+    if dimensions.get("time", None) == 1:
+        del dimensions["time"]
+    return dimensions
 
 
 def lin_comb(res_type, coeff, fname_fcn, quantity):
