@@ -1,8 +1,8 @@
 .. _description:
 
-=============================
-Newton-Krylov_OOC Description
-=============================
+====================================
+Newton-Krylov_OOC Solver Description
+====================================
 
 .. toctree::
     :maxdepth: 2
@@ -10,3 +10,6 @@ Newton-Krylov_OOC Description
 
     background.rst
     terminology.rst
+    model-independent-description.rst
+    test_problem-model-description.rst
+    cime_pop-model-description.rst

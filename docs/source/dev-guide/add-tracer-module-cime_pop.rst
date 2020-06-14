@@ -8,7 +8,7 @@ The steps to add a POP tracer module to the cime_pop model of the solver are:
 
 #. Ensure that the tracer module's implementation in POP meets the needs of the solver:
 
-   a. Tracer Initialization: As described in the :ref:`user's guide <users-guide-cime_pop>`, the cime_pop model utilizes the xml variable ``POP_PASSIVE_TRACER_RESTART_OVERRIDE`` to specify tracer initial conditions.
+   a. Tracer Initialization: As described in the :ref:`solver's description <cime_pop-model-description>`, the cime_pop model utilizes the xml variable ``POP_PASSIVE_TRACER_RESTART_OVERRIDE`` to specify tracer initial conditions.
       So tracer modules being supported by cime_pop need to set their namelist variables appropriately when this xml variable is not ``"none"``.
       The usage of this xml variable in POP's build-namelist script for the setting of namelist variables in the namelist ``iage_nml`` for POP's iage tracer module is a template that can be followed for other POP tracer modules.
    b. Diagnostic Output: Ensure that POP's tavg_contents file contains the fields required for the Jacobian preconditioner and additions to the solver's stats file.

@@ -9,8 +9,8 @@ Newton-Krylov_OOC User's Guide
    :caption: Contents:
 
    getting-setup.rst
-   model-independent.rst
+   model-independent-usage.rst
    tracer-module-defn-file.rst
-   test_problem-model.rst
-   cime_pop-model.rst
+   test_problem-model-usage.rst
+   cime_pop-model-usage.rst
    faq.rst
