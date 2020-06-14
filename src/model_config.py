@@ -1,5 +1,6 @@
 """class to hold model configuration info"""
 
+import copy
 import logging
 
 from netCDF4 import Dataset
@@ -247,14 +248,21 @@ def propagate_base_matrix_defs_to_one(base_def, matrix_def):
     """propagate matrix_defs from base_def to one matrix_def"""
     for base_def_key, base_def_value in base_def.items():
         if base_def_key not in matrix_def:
-            matrix_def[base_def_key] = base_def_value
+            matrix_def[base_def_key] = copy.deepcopy(base_def_value)
         else:
+            matrix_def_value = matrix_def[base_def_key]
             if isinstance(base_def_value, list):
-                matrix_def[base_def_key].extend(base_def_value)
+                # generate list of 1st words of opts from matrix_def_value
+                matrix_def_value_word0 = [opt.split()[0] for opt in matrix_def_value]
+                for opt in base_def_value:
+                    # only append opt to matrix_def_value if opt's 1st word isn't
+                    # already present in list of 1st words
+                    if opt.split()[0] not in matrix_def_value_word0:
+                        matrix_def_value.append(opt)
             elif isinstance(base_def_value, dict):
                 for key in base_def_value:
-                    if key not in matrix_def[base_def_key]:
-                        matrix_def[base_def_key][key] = base_def_value[key]
+                    if key not in matrix_def_value:
+                        matrix_def_value[key] = base_def_value[key]
             else:
                 msg = "base defn type %s not implemented" % type(base_def_value)
                 raise NotImplementedError(msg)
