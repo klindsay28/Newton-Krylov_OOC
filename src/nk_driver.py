@@ -8,7 +8,7 @@ import sys
 from .model_config import ModelConfig, get_modelinfo
 from .model_state_base import ModelStateBase
 from .newton_solver import NewtonSolver
-from .share import args_replace, common_args, read_cfg_file
+from .share import args_replace, common_args, read_cfg_file, logging_config
 from .utils import get_subclasses
 
 
@@ -42,13 +42,7 @@ def main(args):
     config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
-    logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
-    logging.basicConfig(
-        filename=solverinfo["logging_fname"],
-        filemode="a" if args.resume else "w",
-        format=logging_format,
-        level=solverinfo["logging_level"],
-    )
+    logging_config(args, solverinfo, filemode="a")
     logger = logging.getLogger(__name__)
 
     if os.path.exists("KILL"):

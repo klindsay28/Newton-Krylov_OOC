@@ -13,7 +13,13 @@ import numpy as np
 from ..cime import cime_xmlquery, cime_yr_cnt
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from ..share import args_replace, common_args, read_cfg_file
+from ..share import (
+    args_replace,
+    common_args,
+    read_cfg_file,
+    logging_config,
+    repro_fname,
+)
 from ..utils import (
     mkdir_exist_okay,
     extract_dimensions,
@@ -46,13 +52,10 @@ def main(args):
     config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
-    logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
-    logging.basicConfig(
-        stream=sys.stdout, format=logging_format, level=solverinfo["logging_level"]
-    )
+    logging_config(args, solverinfo, filemode="w")
     logger = logging.getLogger(__name__)
 
-    logger.info('args.cfg_fname="%s"', args.cfg_fname)
+    logger.info('args.cfg_fname="%s"', repro_fname(solverinfo, args.cfg_fname))
 
     # generate invoker script
     args.model_name = "cime_pop"
@@ -63,20 +66,23 @@ def main(args):
     # generate irf file
     irf_fname = modelinfo["irf_fname"]
     if os.path.exists(irf_fname) and args.skip_irf_gen:
-        logger.info('irf_fname="%s" exists, skipping generation', irf_fname)
+        logger.info(
+            'irf_fname="%s" exists, skipping generation',
+            repro_fname(modelinfo, irf_fname),
+        )
     else:
-        logger.info('generating irf_fname="%s"', irf_fname)
+        logger.info('generating irf_fname="%s"', repro_fname(modelinfo, irf_fname))
         mkdir_exist_okay(os.path.dirname(irf_fname))
         gen_irf_file(modelinfo)
 
     # generate grid files from irf file
     grid_weight_fname = modelinfo["grid_weight_fname"]
-    logger.info('grid_weight_fname="%s"', grid_weight_fname)
+    logger.info('grid_weight_fname="%s"', repro_fname(modelinfo, grid_weight_fname))
     mkdir_exist_okay(os.path.dirname(grid_weight_fname))
     gen_grid_weight_file(modelinfo)
 
     region_mask_fname = modelinfo["region_mask_fname"]
-    logger.info('region_mask_fname="%s"', region_mask_fname)
+    logger.info('region_mask_fname="%s"', repro_fname(modelinfo, region_mask_fname))
     mkdir_exist_okay(os.path.dirname(region_mask_fname))
     gen_region_mask_file(modelinfo)
 

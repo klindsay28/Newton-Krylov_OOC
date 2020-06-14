@@ -9,7 +9,13 @@ import sys
 
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
-from ..share import args_replace, common_args, read_cfg_file
+from ..share import (
+    args_replace,
+    common_args,
+    read_cfg_file,
+    logging_config,
+    repro_fname,
+)
 from ..utils import mkdir_exist_okay
 
 from .model_state import ModelState
@@ -51,13 +57,10 @@ def main(args):
     config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
-    logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
-    logging.basicConfig(
-        stream=sys.stdout, format=logging_format, level=solverinfo["logging_level"]
-    )
+    logging_config(args, solverinfo, filemode="w")
     logger = logging.getLogger(__name__)
 
-    logger.info('args.cfg_fname="%s"', args.cfg_fname)
+    logger.info('args.cfg_fname="%s"', repro_fname(solverinfo, args.cfg_fname))
 
     # generate invoker script
     args.model_name = "test_problem"
@@ -74,7 +77,7 @@ def main(args):
 
     # write depth axis
     grid_weight_fname = modelinfo["grid_weight_fname"]
-    logger.info('grid_weight_fname="%s"', grid_weight_fname)
+    logger.info('grid_weight_fname="%s"', repro_fname(modelinfo, grid_weight_fname))
     mkdir_exist_okay(os.path.dirname(grid_weight_fname))
     depth.dump(grid_weight_fname, caller)
 
@@ -120,7 +123,7 @@ def main(args):
 
     # write generated init_iterate to where solver expects it to be
     init_iterate_fname = modelinfo["init_iterate_fname"]
-    logger.info('init_iterate_fname="%s"', init_iterate_fname)
+    logger.info('init_iterate_fname="%s"', repro_fname(modelinfo, init_iterate_fname))
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
     init_iterate.dump(init_iterate_fname, caller)
 

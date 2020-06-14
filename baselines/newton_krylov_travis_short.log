@@ -1,0 +1,5 @@
+setup_solver.py:main:args.cfg_fname="$repo_root/input/test_problem/newton_krylov.cfg"
+gen_invoker_script.py:gen_invoker_script:generating $workdir/nk_driver.sh
+setup_solver.py:main:grid_weight_fname="$workdir/depth_axis_test.nc"
+setup_solver.py:main:fp_iter=0
+setup_solver.py:main:init_iterate_fname="$workdir/gen_init_iterate/init_iterate.nc"

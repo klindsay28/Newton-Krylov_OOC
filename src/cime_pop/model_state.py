@@ -19,7 +19,7 @@ import numpy as np
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, read_cfg_file
+from ..share import args_replace, common_args, read_cfg_file, logging_config
 from ..solver_state import action_step_log_wrap
 from ..utils import class_name, ann_files_to_mean_file, mon_files_to_mean_file
 
@@ -52,10 +52,7 @@ def main(args):
     config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
-    logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
-    logging.basicConfig(
-        stream=sys.stdout, format=logging_format, level=solverinfo["logging_level"]
-    )
+    logging_config(args, solverinfo, filemode="a")
     logger = logging.getLogger(__name__)
 
     logger.info('args.cmd="%s"', args.cmd)

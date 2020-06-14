@@ -8,6 +8,7 @@ import numpy as np
 import yaml
 
 from .utils import fmt_vals
+from .share import repro_fname
 
 # model configuration info
 model_config_obj = None
@@ -41,7 +42,7 @@ class ModelConfig:
 
         # load content from tracer_module_defs_fname
         fname = modelinfo["tracer_module_defs_fname"]
-        logger.log(lvl, "loading content from %s", fname)
+        logger.log(lvl, "loading content from %s", repro_fname(modelinfo, fname))
         with open(fname, mode="r") as fptr:
             file_contents = yaml.safe_load(fptr)
         self.tracer_module_defs = file_contents["tracer_module_defs"]
@@ -61,7 +62,12 @@ class ModelConfig:
         # extract grid_weight from modelinfo config object
         fname = modelinfo["grid_weight_fname"]
         varname = modelinfo["grid_weight_varname"]
-        logger.log(lvl, "reading %s from %s for grid_weight", varname, fname)
+        logger.log(
+            lvl,
+            "reading %s from %s for grid_weight",
+            varname,
+            repro_fname(modelinfo, fname),
+        )
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
             grid_weight_no_region_dim = fptr.variables[varname][:]
@@ -70,7 +76,12 @@ class ModelConfig:
         fname = modelinfo["region_mask_fname"]
         varname = modelinfo["region_mask_varname"]
         if fname is not None and varname is not None:
-            logger.log(lvl, "reading %s from %s for region_mask", varname, fname)
+            logger.log(
+                lvl,
+                "reading %s from %s for region_mask",
+                varname,
+                repro_fname(modelinfo, fname),
+            )
             with Dataset(fname, mode="r") as fptr:
                 fptr.set_auto_mask(False)
                 self.region_mask = fptr.variables[varname][:]

@@ -2,8 +2,11 @@
 
 import argparse
 import configparser
+from distutils.util import strtobool
+import logging
 from os import path, environ
 from os.path import dirname, realpath
+import sys
 
 import git
 
@@ -11,6 +14,12 @@ from .utils import mkdir_exist_okay
 
 cfg_override_args = {
     "workdir": {"section": "DEFAULT"},
+    "logging_fname": {"section": "solverinfo"},
+    "logging_reproducible": {
+        "section": "DEFAULT",
+        "action": "store_true",
+        "override_val": "True",
+    },
     "logging_level": {"section": "solverinfo"},
     "newton_max_iter": {"section": "solverinfo"},
     "newton_rel_tol": {"section": "solverinfo"},
@@ -145,3 +154,29 @@ def _apply_cfg_override_args(args, config):
         elif metadata["action"] == "store_true":
             if getattr(args, argname):
                 config[metadata["section"]][override_var] = metadata["override_val"]
+
+
+def logging_config(args, solverinfo, filemode):
+    """configure logging"""
+    logging_format_list = []
+    if not args.logging_reproducible:
+        logging_format_list.extend(["%(asctime)s", "%(process)s"])
+    logging_format_list.extend(["%(filename)s", "%(funcName)s", "%(message)s"])
+    logging_format = ":".join(logging_format_list)
+    logging.basicConfig(
+        format=logging_format,
+        level=solverinfo["logging_level"],
+        handlers=[
+            logging.StreamHandler(stream=sys.stdout),
+            logging.FileHandler(filename=solverinfo["logging_fname"], mode=filemode),
+        ],
+    )
+
+
+def repro_fname(cfg_section, fname):
+    """return version of fname appropriate for reproducible logging, if specified"""
+    ret = fname
+    if strtobool(cfg_section["logging_reproducible"]):
+        ret = ret.replace(cfg_section["workdir"], "$workdir")
+        ret = ret.replace(cfg_section["repo_root"], "$repo_root")
+    return ret

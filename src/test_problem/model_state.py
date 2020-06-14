@@ -16,7 +16,7 @@ from scipy.integrate import solve_ivp
 
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, read_cfg_file
+from ..share import args_replace, common_args, read_cfg_file, logging_config
 from ..utils import class_name, create_dimensions_verify
 
 from .spatial_axis import SpatialAxis
@@ -63,10 +63,7 @@ def main(args):
     config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
 
-    logging_format = "%(asctime)s:%(process)s:%(filename)s:%(funcName)s:%(message)s"
-    logging.basicConfig(
-        stream=sys.stdout, format=logging_format, level=solverinfo["logging_level"]
-    )
+    logging_config(args, solverinfo, filemode="a")
     logger = logging.getLogger(__name__)
 
     logger.info('args.cmd="%s"', args.cmd)

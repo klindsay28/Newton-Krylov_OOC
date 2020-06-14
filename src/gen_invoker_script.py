@@ -6,7 +6,13 @@ import os
 import stat
 import sys
 
-from .share import args_replace, common_args, read_cfg_file, cfg_override_args
+from .share import (
+    args_replace,
+    common_args,
+    read_cfg_file,
+    cfg_override_args,
+    repro_fname,
+)
 from .utils import mkdir_exist_okay
 
 
@@ -19,7 +25,7 @@ def gen_invoker_script(args, modelinfo, repo_root):
     mkdir_exist_okay(os.path.dirname(invoker_script_fname))
 
     logger = logging.getLogger(__name__)
-    logger.info("generating %s", invoker_script_fname)
+    logger.info("generating %s", repro_fname(modelinfo, invoker_script_fname))
 
     with open(invoker_script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
