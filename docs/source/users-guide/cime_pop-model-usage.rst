@@ -1,8 +1,8 @@
 .. _users-guide-cime_pop-usage:
 
-======================
+====================
 cime_pop Model Usage
-======================
+====================
 
 User-configurable options for the solver and the cime_pop model are in the cfg file.
 The default location of the cfg file is ``$TOP/input/cime_pop/newton_krylov.cfg``, where ``$TOP`` is the toplevel directory of the repo.

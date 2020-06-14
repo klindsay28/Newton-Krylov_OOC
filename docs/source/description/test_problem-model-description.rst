@@ -32,7 +32,7 @@ Total phosphorus, po4+dop+pop, in the model is conserved.
 The ``dye_decay_{suff}`` tracer module is a :ref:`parameterized tracer module <parameterized-tracer-module>`.
 These tracers have a surface flux injecting 1 mol/m\ :sup:`2`/year of tracer content, and they have a decay rate
 The ``{suff}`` substring is a 3 character string of digits ``nnn`` prescribing a first-order decay rate of ``nnn/1000``/year.
-It is primarily included to demonstrate the usage of parameterized tracer modules.
+This tracer module is primarily included to demonstrate the usage of parameterized tracer modules.
 
 --------------
 Shadow Tracers
