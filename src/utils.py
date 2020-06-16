@@ -157,7 +157,7 @@ def extract_dimensions(fptr, names):
 def create_dimensions_verify(fptr, dimensions):
     """
     Create dimensions in a netCDF4 file. If a dimension with dimname already exists,
-    and dimlen differs from the existing dimension's lenght, raise a RuntimeError.
+    and dimlen differs from the existing dimension's length, raise a RuntimeError.
     """
     if not isinstance(dimensions, dict):
         raise TypeError("dimensions must be a dict, not %s" % type(dimensions))
@@ -169,6 +169,20 @@ def create_dimensions_verify(fptr, dimensions):
                 raise
             if len(fptr.dimensions[dimname]) != dimlen:
                 raise
+
+
+def create_vars(fptr, vars_metadata, def_fill_value=None):
+    """Create multiple netCDF4 variables, using metadata from vars_metadata."""
+    for varname, metadata in vars_metadata.items():
+        datatype = metadata.get("datatype", "f8")
+        attrs = metadata.get("attrs", {})
+        fill_value = attrs.get("_FillValue", def_fill_value)
+        var = fptr.createVariable(
+            varname, datatype, metadata["dimensions"], fill_value=fill_value
+        )
+        for attr_name, attr_value in attrs.items():
+            if attr_name != "_FillValue":
+                setattr(var, attr_name, attr_value)
 
 
 def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):

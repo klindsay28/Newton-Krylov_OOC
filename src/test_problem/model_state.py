@@ -17,7 +17,7 @@ from scipy.integrate import solve_ivp
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, read_cfg_file, logging_config
-from ..utils import class_name, create_dimensions_verify
+from ..utils import class_name, create_dimensions_verify, create_vars
 
 from .spatial_axis import SpatialAxis
 from .vert_mix import VertMix
@@ -262,15 +262,11 @@ class ModelState(ModelStateBase):
             # define hist dimensions and coordinate vars
             self._def_dims_coord_vars_hist(fptr)
 
-            # define hist vars
-            for varname, metadata in hist_vars_metadata.items():
-                var = fptr.createVariable(
-                    varname, "f8", dimensions=metadata["dimensions"]
-                )
-                for attr_name, attr_value in metadata["attrs"].items():
-                    setattr(var, attr_name, attr_value)
+            # set cell_methods attribute and define hist vars
+            for metadata in hist_vars_metadata.values():
                 if "time" in metadata["dimensions"]:
-                    setattr(var, "cell_methods", "time: point")
+                    metadata["attrs"]["cell_methods"] = "time: point"
+            create_vars(fptr, hist_vars_metadata)
 
             # write coordinate vars
             self._write_coord_vars_hist(fptr, sol.t)
@@ -302,6 +298,7 @@ class ModelState(ModelStateBase):
     def _def_dims_coord_vars_hist(self, fptr):
         """define netCDF4 dimensions and coordinate vars relevant to test_problem"""
         fptr.createDimension("time", None)
+
         create_dimensions_verify(fptr, self.depth.dump_dimensions())
 
         fptr.createVariable("time", "f8", dimensions=("time",))
@@ -309,7 +306,7 @@ class ModelState(ModelStateBase):
         fptr.variables["time"].units = "days since 0001-01-01"
         fptr.variables["time"].calendar = "noleap"
 
-        self.depth.dump_def(fptr)
+        create_vars(fptr, self.depth.dump_vars_metadata())
 
     def _write_coord_vars_hist(self, fptr, time):
         """write netCDF4 coordinate vars relevant to test_problem"""

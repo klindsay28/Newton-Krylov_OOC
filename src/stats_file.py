@@ -7,7 +7,7 @@ from netCDF4 import Dataset
 
 from .model_config import get_region_cnt
 from .solver_state import action_step_log_wrap
-from .utils import class_name, create_dimensions_verify
+from .utils import class_name, create_dimensions_verify, create_vars
 
 
 class StatsFile:
@@ -39,19 +39,17 @@ class StatsFile:
             )
 
             # define coordinate variables
-            self._def_vars(
-                fptr,
-                {
-                    "iteration": {
-                        "datatype": "i",
-                        "dimensions": ("iteration",),
-                        "attrs": {
-                            "_FillValue": None,
-                            "long_name": "%s solver iteration" % name,
-                        },
-                    }
-                },
-            )
+            vars_metadata = {
+                "iteration": {
+                    "datatype": "i",
+                    "dimensions": ("iteration",),
+                    "attrs": {
+                        "_FillValue": None,
+                        "long_name": "%s solver iteration" % name,
+                    },
+                }
+            }
+            create_vars(fptr, vars_metadata)
 
     def def_dimensions(self, dimensions):
         """define dimensions in stats file"""
@@ -61,7 +59,7 @@ class StatsFile:
     def def_vars(self, vars_metadata, caller=None):
         """define vars in stats file"""
         with Dataset(self._fname, mode="a") as fptr:
-            self._def_vars(fptr, vars_metadata)
+            create_vars(fptr, vars_metadata, def_fill_value=self._fill_value)
             if caller is not None:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 varnames = ",".join(vars_metadata)
@@ -70,20 +68,6 @@ class StatsFile:
                 msg = msg + " called by " + caller
                 msg = msg + "\n" + getattr(fptr, "history")
                 setattr(fptr, "history", msg)
-
-    def _def_vars(self, fptr, vars_metadata):
-        """define vars in an open stats file"""
-        # define specific vars
-        for varname, metadata in vars_metadata.items():
-            datatype = metadata.get("datatype", "f8")
-            attrs = metadata.get("attrs", {})
-            fill_value = attrs.get("_FillValue", self._fill_value)
-            var = fptr.createVariable(
-                varname, datatype, metadata["dimensions"], fill_value=fill_value
-            )
-            for attr_name, attr_value in attrs.items():
-                if attr_name != "_FillValue":
-                    setattr(var, attr_name, attr_value)
 
     def put_vars_iteration_invariant(self, name_vals_dict):
         """

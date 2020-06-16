@@ -6,7 +6,7 @@ from pint import UnitRegistry
 from netCDF4 import Dataset
 import numpy as np
 
-from ..utils import class_name, create_dimensions_verify
+from ..utils import class_name, create_dimensions_verify, create_vars
 
 
 class SpatialAxis:
@@ -130,8 +130,7 @@ class SpatialAxis:
                 setattr(fptr, "defn_dict_values", self.defn_dict_values)
 
             create_dimensions_verify(fptr, self.dump_dimensions())
-
-            self.dump_def(fptr)
+            create_vars(fptr, self.dump_vars_metadata())
 
             self.dump_write(fptr)
 
@@ -144,27 +143,40 @@ class SpatialAxis:
             self.dump_names["edges"]: len(self) + 1,
         }
 
-    def dump_def(self, fptr):
-        """define variables for dump"""
-
-        fptr.createVariable(self.axisname, "f8", dimensions=(self.axisname,))
-        fptr.variables[self.axisname].long_name = self.axisname + " layer midpoints"
-        fptr.variables[self.axisname].units = self.units
-        fptr.variables[self.axisname].bounds = self.dump_names["bounds"]
-
-        varname = self.dump_names["bounds"]
-        fptr.createVariable(varname, "f8", dimensions=(self.axisname, "nbnds"))
-        fptr.variables[varname].long_name = self.axisname + " layer bounds"
-
-        varname = self.dump_names["edges"]
-        fptr.createVariable(varname, "f8", dimensions=(varname,))
-        fptr.variables[varname].long_name = self.axisname + " layer edges"
-        fptr.variables[varname].units = self.units
-
-        varname = self.dump_names["delta"]
-        fptr.createVariable(varname, "f8", dimensions=(self.axisname,))
-        fptr.variables[varname].long_name = self.axisname + " layer thickness"
-        fptr.variables[varname].units = self.units
+    def dump_vars_metadata(self):
+        """variable metadata for dump"""
+        res = {}
+        res[self.axisname] = {
+            "datatype": "f8",
+            "dimensions": (self.axisname,),
+            "attrs": {
+                "long_name": self.axisname + " layer midpoints",
+                "units": self.units,
+                "bounds": self.dump_names["bounds"],
+            },
+        }
+        res[self.dump_names["bounds"]] = {
+            "datatype": "f8",
+            "dimensions": (self.axisname, "nbnds"),
+            "attrs": {"long_name": self.axisname + " layer bounds"},
+        }
+        res[self.dump_names["edges"]] = {
+            "datatype": "f8",
+            "dimensions": (self.dump_names["edges"],),
+            "attrs": {
+                "long_name": self.axisname + " layer edges",
+                "units": self.units,
+            },
+        }
+        res[self.dump_names["delta"]] = {
+            "datatype": "f8",
+            "dimensions": (self.axisname,),
+            "attrs": {
+                "long_name": self.axisname + " layer thickness",
+                "units": self.units,
+            },
+        }
+        return res
 
     def dump_write(self, fptr):
         """write variables for dump"""

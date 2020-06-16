@@ -6,7 +6,7 @@ from netCDF4 import Dataset
 import numpy as np
 
 from ..tracer_module_state_base import TracerModuleStateBase
-from ..utils import extract_dimensions, create_dimensions_verify
+from ..utils import extract_dimensions, create_dimensions_verify, create_vars
 
 
 class TracerModuleState(TracerModuleStateBase):
@@ -91,7 +91,7 @@ class TracerModuleState(TracerModuleStateBase):
             create_dimensions_verify(fptr, self._dimensions)
             create_dimensions_verify(fptr, self.depth.dump_dimensions())
             if self.depth.axisname not in fptr.variables:
-                self.depth.dump_def(fptr)
+                create_vars(fptr, self.depth.dump_vars_metadata())
             # define all tracers
             dimnames = tuple(self._dimensions.keys())
             for tracer_name in self.tracer_names():
