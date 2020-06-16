@@ -169,28 +169,43 @@ class ModelState(ModelStateBase):
                 return ModelState(res_fname)
             logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        # memory for result, use it initially for passing initial value to solve_ivp
-        res_vals = self.get_tracer_vals_all()
-
-        # solve ODEs, using scipy.integrate
         # get dense output, if requested
         if hist_fname is not None:
             t_eval = np.linspace(self.time_range[0], self.time_range[1], 101)
         else:
             t_eval = np.array(self.time_range)
-        sol = solve_ivp(
-            self._comp_tend,
-            self.time_range,
-            res_vals.reshape(-1),
-            "Radau",
-            t_eval,
-            atol=1.0e-10,
-            rtol=1.0e-10,
-        )
 
-        self._gen_hist(sol, hist_fname)
+        # memory for result, use it initially for passing initial value to solve_ivp
+        res_vals = self.get_tracer_vals_all()
 
-        res_vals[:] = sol.y[:, -1].reshape(res_vals.shape) - res_vals
+        fptr_hist = self._hist_def_dimensions(hist_fname)
+        self._hist_def_vars_tracer_module_independent(fptr_hist)
+
+        # solve ODEs for each tracer module independently, using scipy.integrate
+        ind0 = 0
+        for tracer_module in self.tracer_modules:
+            self._hist_def_vars(tracer_module, fptr_hist)
+            cnt = tracer_module.tracer_cnt
+            sol = solve_ivp(
+                tracer_module.comp_tend,
+                self.time_range,
+                res_vals[ind0 : ind0 + cnt, :].reshape(-1),
+                "Radau",
+                t_eval,
+                atol=1.0e-10,
+                rtol=1.0e-10,
+                args=(self.vert_mix,),
+            )
+            if ind0 == 0:
+                self._hist_write_tracer_module_independent(sol, fptr_hist)
+            self._hist_write(tracer_module, sol, fptr_hist)
+            res_vals[ind0 : ind0 + cnt, :] = (
+                sol.y[:, -1].reshape((cnt, -1)) - res_vals[ind0 : ind0 + cnt, :]
+            )
+            ind0 = ind0 + cnt
+
+        if fptr_hist is not None:
+            fptr_hist.close()
 
         # ModelState instance for result
         res_ms = copy.copy(self)
@@ -210,109 +225,106 @@ class ModelState(ModelStateBase):
 
         return res_ms
 
-    def _comp_tend(self, time, tracer_vals_flat):
-        """compute tendency function"""
-
-        tracer_vals = tracer_vals_flat.reshape((self.tracer_cnt, -1))
-        dtracer_vals_dt = np.empty_like(tracer_vals)
-
-        ind0 = 0
-        for tracer_module in self.tracer_modules:
-            cnt = tracer_module.tracer_cnt
-            tracer_module.comp_tend(
-                time,
-                tracer_vals[ind0 : ind0 + cnt, :],
-                dtracer_vals_dt[ind0 : ind0 + cnt, :],
-                self.vert_mix,
-            )
-            ind0 = ind0 + cnt
-        return dtracer_vals_dt.reshape(-1)
-
-    def _gen_hist(self, sol, hist_fname):
-        """write tracer values generated in comp_fcn to hist_fname"""
-
+    def _hist_def_dimensions(self, hist_fname):
+        """define hist dimensions"""
         if hist_fname is None:
-            return
-
-        # generate hist var metadata, starting with tracer module independent vars
-        hist_vars_metadata = {
-            "bldepth": {
-                "dimensions": ("time"),
-                "attrs": {"long_name": "boundary layer depth", "units": "m"},
-            },
-            "mixing_coeff": {
-                "dimensions": ("time", "depth_edges"),
-                "attrs": {
-                    "long_name": "vertical mixing coefficient",
-                    "units": "m^2 / d",
-                },
-            },
-        }
-        # add tracer module hist vars
-        for tracer_module in self.tracer_modules:
-            hist_vars_metadata.update(tracer_module.hist_vars_metadata())
+            return None
 
         # create the hist file
-        with Dataset(hist_fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
-            datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            name = __name__ + "._gen_hist"
-            msg = datestamp + ": created by " + name
-            setattr(fptr, "history", msg)
+        fptr_hist = Dataset(hist_fname, mode="w", format="NETCDF3_64BIT_OFFSET")
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = __name__ + "._gen_hist"
+        msg = datestamp + ": created by " + name
+        setattr(fptr_hist, "history", msg)
 
-            # define hist dimensions and coordinate vars
-            self._def_dims_coord_vars_hist(fptr)
+        # define dimensions
+        fptr_hist.createDimension("time", None)
+        create_dimensions_verify(fptr_hist, self.depth.dump_dimensions())
 
-            # set cell_methods attribute and define hist vars
-            for metadata in hist_vars_metadata.values():
-                if "time" in metadata["dimensions"]:
-                    metadata["attrs"]["cell_methods"] = "time: point"
-            create_vars(fptr, hist_vars_metadata)
+        return fptr_hist
 
-            # write coordinate vars
-            self._write_coord_vars_hist(fptr, sol.t)
+    def _hist_def_vars_tracer_module_independent(self, fptr_hist):
+        """define hist vars that are independent of tracer modules"""
+        if fptr_hist is None:
+            return
 
-            # (re-)compute and write tracer module independent vars
-            for time_ind, time in enumerate(sol.t):
-                fptr.variables["bldepth"][time_ind] = self.vert_mix.bldepth(time)
-                fptr.variables["mixing_coeff"][time_ind, 1:-1] = (
-                    self.vert_mix.mixing_coeff(time) * self.depth.delta_mid
-                )
-                # kludge to avoid missing values
-                fptr.variables["mixing_coeff"][time_ind, 0] = fptr.variables[
-                    "mixing_coeff"
-                ][time_ind, 1]
-                fptr.variables["mixing_coeff"][time_ind, -1] = fptr.variables[
-                    "mixing_coeff"
-                ][time_ind, -2]
+        # define coordinate variables
+        fptr_hist.createVariable("time", "f8", dimensions=("time",))
+        fptr_hist.variables["time"].long_name = "time"
+        fptr_hist.variables["time"].units = "days since 0001-01-01"
+        fptr_hist.variables["time"].calendar = "noleap"
 
-            # write tracer module hist vars, providing appropriate segment of sol.y
-            tracer_vals_all = sol.y.reshape((self.tracer_cnt, len(self.depth), -1))
-            ind0 = 0
-            for tracer_module in self.tracer_modules:
-                cnt = tracer_module.tracer_cnt
-                tracer_module.write_hist_vars(
-                    fptr, tracer_vals_all[ind0 : ind0 + cnt, :]
-                )
-                ind0 = ind0 + cnt
+        hist_vars_metadata = self.depth.dump_vars_metadata()
 
-    def _def_dims_coord_vars_hist(self, fptr):
-        """define netCDF4 dimensions and coordinate vars relevant to test_problem"""
-        fptr.createDimension("time", None)
+        hist_vars_metadata["bldepth"] = {
+            "dimensions": ("time"),
+            "attrs": {"long_name": "boundary layer depth", "units": "m"},
+        }
+        hist_vars_metadata["mixing_coeff"] = {
+            "dimensions": ("time", "depth_edges"),
+            "attrs": {"long_name": "vertical mixing coefficient", "units": "m^2 / d"},
+        }
 
-        create_dimensions_verify(fptr, self.depth.dump_dimensions())
+        # set cell_methods attribute and define hist vars
+        for metadata in hist_vars_metadata.values():
+            if "time" in metadata["dimensions"]:
+                metadata["attrs"]["cell_methods"] = "time: point"
 
-        fptr.createVariable("time", "f8", dimensions=("time",))
-        fptr.variables["time"].long_name = "time"
-        fptr.variables["time"].units = "days since 0001-01-01"
-        fptr.variables["time"].calendar = "noleap"
+        create_vars(fptr_hist, hist_vars_metadata)
 
-        create_vars(fptr, self.depth.dump_vars_metadata())
+        fptr_hist.sync()
 
-    def _write_coord_vars_hist(self, fptr, time):
-        """write netCDF4 coordinate vars relevant to test_problem"""
-        fptr.variables["time"][:] = time
+    def _hist_def_vars(self, tracer_module, fptr_hist):
+        """define hist vars for tracer_module"""
+        if fptr_hist is None:
+            return
 
-        self.depth.dump_write(fptr)
+        hist_vars_metadata = tracer_module.hist_vars_metadata()
+
+        # set cell_methods attribute and define hist vars
+        for metadata in hist_vars_metadata.values():
+            if "time" in metadata["dimensions"]:
+                metadata["attrs"]["cell_methods"] = "time: point"
+
+        create_vars(fptr_hist, hist_vars_metadata)
+
+        fptr_hist.sync()
+
+    def _hist_write_tracer_module_independent(self, sol, fptr_hist):
+        """define hist vars that are independent of tracer modules"""
+        if fptr_hist is None:
+            return
+
+        fptr_hist.variables["time"][:] = sol.t
+
+        self.depth.dump_write(fptr_hist)
+
+        # (re-)compute and write tracer module independent vars
+        for time_ind, time in enumerate(sol.t):
+            fptr_hist.variables["bldepth"][time_ind] = self.vert_mix.bldepth(time)
+            fptr_hist.variables["mixing_coeff"][time_ind, 1:-1] = (
+                self.vert_mix.mixing_coeff(time) * self.depth.delta_mid
+            )
+            # kludge to avoid missing values
+            fptr_hist.variables["mixing_coeff"][time_ind, 0] = fptr_hist.variables[
+                "mixing_coeff"
+            ][time_ind, 1]
+            fptr_hist.variables["mixing_coeff"][time_ind, -1] = fptr_hist.variables[
+                "mixing_coeff"
+            ][time_ind, -2]
+
+        fptr_hist.sync()
+
+    def _hist_write(self, tracer_module, sol, fptr_hist):
+        """write hist vars for tracer_module"""
+        if fptr_hist is None:
+            return
+
+        # write tracer module hist vars, providing appropriate segment of sol.y
+        tracer_vals_all = sol.y.reshape((tracer_module.tracer_cnt, len(self.depth), -1))
+        tracer_module.write_hist_vars(fptr_hist, tracer_vals_all)
+
+        fptr_hist.sync()
 
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
         """apply preconditioner of jacobian of comp_fcn to model state object, self"""

@@ -9,19 +9,18 @@ from .tracer_module_state import TracerModuleState
 class iage(TracerModuleState):  # pylint: disable=invalid-name
     """iage tracer module specifics for TracerModuleState"""
 
-    def comp_tend(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
+    def comp_tend(self, time, tracer_vals_flat, vert_mix):
         """
         compute tendency for iage
         tendency units are tr_units / day
-        tracer_vals and dtracer_vals_dt have a leading dim of length 1
-            (for the single iage tracer)
         """
         # surface_flux piston velocity = 240 m / day
         # same as restoring 24 / day over 10 m
-        surf_flux = -240.0 * tracer_vals[0, 0]
-        dtracer_vals_dt[0, :] = vert_mix.tend(time, tracer_vals[0, :], surf_flux)
+        surf_flux = -240.0 * tracer_vals_flat[0]
+        dtracer_vals_dt_flat = vert_mix.tend(time, tracer_vals_flat[:], surf_flux)
         # age 1/year
-        dtracer_vals_dt[0, :] += 1.0 / 365.0
+        dtracer_vals_dt_flat[:] += 1.0 / 365.0
+        return dtracer_vals_dt_flat
 
     def apply_precond_jacobian(self, time_range, res_tms, mca):
         """apply preconditioner of jacobian of iage fcn"""

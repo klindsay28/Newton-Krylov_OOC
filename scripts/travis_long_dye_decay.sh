@@ -15,9 +15,6 @@ echo running setup_solver.sh for dye_decay
 echo running nk_driver.sh for dye_decay
 $HOME/travis_long_dye_decay_workdir/nk_driver.sh || err_cnt=$((err_cnt+1))
 
-# diff $HOME/travis_long_dye_decay_workdir/newton_krylov_travis_long_dye_decay.log \
-#     baselines || err_cnt=$((err_cnt+1))
-
 echo err_cnt=$err_cnt
 
 exit $err_cnt

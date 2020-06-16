@@ -18,18 +18,17 @@ class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
         self._dye_decay_surf_flux_time = None
         self._dye_decay_surf_flux_val = 0.0
 
-    def comp_tend(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
+    def comp_tend(self, time, tracer_vals_flat, vert_mix):
         """
         compute tendency for dye_decay tracer
         tendency units are tr_units / day
-        tracer_vals and dtracer_vals_dt have a leading dim of length 1
-            (for the single dye_decay tracer)
         """
         surf_flux = self._dye_decay_surf_flux(time)
-        dtracer_vals_dt[0, :] = vert_mix.tend(time, tracer_vals[0, :], surf_flux)
+        dtracer_vals_dt_flat = vert_mix.tend(time, tracer_vals_flat[:], surf_flux)
         # decay (suff / 1000) / y
         suff = self.name[10:]
-        dtracer_vals_dt[0, :] -= int(suff) * 0.001 / 365.0 * tracer_vals[0, :]
+        dtracer_vals_dt_flat[:] -= int(suff) * 0.001 / 365.0 * tracer_vals_flat[:]
+        return dtracer_vals_dt_flat
 
     def _dye_decay_surf_flux(self, time):
         """return surf flux applied to dye_decay tracers"""

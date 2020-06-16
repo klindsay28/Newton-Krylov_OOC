@@ -21,9 +21,6 @@ echo running setup_solver.sh
     --model_name test_problem \
     --workdir $HOME/travis_short_workdir || err_cnt=$((err_cnt+1))
 
-diff $HOME/travis_short_workdir/newton_krylov_travis_short.log \
-    baselines || err_cnt=$((err_cnt+1))
-
 # now that the travis_short_workdir is populated, pytest tests have what they need
 echo running pytest
 pytest || err_cnt=$((err_cnt+1))

@@ -23,11 +23,14 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         # 1: d po4_uptake / d po4
         self.po4_s_restoring_opt = 1
 
-    def comp_tend(self, time, tracer_vals, dtracer_vals_dt, vert_mix):
+    def comp_tend(self, time, tracer_vals_flat, vert_mix):
         """
         compute tendency for phosphorus tracers
         tendency units are tr_units / day
         """
+
+        tracer_vals = tracer_vals_flat.reshape((6, -1))
+        dtracer_vals_dt = np.empty(tracer_vals.shape)
 
         po4_uptake = self.po4_uptake(tracer_vals[0, :])
 
@@ -47,6 +50,8 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         dtracer_vals_dt[3, :] += rest_term
         dtracer_vals_dt[4, :] -= 0.67 * rest_term
         dtracer_vals_dt[5, :] -= 0.33 * rest_term
+
+        return dtracer_vals_dt.reshape(-1)
 
     def po4_s_restore_tau_r(self, po4, po4_uptake):
         """inverse timescale for po4_s restoring"""
