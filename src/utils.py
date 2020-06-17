@@ -141,12 +141,12 @@ def isclose_all_vars(fname1, fname2, rtol, atol):
             if varname in fptr2.variables:
                 var1 = fptr1.variables[varname]
                 var2 = fptr2.variables[varname]
-                if not isclose_one_var(var1, var2, rtol=rtol, atol=atol):
+                if not _isclose_one_var(var1, var2, rtol=rtol, atol=atol):
                     res = False
     return res
 
 
-def isclose_one_var(var1, var2, rtol, atol):
+def _isclose_one_var(var1, var2, rtol, atol):
     """Return true if netCDF4 vars var1 and var2 are close."""
     logger = logging.getLogger(__name__)
 
@@ -173,12 +173,25 @@ def isclose_one_var(var1, var2, rtol, atol):
 
     vals1 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals1)
     vals2 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals2)
-    close12 = np.isclose(vals1, vals2, rtol=rtol, atol=atol, equal_nan=True).all()
-    close21 = np.isclose(vals2, vals1, rtol=rtol, atol=atol, equal_nan=True).all()
+    close12 = _isclose_one_var_core(vals1, vals2, rtol=rtol, atol=atol)
+    close21 = _isclose_one_var_core(vals2, vals1, rtol=rtol, atol=atol)
     if not close12 or not close21:
         logger.info("    %s vals not close", var1.name)
         res = False
 
+    return res
+
+
+def _isclose_one_var_core(vals1, vals2, rtol, atol):
+    """core for comparing numpy arrays, and logging differences"""
+    logger = logging.getLogger(__name__)
+    res = np.isclose(vals1, vals2, rtol=rtol, atol=atol, equal_nan=True).all()
+    if not res:
+        for ind in range(vals1.size):
+            val1 = vals1.reshape(-1)[ind]
+            val2 = vals2.reshape(-1)[ind]
+            if not np.isclose(val1, val2, rtol=rtol, atol=atol, equal_nan=True):
+                logger.info("    %.10e %.10e not close", val1, val2)
     return res
 
 
