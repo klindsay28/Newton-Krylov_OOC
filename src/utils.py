@@ -131,6 +131,57 @@ def mkdir_exist_okay(path):
 # utilities related to netCDF file operations
 
 
+def isclose_all_vars(fname1, fname2, rtol, atol):
+    """Return true if all vars in common to fname1 and fname2 are close."""
+    res = True
+    with Dataset(fname1, mode="r") as fptr1, Dataset(fname2, mode="r") as fptr2:
+        fptr1.set_auto_mask(False)
+        fptr2.set_auto_mask(False)
+        for varname in fptr1.variables:
+            if varname in fptr2.variables:
+                var1 = fptr1.variables[varname]
+                var2 = fptr2.variables[varname]
+                if not isclose_one_var(var1, var2, rtol=rtol, atol=atol):
+                    res = False
+    return res
+
+
+def isclose_one_var(var1, var2, rtol, atol):
+    """Return true if netCDF4 vars var1 and var2 are close."""
+    logger = logging.getLogger(__name__)
+
+    # further comparisons do not make sense if shapes differ
+    if var1.shape != var1.shape:
+        logger.info(
+            "    var1.shape %s != var2.shape %s for %s",
+            var1.shape,
+            var2.shape,
+            var1.name,
+        )
+        return False
+
+    res = True
+
+    vals1 = var1[:]
+    msv1 = getattr(var1, "_FillValue", None)
+    vals2 = var2[:]
+    msv2 = getattr(var2, "_FillValue", None)
+
+    if ((vals1 == msv1) != (vals2 == msv2)).any():
+        logger.info("    _FillValue pattern mismatch for %s", var1.name)
+        res = False
+
+    vals1 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals1)
+    vals2 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals2)
+    close12 = np.isclose(vals1, vals2, rtol=rtol, atol=atol, equal_nan=True).all()
+    close21 = np.isclose(vals2, vals1, rtol=rtol, atol=atol, equal_nan=True).all()
+    if not close12 or not close21:
+        logger.info("    %s vals not close", var1.name)
+        res = False
+
+    return res
+
+
 def extract_dimensions(fptr, names):
     """
     Return a dict of dimensions that names are defined on.
