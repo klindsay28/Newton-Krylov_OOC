@@ -28,7 +28,7 @@ def parse_args(args_list_in=None):
         "--baseline_dir", help="directory with baseline file",
     )
     parser.add_argument("--rtol", help="relative tolerance", type=float, default=1.0e-7)
-    parser.add_argument("--atol", help="absolute tolerance", type=float, default=1.0e-9)
+    parser.add_argument("--atol", help="absolute tolerance", type=float, default=2.0e-9)
 
     return parser.parse_args(args_list)
 
