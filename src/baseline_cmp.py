@@ -41,13 +41,13 @@ def main(args):
     logging.basicConfig(format=logging_format, level="INFO", stream=sys.stdout)
     logger = logging.getLogger(__name__)
 
-    fname1 = os.path.join(args.baseline_dir, args.fname)
-    fname2 = os.path.join(args.expr_dir, args.fname)
+    baseline_fname = os.path.join(args.baseline_dir, args.fname)
+    expr_fname = os.path.join(args.expr_dir, args.fname)
 
-    logger.info("fname1 = %s", fname1)
-    logger.info("fname2 = %s", fname2)
+    logger.info("expr_fname = %s", expr_fname)
+    logger.info("baseline_fname = %s", baseline_fname)
 
-    res = isclose_all_vars(fname1, fname2, rtol=args.rtol, atol=args.atol)
+    res = isclose_all_vars(expr_fname, baseline_fname, rtol=args.rtol, atol=args.atol)
     sys.exit(0 if res else 1)
 
 

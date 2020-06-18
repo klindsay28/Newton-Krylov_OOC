@@ -173,9 +173,7 @@ def _isclose_one_var(var1, var2, rtol, atol):
 
     vals1 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals1)
     vals2 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals2)
-    close12 = _isclose_one_var_core(vals1, vals2, rtol=rtol, atol=atol)
-    close21 = _isclose_one_var_core(vals2, vals1, rtol=rtol, atol=atol)
-    if not close12 or not close21:
+    if not _isclose_one_var_core(vals1, vals2, rtol=rtol, atol=atol):
         logger.info("    %s vals not close", var1.name)
         res = False
 
