@@ -13,19 +13,23 @@ Testing on travis-ci currently does the following:
 
 #. Run the source code through `black <https://black.readthedocs.io/en/stable/>`_ to check code style against a particular subset of the python style guide in `PEP 8 <https://www.python.org/dev/peps/pep-0008/>`_.
 #. Run the source code through `flake8 <https://flake8.pycqa.org/en/latest/>`_, which analyzes the code and detects various errors.
-#. Run the setup script for the test_problem model, which performs 1 forward model run.
+#. Run the setup script for the test_problem model, which performs 1 fixed point iteration.
+   Compare all generated netCDF4 output to a baseline/reference solution.
 #. Run pytest, for unit testing.
 #. Run the solver for the test_problem model with ``iage`` turned on.
+   Compare the ``iage`` output from the initial fixed point iteration to ``iage`` from the fixed point iteration in step 3, which had the ``phosphorus`` tracer module turned on.
+   Compare a subset of the generated netCDF4 output from the first Newton iteration to a baseline/reference solution.
 #. Run the solver for the test_problem model with ``dye_decay_{suff}:001:010`` turned on.
 
-Current testing does not verify the output of running the solver, the testing just confirms that the solver runs without generating an error.
-
-Adding more tests, particularly unit tests and verification of solver output, is desirable.
+Because the test_problem model produces different answers on different platforms, baseline comparisons do not check for equality.
+They instead use ``numpy.isclose``.
 
 Tests executed via travis-ci are performed with python versions 3.6, 3.7, and 3.8.
 Conda is currently unable to create environments with the required pakages using earlier versions of python.
 
 The solver has been run for the cime_pop model with the iage and abio_dic_dic14 tracer modules successfully on the NCAR/CISL machine cheyenne using python3.6.
+
+Adding more tests, particularly unit tests and verification of solver output for the cime_pop model, is desirable.
 
 ~~~~~~~~~~~~~~~~~~~
 Interactive Testing
