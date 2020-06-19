@@ -14,7 +14,7 @@ That is, the solver solves for an initial tracer state such that end state from 
 Vertical mixing coefficients are large, 1 m\ :sup:`2` s\ :sup:`-1`, in a boundary layer region, and small, 10\ :sup:`-5` m\ :sup:`2` s\ :sup:`-1` below the boundary layer, with a transition across the boundary layer depth.
 The boundary layer depth has a sinusoidal dependence on time.
 
-The implementation of the test_problem model in the solver includes supports the tracer modules ``iage``, ``phosphorus``, and ``dye_decay_{suff}``.
+The implementation of the test_problem model in the solver supports the tracer modules ``iage``, ``phosphorus``, and ``dye_decay_{suff}``.
 Information on adding support for other tracer modules is included in the :ref:`developer's guide <add-tracer-module-test_problem>`.
 
 The ``iage`` tracer module has a single tracer, ideal age, which has a source term of 1 year/year.

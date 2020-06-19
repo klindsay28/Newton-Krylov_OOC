@@ -13,7 +13,7 @@ That is, the solver solves for an initial tracer state such that end state from 
 One interpretation of how the solver works is that it performs multiple forward model runs with perturbed tracer initial conditions, and creates an optimal initial condition perturbation such that the difference between the tracer end state and tracer initial state is minimized.
 In order to perform forward model runs with perturbed tracer initial conditions, the solver requires a mechanism to specify the model's tracer initial condition.
 The cime_pop utilizes the xml variable ``POP_PASSIVE_TRACER_RESTART_OVERRIDE`` to do this.
-The following tracer modules in CESM2 support this feature: ``iage``, ``abio_dic_dic14``, ``ecosys``.
+The following POP tracer modules in CESM2 support this feature: ``iage``, ``abio_dic_dic14``, ``ecosys``.
 
-The implementation of the cime_pop model in the solver includes supports the tracer modules ``iage`` and ``abio_dic_dic14``.
+The implementation of the cime_pop model in the solver supports the POP tracer modules ``iage`` and ``abio_dic_dic14``.
 Information on adding support for other tracer modules is included in the :ref:`developer's guide <add-tracer-module-cime_pop>`.
