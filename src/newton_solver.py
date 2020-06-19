@@ -237,25 +237,24 @@ class NewtonSolver:
         increment.log("Newton increment %02d" % iteration)
         return increment
 
+    @action_step_log_wrap(step="NewtonSolver._armijo_init")
+    def _armijo_init(self, solver_state):
+        """initialize Armijo factor computation"""
+        solver_state.set_value_saved_state(key="armijo_ind", value=0)
+        solver_state.set_value_saved_state(
+            key="armijo_factor_flat", value=np.where(self.converged_flat(), 0.0, 1.0)
+        )
+
     def _comp_next_iterate(self, increment):
         """compute next Newton iterate"""
         logger = logging.getLogger(__name__)
         logger.debug("entering")
 
-        step = "Armijo factor computation started"
-        if not self._solver_state.step_logged(step):
-            armijo_ind = 0
-            self._solver_state.set_value_saved_state("armijo_ind", armijo_ind)
-            armijo_factor_flat = np.where(self.converged_flat(), 0.0, 1.0)
-            self._solver_state.set_value_saved_state(
-                "armijo_factor_flat", armijo_factor_flat
-            )
-            self._solver_state.log_step(step)
-        else:
-            armijo_ind = self._solver_state.get_value_saved_state("armijo_ind")
-            armijo_factor_flat = self._solver_state.get_value_saved_state(
-                "armijo_factor_flat"
-            )
+        self._armijo_init(solver_state=self._solver_state)
+        armijo_ind = self._solver_state.get_value_saved_state(key="armijo_ind")
+        armijo_factor_flat = self._solver_state.get_value_saved_state(
+            key="armijo_factor_flat"
+        )
 
         fcn_complete_step = "_comp_next_iterate complete"
 
@@ -313,9 +312,9 @@ class NewtonSolver:
                 armijo_cond_flat, armijo_factor_flat, 0.5 * armijo_factor_flat
             )
             armijo_ind += 1
-            self._solver_state.set_value_saved_state("armijo_ind", armijo_ind)
+            self._solver_state.set_value_saved_state(key="armijo_ind", value=armijo_ind)
             self._solver_state.set_value_saved_state(
-                "armijo_factor_flat", armijo_factor_flat
+                key="armijo_factor_flat", value=armijo_factor_flat
             )
 
             if armijo_ind > 10:
@@ -344,7 +343,7 @@ class NewtonSolver:
             prov, prov_fcn = self._comp_next_iterate(increment)
 
             fp_iter = 0
-            self._solver_state.set_value_saved_state("fp_iter", fp_iter)
+            self._solver_state.set_value_saved_state(key="fp_iter", value=fp_iter)
             prov.copy_shadow_tracers_to_real_tracers()
             prov.dump(self._fname("prov_fp_%02d" % fp_iter), caller)
             # Evaluate comp_fcn after copying shadow tracers to their real counterparts.
@@ -353,7 +352,7 @@ class NewtonSolver:
             # Do not preserve hist files from Armijo iterations. Either remove the last
             # one, or rename it to the initial fp hist file (if there are not shadow
             # tracers on).
-            armijo_ind = self._solver_state.get_value_saved_state("armijo_ind")
+            armijo_ind = self._solver_state.get_value_saved_state(key="armijo_ind")
             if prov.shadow_tracers_on():
                 prov_fcn = prov.comp_fcn(
                     self._fname("prov_fcn_fp_%02d" % fp_iter),
@@ -369,7 +368,7 @@ class NewtonSolver:
                 )
             self._solver_state.log_step(step)
         else:
-            fp_iter = self._solver_state.get_value_saved_state("fp_iter")
+            fp_iter = self._solver_state.get_value_saved_state(key="fp_iter")
             prov = type(self._iterate)(self._fname("prov_fp_%02d" % fp_iter))
             prov_fcn = type(self._iterate)(self._fname("prov_fcn_fp_%02d" % fp_iter))
 
@@ -390,7 +389,7 @@ class NewtonSolver:
                 self._fname("prov_hist_fp_%02d" % (fp_iter + 1)),
             )
             fp_iter += 1
-            self._solver_state.set_value_saved_state("fp_iter", fp_iter)
+            self._solver_state.set_value_saved_state(key="fp_iter", value=fp_iter)
             self.log(prov, prov_fcn, "fp_iter=%02d" % fp_iter)
 
         shutil.copyfile(
