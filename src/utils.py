@@ -231,6 +231,7 @@ def create_dimensions_verify(fptr, dimensions):
                 raise
             if len(fptr.dimensions[dimname]) != dimlen:
                 raise
+        fptr.sync()
 
 
 def create_vars(fptr, vars_metadata, def_fill_value=None):
@@ -245,6 +246,7 @@ def create_vars(fptr, vars_metadata, def_fill_value=None):
         for attr_name, attr_value in attrs.items():
             if attr_name != "_FillValue":
                 setattr(var, attr_name, attr_value)
+        fptr.sync()
 
 
 def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):

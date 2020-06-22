@@ -20,6 +20,7 @@ from .utils import (
     get_subclasses,
     extract_dimensions,
     create_dimensions_verify,
+    create_vars,
 )
 
 
@@ -401,61 +402,59 @@ class ModelStateBase:
                 msg = msg + "\n" + getattr(fptr_in, "history")
             setattr(fptr_out, "history", msg)
 
-            _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out)
+            for action in ["define", "write"]:
+                _precond_dims(hist_vars, fptr_in, fptr_out, action)
 
-            # define output vars
-            for hist_var in hist_vars:
-                hist_varname, _, time_op = hist_var.partition(":")
-                hist_var = fptr_in.variables[hist_varname]
-                logger.debug('hist_varname="%s"', hist_varname)
+                if action == "define":
+                    vars_metadata = {}
 
-                fill_value = getattr(hist_var, "_FillValue", None)
+                # define/write output vars
+                for hist_var in hist_vars:
+                    hist_varname, _, time_op = hist_var.partition(":")
 
-                dimensions = _precond_dimensions_for_hist_var(
-                    fptr_in, hist_varname, time_op
-                )
+                    # skip coordinate variables, they are added by _precond_dims
+                    if hist_varname in fptr_out.dimensions:
+                        continue
 
-                if time_op == "mean":
-                    precond_varname = hist_varname + "_mean"
-                    if precond_varname not in fptr_out.variables:
-                        precond_var = fptr_out.createVariable(
-                            hist_varname + "_mean",
-                            hist_var.datatype,
-                            dimensions=tuple(dimensions),
-                            fill_value=fill_value,
-                        )
-                        precond_var.long_name = (
-                            hist_var.long_name + ", mean over time dim"
-                        )
-                        precond_var[:] = hist_var[:].mean(axis=0)
-                elif time_op == "log_mean":
-                    precond_varname = hist_varname + "_log_mean"
-                    if precond_varname not in fptr_out.variables:
-                        precond_var = fptr_out.createVariable(
-                            hist_varname + "_log_mean",
-                            hist_var.datatype,
-                            dimensions=tuple(dimensions),
-                            fill_value=fill_value,
-                        )
-                        precond_var.long_name = (
-                            hist_var.long_name + ", log mean over time dim"
-                        )
-                        precond_var[:] = np.exp(np.log(hist_var[:]).mean(axis=0))
-                else:
-                    precond_varname = hist_varname
-                    if precond_varname not in fptr_out.variables:
-                        precond_var = fptr_out.createVariable(
-                            hist_varname,
-                            hist_var.datatype,
-                            dimensions=tuple(dimensions),
-                            fill_value=fill_value,
-                        )
-                        precond_var.long_name = hist_var.long_name
-                        precond_var[:] = hist_var[:]
+                    hist_var = fptr_in.variables[hist_varname]
 
-                for att_name in ["missing_value", "units", "coordinates", "positive"]:
-                    if hasattr(hist_var, att_name):
-                        setattr(precond_var, att_name, getattr(hist_var, att_name))
+                    dimensions = _precond_dimensions_for_hist_var(
+                        fptr_in, hist_varname, time_op
+                    )
+
+                    var_metadata = {
+                        "datatype": hist_var.datatype,
+                        "dimensions": tuple(dimensions),
+                        "attrs": hist_var.__dict__,
+                    }
+
+                    # remove cell_methods if time dimension is being referenced and
+                    # it doesn't exist in result (should really just remove substring)
+                    if "cell_methods" in var_metadata["attrs"]:
+                        attrs = var_metadata["attrs"]
+                        cell_methods = attrs["cell_methods"]
+                        if "time:" in cell_methods and "time" not in dimensions:
+                            del attrs["cell_methods"]
+
+                    if time_op == "mean":
+                        precond_varname = hist_varname + "_mean"
+                        var_metadata["attrs"]["long_name"] += ", mean over time dim"
+                        vals = hist_var[:].mean(axis=0)
+                    elif time_op == "log_mean":
+                        precond_varname = hist_varname + "_log_mean"
+                        var_metadata["attrs"]["long_name"] += ", log mean over time dim"
+                        vals = np.exp(np.log(hist_var[:]).mean(axis=0))
+                    else:
+                        precond_varname = hist_varname
+                        vals = hist_var[:]
+
+                    if action == "define":
+                        vars_metadata[precond_varname] = var_metadata
+                    else:
+                        fptr_out.variables[precond_varname][:] = vals
+
+                if action == "define":
+                    create_vars(fptr_out, vars_metadata)
 
     def comp_fcn_postprocess(self, res_fname, caller):
         """
@@ -550,31 +549,29 @@ class ModelStateBase:
         return self
 
 
-def _def_precond_dims_and_coord_vars(hist_vars, fptr_in, fptr_out):
+def _precond_dims(hist_vars, fptr_in, fptr_out, action):
     """define netCDF4 dimensions needed for hist_vars from hist_fname"""
-    logger = logging.getLogger(__name__)
+    vars_metadata = {}
     for hist_var in hist_vars:
         hist_varname, _, time_op = hist_var.partition(":")
 
         dimensions = _precond_dimensions_for_hist_var(fptr_in, hist_varname, time_op)
 
-        create_dimensions_verify(fptr_out, dimensions)
+        if action == "define":
+            create_dimensions_verify(fptr_out, dimensions)
 
         for dimname in dimensions:
-            # if fptr_in has a cooresponding coordinate variable, then
-            # define it, copy attributes from fptr_in, and write it
-            if dimname in fptr_in.variables and dimname not in fptr_out.variables:
-                logger.debug('defining variable="%s"', dimname)
-                fptr_out.createVariable(
-                    dimname, fptr_in.variables[dimname].datatype, dimensions=(dimname,),
-                )
-                for att_name in fptr_in.variables[dimname].ncattrs():
-                    setattr(
-                        fptr_out.variables[dimname],
-                        att_name,
-                        getattr(fptr_in.variables[dimname], att_name),
-                    )
-                fptr_out.variables[dimname][:] = fptr_in.variables[dimname][:]
+            if dimname in fptr_in.variables and dimname not in vars_metadata:
+                vars_metadata[dimname] = {
+                    "datatype": fptr_in.variables[dimname].datatype,
+                    "dimensions": (dimname,),
+                    "attrs": fptr_in.variables[dimname].__dict__,
+                }
+                if action == "write":
+                    fptr_out.variables[dimname][:] = fptr_in.variables[dimname][:]
+
+    if action == "define":
+        create_vars(fptr_out, vars_metadata)
 
 
 def _precond_dimensions_for_hist_var(fptr_hist, hist_varname, time_op):

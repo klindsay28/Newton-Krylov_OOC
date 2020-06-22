@@ -7,7 +7,7 @@ import numpy as np
 
 from .. import model_config
 from ..tracer_module_state_base import TracerModuleStateBase
-from ..utils import extract_dimensions, create_dimensions_verify
+from ..utils import extract_dimensions, create_dimensions_verify, create_vars
 
 
 class TracerModuleState(TracerModuleStateBase):
@@ -60,9 +60,11 @@ class TracerModuleState(TracerModuleStateBase):
             create_dimensions_verify(fptr, self._dimensions)
             dimnames = tuple(self._dimensions.keys())
             # define all tracers, with _CUR and _OLD suffixes
+            vars_metadata = {}
             for tracer_name in self.tracer_names():
                 for suffix in ["_CUR", "_OLD"]:
-                    fptr.createVariable(tracer_name + suffix, "f8", dimensions=dimnames)
+                    vars_metadata[tracer_name + suffix] = {"dimensions": dimnames}
+            create_vars(fptr, vars_metadata)
         elif action == "write":
             # write all tracers, with _CUR and _OLD suffixes
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):

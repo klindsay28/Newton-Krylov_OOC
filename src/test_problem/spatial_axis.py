@@ -147,7 +147,6 @@ class SpatialAxis:
         """variable metadata for dump"""
         res = {}
         res[self.axisname] = {
-            "datatype": "f8",
             "dimensions": (self.axisname,),
             "attrs": {
                 "long_name": self.axisname + " layer midpoints",
@@ -156,12 +155,10 @@ class SpatialAxis:
             },
         }
         res[self.dump_names["bounds"]] = {
-            "datatype": "f8",
             "dimensions": (self.axisname, "nbnds"),
             "attrs": {"long_name": self.axisname + " layer bounds"},
         }
         res[self.dump_names["edges"]] = {
-            "datatype": "f8",
             "dimensions": (self.dump_names["edges"],),
             "attrs": {
                 "long_name": self.axisname + " layer edges",
@@ -169,7 +166,6 @@ class SpatialAxis:
             },
         }
         res[self.dump_names["delta"]] = {
-            "datatype": "f8",
             "dimensions": (self.axisname,),
             "attrs": {
                 "long_name": self.axisname + " layer thickness",

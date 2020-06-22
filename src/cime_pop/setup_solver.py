@@ -24,6 +24,7 @@ from ..utils import (
     mkdir_exist_okay,
     extract_dimensions,
     create_dimensions_verify,
+    create_vars,
     ann_files_to_mean_file,
     mon_files_to_mean_file,
 )
@@ -196,14 +197,15 @@ def gen_grid_weight_file(modelinfo):
         # propagate dimension sizes from fptr_in to fptr_out
         create_dimensions_verify(fptr_out, weight_dimensions)
 
-        varname = modelinfo["grid_weight_varname"]
-        var = fptr_out.createVariable(
-            varname, weight.dtype, dimensions=tuple(weight_dimensions)
-        )
-        setattr(var, "long_name", "Ocean Grid-Cell Volume")
-        setattr(var, "units", "m3")
+        vars_metadata = {}
+        vars_metadata[modelinfo["grid_weight_varname"]] = {
+            "datatype": weight.dtype,
+            "dimensions": tuple(weight_dimensions),
+            "attrs": {"long_name": "Ocean Grid-Cell Volume", "units": "m^3"},
+        }
+        create_vars(fptr_out, vars_metadata)
 
-        var[:] = weight
+        fptr_out.variables[modelinfo["grid_weight_varname"]][:] = weight
 
 
 def gen_region_mask_file(modelinfo):
@@ -246,21 +248,22 @@ def gen_region_mask_file(modelinfo):
         # propagate dimension sizes from fptr_in to fptr_out
         create_dimensions_verify(fptr_out, mask_dimensions)
 
-        varname = modelinfo["region_mask_varname"]
-        var = fptr_out.createVariable(
-            varname, mask.dtype, dimensions=tuple(mask_dimensions)
-        )
-        setattr(var, "long_name", "Region Mask")
+        vars_metadata = {}
+        vars_metadata[modelinfo["region_mask_varname"]] = {
+            "datatype": mask.dtype,
+            "dimensions": tuple(mask_dimensions),
+            "attrs": {"long_name": "Region Mask"},
+        }
+        vars_metadata["DYN_REGMASK"] = {
+            "datatype": mask.dtype,
+            "dimensions": tuple(mask_dimensions)[1:],
+            "attrs": {"long_name": "Region Mask"},
+        }
+        create_vars(fptr_out, vars_metadata)
 
-        var[:] = mask
+        fptr_out.variables[modelinfo["region_mask_varname"]][:] = mask
 
-        varname = "DYN_REGMASK"
-        var = fptr_out.createVariable(
-            varname, mask.dtype, dimensions=tuple(mask_dimensions)[1:]
-        )
-        setattr(var, "long_name", "Region Mask")
-
-        var[:] = mask[0, :]
+        fptr_out.variables["DYN_REGMASK"][:] = mask[0, :]
 
 
 if __name__ == "__main__":

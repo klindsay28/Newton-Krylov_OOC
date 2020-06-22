@@ -93,10 +93,11 @@ class TracerModuleState(TracerModuleStateBase):
             if self.depth.axisname not in fptr.variables:
                 create_vars(fptr, self.depth.dump_vars_metadata())
             # define all tracers
+            vars_metadata = {}
             dimnames = tuple(self._dimensions.keys())
             for tracer_name in self.tracer_names():
-                fptr.createVariable(tracer_name, "f8", dimensions=dimnames)
-            fptr.sync()
+                vars_metadata[tracer_name] = {"dimensions": dimnames}
+            create_vars(fptr, vars_metadata)
         elif action == "write":
             self.depth.dump_write(fptr)
             # write all tracers

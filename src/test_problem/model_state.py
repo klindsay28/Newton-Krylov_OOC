@@ -238,8 +238,9 @@ class ModelState(ModelStateBase):
         setattr(fptr_hist, "history", msg)
 
         # define dimensions
-        fptr_hist.createDimension("time", None)
-        create_dimensions_verify(fptr_hist, self.depth.dump_dimensions())
+        dimensions = {"time": None}
+        dimensions.update(self.depth.dump_dimensions())
+        create_dimensions_verify(fptr_hist, dimensions)
 
         return fptr_hist
 
@@ -248,13 +249,19 @@ class ModelState(ModelStateBase):
         if fptr_hist is None:
             return
 
-        # define coordinate variables
-        fptr_hist.createVariable("time", "f8", dimensions=("time",))
-        fptr_hist.variables["time"].long_name = "time"
-        fptr_hist.variables["time"].units = "days since 0001-01-01"
-        fptr_hist.variables["time"].calendar = "noleap"
+        # define dict of variable metadata
 
-        hist_vars_metadata = self.depth.dump_vars_metadata()
+        hist_vars_metadata = {}
+        hist_vars_metadata["time"] = {
+            "dimensions": ("time",),
+            "attrs": {
+                "long_name": "time",
+                "units": "days since 0001-01-01",
+                "calendar": "noleap",
+            },
+        }
+
+        hist_vars_metadata.update(self.depth.dump_vars_metadata())
 
         hist_vars_metadata["bldepth"] = {
             "dimensions": ("time"),
@@ -266,8 +273,8 @@ class ModelState(ModelStateBase):
         }
 
         # set cell_methods attribute and define hist vars
-        for metadata in hist_vars_metadata.values():
-            if "time" in metadata["dimensions"]:
+        for varname, metadata in hist_vars_metadata.items():
+            if varname != "time" and "time" in metadata["dimensions"]:
                 metadata["attrs"]["cell_methods"] = "time: point"
 
         create_vars(fptr_hist, hist_vars_metadata)
