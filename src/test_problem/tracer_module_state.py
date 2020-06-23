@@ -5,8 +5,14 @@ import logging
 from netCDF4 import Dataset
 import numpy as np
 
+from ..model_config import get_region_cnt
 from ..tracer_module_state_base import TracerModuleStateBase
-from ..utils import extract_dimensions, create_dimensions_verify, create_vars
+from ..utils import (
+    extract_dimensions,
+    create_dimensions_verify,
+    datatype_sname,
+    create_vars,
+)
 
 
 class TracerModuleState(TracerModuleStateBase):
@@ -240,9 +246,12 @@ class TracerModuleState(TracerModuleStateBase):
         # add metadata for tracer-like variables
 
         for tracer_name in self.stats_vars_tracer_like():
+            datatype = datatype_sname(fptr_hist.variables[tracer_name])
+
             attrs = fptr_hist.variables[tracer_name].__dict__
             del attrs["cell_methods"]
             res[tracer_name] = {
+                "datatype": datatype,
                 "dimensions": ("iteration", "region", "depth"),
                 "attrs": attrs,
             }
@@ -258,8 +267,10 @@ class TracerModuleState(TracerModuleStateBase):
     def stats_vars_vals(self, fptr_hist):
         """return tracer module specific stats variables for the current iteration"""
 
-        # return values for tracer-like variables
+        if get_region_cnt() != 1:
+            raise NotImplementedError("region_cnt > 1 not implemented")
 
+        # return values for tracer-like variables
         time_weights = self.hist_time_mean_weights(fptr_hist)
         res = {}
         for tracer_name in self.stats_vars_tracer_like():

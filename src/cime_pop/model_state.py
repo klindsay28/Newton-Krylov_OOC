@@ -14,7 +14,6 @@ import subprocess
 import sys
 
 from netCDF4 import Dataset
-import numpy as np
 
 from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
@@ -142,9 +141,9 @@ class ModelState(ModelStateBase):
                 fcn_name = class_name(self) + "._gen_precond_matrix_files"
                 msg = msg + " called from " + fcn_name
                 if hasattr(fptr, "history"):
-                    msg = msg + "\n" + getattr(fptr, "history")
-                setattr(fptr, "history", msg)
-                setattr(fptr, "matrix_opts", "\n".join(matrix_opts))
+                    msg = msg + "\n" + fptr.history
+                fptr.history = msg
+                fptr.matrix_opts = "\n".join(matrix_opts)
 
     def comp_fcn(self, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
@@ -508,7 +507,6 @@ def _apply_tracers_sflux_term(
     term_applied = False
     delta_time = 365.0 * 86400.0 * cime_yr_cnt()
     with Dataset(precond_fname, mode="r") as fptr:
-        fptr.set_auto_mask(False)
         for tracer_name_src in tracer_names_subset:
             for tracer_name_dst_ind in range(
                 tracer_names_all.index(tracer_name_src) + 1, len(tracer_names_all)
@@ -520,17 +518,13 @@ def _apply_tracers_sflux_term(
                 if partial_deriv_varname in fptr.variables:
                     logger.info('applying "%s"', partial_deriv_varname)
                     partial_deriv = fptr.variables[partial_deriv_varname]
-                    # get values, replacing _FillValue values with 0.0
-                    if hasattr(partial_deriv, "_FillValue"):
-                        fill_value = getattr(partial_deriv, "_FillValue")
-                        partial_deriv_vals = np.where(
-                            partial_deriv[:] == fill_value, 0.0, partial_deriv[:]
-                        )
+                    # replace _FillValue vals with 0.0
+                    partial_deriv_vals = partial_deriv[:].filled(0.0)
                     src = model_state.get_tracer_vals(tracer_name_src)
                     dst = model_state.get_tracer_vals(tracer_name_dst)
                     dst[0, :] -= (
                         delta_time
-                        / fptr.variables["dz"][0]
+                        / fptr.variables["dz"][0].data
                         * partial_deriv_vals
                         * src[0, :]
                     )

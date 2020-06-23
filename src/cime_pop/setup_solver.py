@@ -165,10 +165,7 @@ def gen_grid_weight_file(modelinfo):
     """generate weight file from irf file, based on modelinfo"""
 
     with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
-        if hasattr(fptr_in, "history"):
-            history_in = getattr(fptr_in, "history")
-        else:
-            history_in = None
+        history_in = getattr(fptr_in, "history", None)
         # generate weight
         thickness = 1.0e-2 * fptr_in.variables["dz"][:]  # convert from cm to m
         area = 1.0e-4 * fptr_in.variables["TAREA"][:]  # convert from cm2 to m2
@@ -190,9 +187,7 @@ def gen_grid_weight_file(modelinfo):
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "src.cime_pop.setup_solver.gen_grid_weight_file"
         msg = datestamp + ": created by " + name + " from " + modelinfo["irf_fname"]
-        if history_in is not None:
-            msg = msg + "\n" + history_in
-        setattr(fptr_out, "history", msg)
+        fptr_out.history = msg if history_in is None else "\n".join([msg, history_in])
 
         # propagate dimension sizes from fptr_in to fptr_out
         create_dimensions_verify(fptr_out, weight_dimensions)
@@ -212,7 +207,7 @@ def gen_region_mask_file(modelinfo):
     """generate region_mask file from irf file, based on modelinfo"""
 
     with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
-        history_in = getattr(fptr_in, "history")
+        history_in = getattr(fptr_in, "history", None)
         # generate mask
         kmt = fptr_in.variables["KMT"][:]
         region_mask = fptr_in.variables["REGION_MASK"][:]
@@ -237,13 +232,12 @@ def gen_region_mask_file(modelinfo):
         name = "src.cime_pop.setup_solver.gen_region_mask_file"
         msg = datestamp + ": "
         if mode_out == "a":
-            history_in = getattr(fptr_out, "history")
+            history_in = getattr(fptr_out, "history", None)
             vars_appended = ",".join([modelinfo["region_mask_varname"], "DYN_REGMASK"])
             msg = msg + vars_appended + " appended by " + name
         else:
             msg = msg + "created by " + name + " from " + modelinfo["irf_fname"]
-        msg = msg + "\n" + history_in
-        setattr(fptr_out, "history", msg)
+        fptr_out.history = msg if history_in is None else "\n".join([msg, history_in])
 
         # propagate dimension sizes from fptr_in to fptr_out
         create_dimensions_verify(fptr_out, mask_dimensions)

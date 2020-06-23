@@ -8,7 +8,7 @@ import logging
 import os
 import subprocess
 
-from netCDF4 import Dataset
+from netCDF4 import Dataset, default_fillvals
 import numpy as np
 
 ################################################################################
@@ -234,12 +234,26 @@ def create_dimensions_verify(fptr, dimensions):
         fptr.sync()
 
 
-def create_vars(fptr, vars_metadata, def_fill_value=None):
+def datatype_sname(var):
+    """
+    return shortname of datatype of netCDF4 variable var
+    useable in default_fillvals
+    """
+    datatype_replace = {"float64": "f8", "float32": "f4"}
+    datatype = str(var.datatype)
+    datatype = datatype_replace.get(datatype, datatype)
+    if datatype not in default_fillvals:
+        msg = "unknown datatype %s" % datatype
+        raise ValueError(msg)
+    return datatype
+
+
+def create_vars(fptr, vars_metadata):
     """Create multiple netCDF4 variables, using metadata from vars_metadata."""
     for varname, metadata in vars_metadata.items():
         datatype = metadata.get("datatype", "f8")
         attrs = metadata.get("attrs", {})
-        fill_value = attrs.get("_FillValue", def_fill_value)
+        fill_value = attrs.get("_FillValue", None)
         var = fptr.createVariable(
             varname, datatype, metadata["dimensions"], fill_value=fill_value
         )
@@ -282,8 +296,7 @@ def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "src.utils.ann_files_to_mean_file"
         msg = datestamp + ": ncra called from " + name + " called from " + caller
-        msg = msg + "\n" + getattr(fptr, "history")
-        setattr(fptr, "history", msg)
+        fptr.history = "\n".join([msg, fptr.history])
 
 
 def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, caller):
@@ -334,5 +347,4 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "src.utils.mon_files_to_mean_file"
         msg = datestamp + ": ncra called from " + name + " called from " + caller
-        msg = msg + "\n" + getattr(fptr, "history")
-        setattr(fptr, "history", msg)
+        fptr.history = "\n".join([msg, fptr.history])

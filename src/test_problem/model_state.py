@@ -234,8 +234,7 @@ class ModelState(ModelStateBase):
         fptr_hist = Dataset(hist_fname, mode="w", format="NETCDF3_64BIT_OFFSET")
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = __name__ + "._gen_hist"
-        msg = datestamp + ": created by " + name
-        setattr(fptr_hist, "history", msg)
+        fptr_hist.history = datestamp + ": created by " + name
 
         # define dimensions
         dimensions = {"time": None}

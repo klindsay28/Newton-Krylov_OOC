@@ -3,7 +3,7 @@
 from datetime import datetime
 import os
 
-from netCDF4 import Dataset
+from netCDF4 import Dataset, default_fillvals
 
 from .model_config import get_region_cnt
 from .solver_state import action_step_log_wrap
@@ -16,10 +16,6 @@ class StatsFile:
     def __init__(self, name, workdir, solver_state):
         self._fname = os.path.join(workdir, name + "_stats.nc")
 
-        # file default _FillValue; needed for when iteration axis grows,
-        # but variable values for new iteration are not yet available
-        self._fill_value = -1.0e30
-
         self._create_stats_file(name=name, fname=self._fname, solver_state=solver_state)
 
     @action_step_log_wrap("_create_stats_file {fname}", per_iteration=False)
@@ -31,7 +27,7 @@ class StatsFile:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             fcn_name = class_name(self) + "._create_stats_file"
             msg = datestamp + ": created by " + fcn_name + " for " + name + " solver"
-            setattr(fptr, "history", msg)
+            fptr.history = msg
 
             # define dimensions
             create_dimensions_verify(
@@ -41,7 +37,7 @@ class StatsFile:
             # define coordinate variables
             vars_metadata = {
                 "iteration": {
-                    "datatype": "i",
+                    "datatype": "i4",
                     "dimensions": ("iteration",),
                     "attrs": {
                         "_FillValue": None,
@@ -59,15 +55,22 @@ class StatsFile:
     def def_vars(self, vars_metadata, caller=None):
         """define vars in stats file"""
         with Dataset(self._fname, mode="a") as fptr:
-            create_vars(fptr, vars_metadata, def_fill_value=self._fill_value)
+            # stats vars must have a _FillValue, for actively filling when iteration
+            # dimension grows
+            for metadata in vars_metadata.values():
+                if "attrs" not in metadata:
+                    metadata["attrs"] = {}
+                if "_FillValue" not in metadata["attrs"]:
+                    datatype = metadata.get("datatype", "f8")
+                    metadata["attrs"]["_FillValue"] = default_fillvals[datatype]
+            create_vars(fptr, vars_metadata)
             if caller is not None:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 varnames = ",".join(vars_metadata)
                 fcn_name = class_name(self) + ".def_vars"
                 msg = datestamp + ": " + varnames + " appended by " + fcn_name
                 msg = msg + " called by " + caller
-                msg = msg + "\n" + getattr(fptr, "history")
-                setattr(fptr, "history", msg)
+                fptr.history = "\n".join([msg, fptr.history])
 
     def put_vars_iteration_invariant(self, name_vals_dict):
         """

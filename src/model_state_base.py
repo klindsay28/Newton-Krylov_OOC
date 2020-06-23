@@ -94,7 +94,7 @@ class ModelStateBase:
                 msg = msg + " called from " + caller
             else:
                 raise ValueError("caller unknown")
-            setattr(fptr, "history", msg)
+            fptr.history = msg
             for action in ["define", "write"]:
                 for tracer_module in self.tracer_modules:
                     tracer_module.dump(fptr, action)
@@ -398,9 +398,10 @@ class ModelStateBase:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             fcn_name = class_name(self) + ".gen_precond_jacobian"
             msg = datestamp + ": created by " + fcn_name
-            if hasattr(fptr_in, "history"):
-                msg = msg + "\n" + getattr(fptr_in, "history")
-            setattr(fptr_out, "history", msg)
+            history_in = getattr(fptr_in, "history", None)
+            fptr_out.history = (
+                msg if history_in is None else "\n".join([msg, history_in])
+            )
 
             for action in ["define", "write"]:
                 _precond_dims(hist_vars, fptr_in, fptr_out, action)

@@ -7,7 +7,12 @@ import numpy as np
 
 from .. import model_config
 from ..tracer_module_state_base import TracerModuleStateBase
-from ..utils import extract_dimensions, create_dimensions_verify, create_vars
+from ..utils import (
+    extract_dimensions,
+    create_dimensions_verify,
+    datatype_sname,
+    create_vars,
+)
 
 
 class TracerModuleState(TracerModuleStateBase):
@@ -98,6 +103,8 @@ class TracerModuleState(TracerModuleStateBase):
         # add metadata for tracer-like variables
 
         for tracer_name in self.stats_vars_tracer_like():
+            datatype = datatype_sname(fptr_hist.variables[tracer_name])
+
             attrs = fptr_hist.variables[tracer_name].__dict__
             del attrs["cell_methods"]
             del attrs["coordinates"]
@@ -106,6 +113,7 @@ class TracerModuleState(TracerModuleStateBase):
             # grid-i average
             varname_stats = "_".join([tracer_name, "mean", "nlon"])
             res[varname_stats] = {
+                "datatype": datatype,
                 "dimensions": ("iteration", "region", "z_t", "nlat"),
                 "attrs": attrs,
             }
@@ -113,6 +121,7 @@ class TracerModuleState(TracerModuleStateBase):
             # grid-ij average
             varname_stats = "_".join([tracer_name, "mean", "nlat", "nlon"])
             res[varname_stats] = {
+                "datatype": datatype,
                 "dimensions": ("iteration", "region", "z_t"),
                 "attrs": attrs,
             }
