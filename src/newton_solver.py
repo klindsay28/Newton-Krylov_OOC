@@ -2,7 +2,6 @@
 
 import logging
 import os
-import shutil
 
 import numpy as np
 
@@ -47,14 +46,9 @@ class NewtonSolver:
         self._stats_vars_metadata = self.gen_stats_vars_metadata()
         self._def_solver_stats_vars(solver_state=self._solver_state)
 
-        # for iteration == 0, _fcn needs to be computed
-        # for iteration >= 1, _fcn is available and stored when iteration is incremented
-        if self._solver_state.get_iteration() == 0:
-            self._fcn = self._iterate.comp_fcn(
-                self._fname("fcn"), self._solver_state, self._fname("hist")
-            )
-        else:
-            self._fcn = model_state_class(self._fname("fcn"))
+        self._fcn = self._iterate.comp_fcn(
+            self._fname("fcn"), self._solver_state, self._fname("hist")
+        )
 
         self._put_solver_stats_vars(
             model_state={"iterate": self._iterate, "fcn": self._fcn}
@@ -383,26 +377,21 @@ class NewtonSolver:
                 self._solver_state.log_step(step)
             else:
                 prov = type(self._iterate)(self._fname("prov_fp_%02d" % (fp_iter + 1)))
-            prov_fcn = prov.comp_fcn(
-                self._fname("prov_fcn_fp_%02d" % (fp_iter + 1)),
-                self._solver_state,
-                self._fname("prov_hist_fp_%02d" % (fp_iter + 1)),
-            )
+            if fp_iter + 1 < self._solverinfo.getint("post_newton_fp_iter"):
+                res_fname = self._fname("prov_fcn_fp_%02d" % (fp_iter + 1))
+                hist_fname = self._fname("prov_hist_fp_%02d" % (fp_iter + 1))
+            else:
+                self._solver_state.inc_iteration()
+                prov.dump(self._fname("iterate"), caller)
+                res_fname = self._fname("fcn")
+                hist_fname = self._fname("hist")
+            prov_fcn = prov.comp_fcn(res_fname, self._solver_state, hist_fname)
             fp_iter += 1
             self._solver_state.set_value_saved_state(key="fp_iter", value=fp_iter)
             self.log(prov, prov_fcn, "fp_iter=%02d" % fp_iter)
 
-        shutil.copyfile(
-            self._fname("prov_hist_fp_%02d" % fp_iter),
-            self._fname("hist", self._solver_state.get_iteration() + 1),
-        )
-
-        self._solver_state.inc_iteration()
-
         self._iterate = prov
-        self._iterate.dump(self._fname("iterate"), caller)
         self._fcn = prov_fcn
-        self._fcn.dump(self._fname("fcn"), caller)
 
         self._put_solver_stats_vars(
             model_state={"iterate": self._iterate, "fcn": self._fcn}
