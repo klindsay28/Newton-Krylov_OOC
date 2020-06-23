@@ -115,4 +115,4 @@ def _grow_iteration(fptr):
         if var.name == "iteration":
             var[iteration] = iteration
         elif var.dimensions[0] == "iteration":
-            var[iteration, :] = getattr(var, "_FillValue")
+            var[iteration, :] = var._FillValue  # pylint: disable=protected-access

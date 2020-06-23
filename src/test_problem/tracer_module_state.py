@@ -179,7 +179,8 @@ class TracerModuleState(TracerModuleStateBase):
             res[tracer_name] = {"attrs": tracer_metadata["attrs"]}
         return res
 
-    def hist_time_mean_weights(self, fptr):
+    @staticmethod
+    def hist_time_mean_weights(fptr):
         """return weights for computing time-mean in hist file"""
         # downweight endpoints because test_problem writes t=0 and t=365 to hist
         timelen = len(fptr.dimensions["time"])
@@ -223,7 +224,8 @@ class TracerModuleState(TracerModuleStateBase):
             varname = tracer_like_name + "_depth_int"
             fptr.variables[varname][:] = self.depth.int_vals_mid(tracer_vals)
 
-    def stats_dimensions(self, fptr):
+    @staticmethod
+    def stats_dimensions(fptr):
         """return dimensions to be used in stats file for this tracer module"""
         dimnames = ["depth"]
         return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
@@ -257,7 +259,8 @@ class TracerModuleState(TracerModuleStateBase):
             }
         return res
 
-    def stats_vars_vals_iteration_invariant(self, fptr_hist):
+    @staticmethod
+    def stats_vars_vals_iteration_invariant(fptr_hist):
         """return iteration-invariant tracer module specific stats variables"""
         res = {}
         for varname in ["depth"]:

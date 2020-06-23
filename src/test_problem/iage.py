@@ -9,7 +9,8 @@ from .tracer_module_state import TracerModuleState
 class iage(TracerModuleState):  # pylint: disable=invalid-name
     """iage tracer module specifics for TracerModuleState"""
 
-    def comp_tend(self, time, tracer_vals_flat, vert_mix):
+    @staticmethod
+    def comp_tend(time, tracer_vals_flat, vert_mix):
         """
         compute tendency for iage
         tendency units are tr_units / day

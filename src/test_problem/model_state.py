@@ -117,15 +117,6 @@ class ModelState(ModelStateBase):
 
         super().__init__(fname)
 
-    def hist_time_mean_weights(self, fptr_hist):
-        """return weights for computing time-mean in hist file"""
-        # downweight endpoints because test_problem writes t=0 and t=365 to hist
-        timelen = len(fptr_hist.dimensions["time"])
-        weights = np.full(timelen, 1.0 / (timelen - 1))
-        weights[0] *= 0.5
-        weights[-1] *= 0.5
-        return weights
-
     def get_tracer_vals_all(self):
         """get all tracer values"""
         res_vals = np.empty((self.tracer_cnt, len(self.depth)))
@@ -280,7 +271,8 @@ class ModelState(ModelStateBase):
 
         fptr_hist.sync()
 
-    def _hist_def_vars(self, tracer_module, fptr_hist):
+    @staticmethod
+    def _hist_def_vars(tracer_module, fptr_hist):
         """define hist vars for tracer_module"""
         if fptr_hist is None:
             return

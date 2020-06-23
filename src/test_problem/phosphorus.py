@@ -271,7 +271,8 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         """
         return 0.01 * np.ones(len(self.depth))  # pop_s remin
 
-    def _diag_m_2nlevs_phosphorus(self, po4_s_restore_tau_r):
+    @staticmethod
+    def _diag_m_2nlevs_phosphorus(po4_s_restore_tau_r):
         """
         return -2nlevs lower diagonal of preconditioner of jacobian of phosphorus fcn
         """

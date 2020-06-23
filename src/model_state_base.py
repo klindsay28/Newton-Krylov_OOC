@@ -146,11 +146,6 @@ class ModelStateBase:
         stats_file.def_dimensions(dimensions)
         stats_file.def_vars(vars_metadata)
 
-    def hist_time_mean_weights(self, fptr_hist):
-        """return weights for computing time-mean in hist file"""
-        timelen = len(fptr_hist.dimensions["time"])
-        return np.full(timelen, 1.0 / timelen)
-
     @action_step_log_wrap(
         step="ModelStateBase.put_stats_vars_iteration_invariant", per_iteration=False
     )

@@ -48,7 +48,8 @@ class VertMix:
         )
         return self._mixing_coeff_vals
 
-    def bldepth(self, time):
+    @staticmethod
+    def bldepth(time):
         """time varying boundary layer depth"""
 
         bldepth_min = 50.0

@@ -61,7 +61,7 @@ class SpatialAxis:
                 defn_dict = spatial_axis_defn_dict(axisname)
             self.axisname = defn_dict["axisname"]["value"]
             self.units = defn_dict["units"]["value"]
-            self.edges = self._gen_edges(defn_dict)
+            self.edges = _gen_edges(defn_dict)
             self.defn_dict_values = "\n".join(
                 key + "=" + "%s" % value["value"] for key, value in defn_dict.items()
             )
@@ -82,39 +82,6 @@ class SpatialAxis:
     def __len__(self):
         """length of axis, i.e., number of layers"""
         return self._nlevs
-
-    def _gen_edges(self, defn_dict):
-        """generate edges from axis specs in defn_dict"""
-
-        nlevs = defn_dict["nlevs"]["value"]
-
-        # polynomial stretching function
-        # stretch_fcn(-1)=-1, stretch_fcn'(-1)=0, stretch_fcn''(-1)=0
-        # stretch_fcn(1)=1, stretch_fcn'(1)=0, stretch_fcn''(1)=0
-        # the mean of stretch_fcn is 0, so adding multiples of it to the thichnesses
-        # doesn't change the mean thickness
-        coord = np.linspace(-1.0, 1.0, nlevs)
-        stretch_fcn = 0.125 * coord * (15 + coord * coord * (3 * coord * coord - 10))
-
-        delta_avg = (1.0 / nlevs) * (
-            defn_dict["edge_end"]["value"] - defn_dict["edge_start"]["value"]
-        )
-
-        delta_ratio_max = defn_dict["delta_ratio_max"]["value"]
-        if delta_ratio_max < 1.0:
-            msg = "delta_ratio_max must be >= 1.0"
-            raise ValueError(msg)
-        # stretch_factor solves
-        # (delta_avg + stretch_factor) / (delta_avg - stretch_factor) = delta_ratio_max
-        stretch_factor = delta_avg * (delta_ratio_max - 1) / (delta_ratio_max + 1)
-
-        delta = delta_avg + stretch_factor * stretch_fcn
-
-        edges = np.empty(1 + nlevs)
-        edges[0] = defn_dict["edge_start"]["value"]
-        edges[1:] = defn_dict["edge_start"]["value"] + delta.cumsum()
-
-        return edges
 
     def dump(self, fname, caller):
         """write axis information to a netCDF4 file"""
@@ -206,6 +173,40 @@ class SpatialAxis:
         if len(res_split) == 3 and (res_split[1] in ["d", "s"]):
             res = " / ".join([res_split[0], res_split[2], res_split[1]])
         return res
+
+
+def _gen_edges(defn_dict):
+    """generate edges from axis specs in defn_dict"""
+
+    nlevs = defn_dict["nlevs"]["value"]
+
+    # polynomial stretching function
+    # stretch_fcn(-1)=-1, stretch_fcn'(-1)=0, stretch_fcn''(-1)=0
+    # stretch_fcn(1)=1, stretch_fcn'(1)=0, stretch_fcn''(1)=0
+    # the mean of stretch_fcn is 0, so adding multiples of it to the thichnesses
+    # doesn't change the mean thickness
+    coord = np.linspace(-1.0, 1.0, nlevs)
+    stretch_fcn = 0.125 * coord * (15 + coord * coord * (3 * coord * coord - 10))
+
+    delta_avg = (1.0 / nlevs) * (
+        defn_dict["edge_end"]["value"] - defn_dict["edge_start"]["value"]
+    )
+
+    delta_ratio_max = defn_dict["delta_ratio_max"]["value"]
+    if delta_ratio_max < 1.0:
+        msg = "delta_ratio_max must be >= 1.0"
+        raise ValueError(msg)
+    # stretch_factor solves
+    # (delta_avg + stretch_factor) / (delta_avg - stretch_factor) = delta_ratio_max
+    stretch_factor = delta_avg * (delta_ratio_max - 1) / (delta_ratio_max + 1)
+
+    delta = delta_avg + stretch_factor * stretch_fcn
+
+    edges = np.empty(1 + nlevs)
+    edges[0] = defn_dict["edge_start"]["value"]
+    edges[1:] = defn_dict["edge_start"]["value"] + delta.cumsum()
+
+    return edges
 
 
 def spatial_axis_defn_dict(axisname="depth", trap_unknown=True, **kwargs):

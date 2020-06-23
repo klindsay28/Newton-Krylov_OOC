@@ -80,7 +80,8 @@ class TracerModuleState(TracerModuleStateBase):
             raise ValueError(msg)
         return self
 
-    def stats_dimensions(self, fptr):
+    @staticmethod
+    def stats_dimensions(fptr):
         """return dimensions to be used in stats file for this tracer module"""
         dimnames = ["z_t", "nlat"]
         return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
@@ -127,7 +128,8 @@ class TracerModuleState(TracerModuleStateBase):
             }
         return res
 
-    def stats_vars_vals_iteration_invariant(self, fptr_hist):
+    @staticmethod
+    def stats_vars_vals_iteration_invariant(fptr_hist):
         """return iteration-invariant tracer module specific stats variables"""
         res = {}
         for varname in ["z_t"]:
@@ -150,7 +152,7 @@ class TracerModuleState(TracerModuleStateBase):
         res = {}
         for tracer_name in self.stats_vars_tracer_like():
             tracer = fptr_hist.variables[tracer_name]
-            fill_value = getattr(tracer, "_FillValue")
+            fill_value = tracer._FillValue  # pylint: disable=protected-access
             tracer_vals = tracer[:]
 
             # grid-i average
