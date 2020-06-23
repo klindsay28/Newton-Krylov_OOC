@@ -43,6 +43,12 @@ for fname in increment_00.nc iterate_01.nc ; do
         --rtol 2.0e-4 || err_cnt=$((err_cnt+1))
 done
 
+echo comparing Newton_state.json to baseline
+expr_dir=$HOME/travis_long_iage_workdir
+baseline_dir=baselines/travis_long_iage
+diff -b <(sed "s%$HOME%HOME%g" $expr_dir/Newton_state.json) \
+    $baseline_dir/Newton_state.json || err_cnt=$((err_cnt+1))
+
 echo err_cnt=$err_cnt
 
 exit $err_cnt

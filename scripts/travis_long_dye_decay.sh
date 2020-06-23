@@ -13,6 +13,12 @@ echo running setup_solver.sh for dye_decay
 echo running nk_driver.sh for dye_decay
 $HOME/travis_long_dye_decay_workdir/nk_driver.sh || err_cnt=$((err_cnt+1))
 
+echo comparing Newton_state.json to baseline
+expr_dir=$HOME/travis_long_dye_decay_workdir
+baseline_dir=baselines/travis_long_dye_decay
+diff -b <(sed "s%$HOME%HOME%g" $expr_dir/Newton_state.json) \
+    $baseline_dir/Newton_state.json || err_cnt=$((err_cnt+1))
+
 echo err_cnt=$err_cnt
 
 exit $err_cnt
