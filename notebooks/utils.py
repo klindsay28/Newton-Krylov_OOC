@@ -18,14 +18,17 @@ def plot_all_vars(ds):
         if "region" in plot_da.dims:
             plot_da = plot_da.isel(region=0)
         rank = len(plot_da.dims)
+        title = varname
         if rank == 2:
             cbar_kwargs = {"orientation": "horizontal"}
             plot_da.plot(cbar_kwargs=cbar_kwargs)
         else:
-            plot_da.plot.line("-ok")
-            if "fcn_norm" in varname or "increment_norm" in varname:
-                plt.yscale("log")
             if "fcn_mean" in varname or "increment_mean" in varname:
-                plt.yscale("symlog")
-        plt.title(varname)
+                plot_da = abs(plot_da)
+                title = "abs({title})".format(title=title)
+            plot_da.plot.line("-ok")
+            log_substrs = ["fcn_norm", "increment_norm", "fcn_mean", "increment_mean"]
+            if any([substr in varname for substr in log_substrs]):
+                plt.yscale("log")
+        plt.title(title)
         plt.show()
