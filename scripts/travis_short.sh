@@ -10,6 +10,12 @@ black --check . || err_cnt=$((err_cnt+1))
 echo running flake8
 flake8 || err_cnt=$((err_cnt+1))
 
+for model_dir in input/*; do
+    model_name=$(basename $model_dir)
+    echo checking variable usage in newton_krylov.cfg for $model_name
+    ./scripts/check_cfg_var_usage.sh $model_name || err_cnt=$((err_cnt+1))
+done
+
 # setup solver, with default tracer modules
 # persist not needed since driver is not invoked
 # this does perform forward model runs, since fp_cnt=1

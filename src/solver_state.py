@@ -162,9 +162,9 @@ def action_step_log_wrap(step, per_iteration=True, post_exit=False):
     """
     Decorator for wrapping functions with args inside step_logged/log_step checks.
     It is for functions that perform actions and don't return values.
-    solver_state is assumed to be a named argument to func.
+    solver_state is assumed to be a keyword argument to func.
     step is the string argument getting passed to sover_state methods.
-    Formatting using .format is applied to step, using the named arguments of func,
+    Formatting using .format is applied to step, using the keyword arguments of func,
     to enable step to depend on func's arguments.
     """
 
