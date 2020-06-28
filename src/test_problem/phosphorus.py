@@ -189,8 +189,12 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
             format="csr",
         )
 
-        matrix_adj = matrix - 1.0e-8 * eye(3 * nlevs)
-        res_vals = spsolve(matrix_adj, rhs_vals)
+        # regularize system of equations and use Richardson extrapolation to results
+        matrix_adj = matrix - 1.0e-11 * eye(3 * nlevs)
+        res_vals_a = spsolve(matrix_adj, rhs_vals)
+        matrix_adj = matrix - 0.5e-11 * eye(3 * nlevs)
+        res_vals_b = spsolve(matrix_adj, rhs_vals)
+        res_vals = 2.0 * res_vals_b - res_vals_a
 
         _, sing_vals, r_sing_vects = svd(matrix.todense())
         min_ind = sing_vals.argmin()
