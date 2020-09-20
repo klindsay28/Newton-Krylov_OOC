@@ -42,28 +42,22 @@ This implementation effectively enables the solver to resume where it left off, 
 avoids the requirement for the solver to remain resident in memory.
 
 ## Directory Hierarchy Sketch
-(not complete or sorted)
 ```
 .
-    README.md
-    ...
+├── baselines                   # directories containing baselines that travis tests
+│   ├── travis_long_dye_decay   # are compared to
+│   ├── travis_long_iage
+│   └── travis_short
+├── docs                        # solver documentation
+│   └── source
+├── input
+│   ├── cime_pop                # cime_pop model specific input files
+│   └── test_problem            # test_problem model specific input files
+├── notebooks                   # jupyter notebooks utilizing the solver
+├── scripts                     # non-python scripts, model independent
+├── src                         # model independent python code
+│   ├── cime_pop                # cime_pop model specific python code
+│   └── test_problem            # test_problem model specific python code
+└── tests                       # pytest tests
 
-    docs/               # solver documentation
-
-    src/                # directory for python code applicable to multiple models
-        nk_driver.py
-        model_state_base.py
-        utils.py
-        ...
-        test_problem/   # subdirectory for python code that is model specific
-        cime_pop/       # subdirectory for python code that is model specific
-
-    scripts/            # directory for scripts that are applicable to multiple models
-                        #   (there are no model specific scripts)
-
-    input/           
-        test_problem/   # directory for input files that are model specific
-        cime_pop/       # directory for input files that are model specific
-
-    notebooks/          # jupyter notebooks utilizing the solver
 ```
