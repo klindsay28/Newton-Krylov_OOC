@@ -8,7 +8,7 @@ import sys
 from .model_config import ModelConfig, get_modelinfo
 from .model_state_base import ModelStateBase
 from .newton_solver import NewtonSolver
-from .share import args_replace, common_args, read_cfg_file, logging_config
+from .share import args_replace, common_args, logging_config, read_cfg_file
 from .utils import get_subclasses
 
 

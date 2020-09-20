@@ -2,25 +2,25 @@
 
 import collections
 import copy
-from datetime import datetime
-from inspect import signature
 import logging
 import os
+from datetime import datetime
+from inspect import signature
 
-from netCDF4 import Dataset
 import numpy as np
+from netCDF4 import Dataset
 
 from . import model_config
-from .model_config import get_precond_matrix_def, get_modelinfo
+from .model_config import get_modelinfo, get_precond_matrix_def
 from .solver_state import action_step_log_wrap
 from .tracer_module_state_base import TracerModuleStateBase
 from .utils import (
-    dict_update_verify,
     class_name,
-    get_subclasses,
-    extract_dimensions,
     create_dimensions_verify,
     create_vars,
+    dict_update_verify,
+    extract_dimensions,
+    get_subclasses,
 )
 
 

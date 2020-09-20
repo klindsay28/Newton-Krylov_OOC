@@ -1,15 +1,15 @@
 """general purpose utility functions"""
 
-from datetime import datetime
 import errno
 import importlib
 import inspect
 import logging
 import os
 import subprocess
+from datetime import datetime
 
-from netCDF4 import Dataset, default_fillvals
 import numpy as np
+from netCDF4 import Dataset, default_fillvals
 
 ################################################################################
 # utilities related to python built-in types

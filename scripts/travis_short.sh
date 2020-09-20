@@ -4,6 +4,9 @@ source scripts/newton_krylov_env_cmds
 
 err_cnt=0
 
+echo running isort
+isort -c . || err_cnt=$((err_cnt+1))
+
 echo running black
 black --check . || err_cnt=$((err_cnt+1))
 

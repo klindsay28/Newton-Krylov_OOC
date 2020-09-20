@@ -2,10 +2,7 @@
 
 import pytest
 
-from src.test_problem.spatial_axis import (
-    SpatialAxis,
-    spatial_axis_defn_dict,
-)
+from src.test_problem.spatial_axis import SpatialAxis, spatial_axis_defn_dict
 
 
 def test_spatial_axis_defn_dict():

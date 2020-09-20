@@ -2,16 +2,16 @@
 
 import logging
 
-from netCDF4 import Dataset
 import numpy as np
+from netCDF4 import Dataset
 
 from ..model_config import get_region_cnt
 from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import (
-    extract_dimensions,
     create_dimensions_verify,
-    datatype_sname,
     create_vars,
+    datatype_sname,
+    extract_dimensions,
 )
 
 

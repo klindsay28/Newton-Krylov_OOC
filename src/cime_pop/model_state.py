@@ -3,7 +3,6 @@
 
 from __future__ import division
 
-from datetime import datetime
 import glob
 import logging
 import math
@@ -12,15 +11,16 @@ import shutil
 import stat
 import subprocess
 import sys
+from datetime import datetime
 
 from netCDF4 import Dataset
 
-from ..cime import cime_xmlquery, cime_xmlchange, cime_case_submit, cime_yr_cnt
+from ..cime import cime_case_submit, cime_xmlchange, cime_xmlquery, cime_yr_cnt
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, read_cfg_file, logging_config
+from ..share import args_replace, common_args, logging_config, read_cfg_file
 from ..solver_state import action_step_log_wrap
-from ..utils import class_name, ann_files_to_mean_file, mon_files_to_mean_file
+from ..utils import ann_files_to_mean_file, class_name, mon_files_to_mean_file
 
 
 def parse_args(args_list_in=None):

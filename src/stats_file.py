@@ -1,7 +1,7 @@
 """interface for stats file"""
 
-from datetime import datetime
 import os
+from datetime import datetime
 
 from netCDF4 import Dataset, default_fillvals
 

@@ -1,31 +1,31 @@
 #!/usr/bin/env python
 """set up files needed to run NK solver for cime_pop"""
 
-from datetime import datetime
-from distutils.util import strtobool
 import logging
 import os
 import sys
+from datetime import datetime
+from distutils.util import strtobool
 
-from netCDF4 import Dataset
 import numpy as np
+from netCDF4 import Dataset
 
-from ..cime import cime_xmlquery, cime_yr_cnt
 from .. import gen_invoker_script
+from ..cime import cime_xmlquery, cime_yr_cnt
 from ..model_config import ModelConfig
 from ..share import (
     args_replace,
     common_args,
-    read_cfg_file,
     logging_config,
+    read_cfg_file,
     repro_fname,
 )
 from ..utils import (
-    mkdir_exist_okay,
-    extract_dimensions,
+    ann_files_to_mean_file,
     create_dimensions_verify,
     create_vars,
-    ann_files_to_mean_file,
+    extract_dimensions,
+    mkdir_exist_okay,
     mon_files_to_mean_file,
 )
 

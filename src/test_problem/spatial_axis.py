@@ -2,9 +2,9 @@
 
 from datetime import datetime
 
-from pint import UnitRegistry
-from netCDF4 import Dataset
 import numpy as np
+from netCDF4 import Dataset
+from pint import UnitRegistry
 
 from ..utils import class_name, create_dimensions_verify, create_vars
 

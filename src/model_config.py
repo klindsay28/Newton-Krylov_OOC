@@ -3,12 +3,12 @@
 import copy
 import logging
 
-from netCDF4 import Dataset
 import numpy as np
 import yaml
+from netCDF4 import Dataset
 
-from .utils import fmt_vals
 from .share import repro_fname
+from .utils import fmt_vals
 
 # model configuration info
 model_config_obj = None

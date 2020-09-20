@@ -2,11 +2,11 @@
 
 import argparse
 import configparser
-from distutils.util import strtobool
 import logging
-from os import path, environ
-from os.path import dirname, realpath
 import sys
+from distutils.util import strtobool
+from os import environ, path
+from os.path import dirname, realpath
 
 import git
 

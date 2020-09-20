@@ -12,12 +12,11 @@ from ..model_config import ModelConfig
 from ..share import (
     args_replace,
     common_args,
-    read_cfg_file,
     logging_config,
+    read_cfg_file,
     repro_fname,
 )
 from ..utils import mkdir_exist_okay
-
 from .model_state import ModelState
 from .spatial_axis import SpatialAxis, spatial_axis_defn_dict
 

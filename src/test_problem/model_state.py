@@ -2,23 +2,22 @@
 """test_problem model specifics for ModelStateBase"""
 
 import copy
-from datetime import datetime
-from distutils.util import strtobool
-from inspect import signature
 import logging
 import os
 import subprocess
 import sys
+from datetime import datetime
+from distutils.util import strtobool
+from inspect import signature
 
-from netCDF4 import Dataset
 import numpy as np
+from netCDF4 import Dataset
 from scipy.integrate import solve_ivp
 
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, read_cfg_file, logging_config
+from ..share import args_replace, common_args, logging_config, read_cfg_file
 from ..utils import class_name, create_dimensions_verify, create_vars
-
 from .spatial_axis import SpatialAxis
 from .vert_mix import VertMix
 

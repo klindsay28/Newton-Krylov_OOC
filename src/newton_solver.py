@@ -10,7 +10,7 @@ from .model_config import get_modelinfo
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver_state import SolverState, action_step_log_wrap
 from .stats_file import StatsFile
-from .utils import dict_sel, class_name, mkdir_exist_okay, fmt_vals
+from .utils import class_name, dict_sel, fmt_vals, mkdir_exist_okay
 
 
 class NewtonSolver:

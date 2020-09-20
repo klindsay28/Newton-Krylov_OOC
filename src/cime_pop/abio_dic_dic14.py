@@ -3,7 +3,6 @@
 import numpy as np
 
 from .. import model_config
-
 from .tracer_module_state import TracerModuleState
 
 
