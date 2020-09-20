@@ -64,10 +64,7 @@ def main(args):
     )
 
     newton_solver = NewtonSolver(
-        model_state_class,
-        solverinfo=solverinfo,
-        resume=args.resume,
-        rewind=args.rewind,
+        model_state_class, solverinfo=solverinfo, resume=args.resume, rewind=args.rewind
     )
 
     while True:

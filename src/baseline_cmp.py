@@ -18,15 +18,9 @@ def parse_args(args_list_in=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument(
-        "--fname", help="name of file to be compared",
-    )
-    parser.add_argument(
-        "--expr_dir", help="directory with file",
-    )
-    parser.add_argument(
-        "--baseline_dir", help="directory with baseline file",
-    )
+    parser.add_argument("--fname", help="name of file to be compared")
+    parser.add_argument("--expr_dir", help="directory with file")
+    parser.add_argument("--baseline_dir", help="directory with baseline file")
     parser.add_argument("--rtol", help="relative tolerance", type=float, default=1.0e-7)
     parser.add_argument("--atol", help="absolute tolerance", type=float, default=2.0e-9)
 

@@ -33,7 +33,7 @@ def parse_args(args_list_in=None):
     for key, value in spatial_axis_defn_dict(axisname="depth").items():
         flag = "--%s" % key
         parser.add_argument(
-            flag, type=value["type"], help=value["help"], default=value["value"],
+            flag, type=value["type"], help=value["help"], default=value["value"]
         )
     parser.add_argument(
         "--fp_cnt",

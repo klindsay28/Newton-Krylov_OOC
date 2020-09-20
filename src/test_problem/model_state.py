@@ -359,7 +359,7 @@ class ModelState(ModelStateBase):
                         kwargs[arg] = hist_var[:]
 
                 tracer_module.apply_precond_jacobian(
-                    self.time_range, res_ms.tracer_modules[tracer_module_ind], **kwargs,
+                    self.time_range, res_ms.tracer_modules[tracer_module_ind], **kwargs
                 )
 
         if solver_state is not None:

@@ -69,7 +69,7 @@ class KrylovSolver:
         """
         # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
         precond_fcn = fcn.apply_precond_jacobian(
-            self._fname("precond", 0), self._fname("precond_fcn"), self._solver_state,
+            self._fname("precond", 0), self._fname("precond_fcn"), self._solver_state
         )
         beta = precond_fcn.norm()
         caller = class_name(self) + "._solve0"
@@ -103,7 +103,7 @@ class KrylovSolver:
                 )
             basis_j = type(iterate)(self._fname("basis"))
             w_raw = iterate.comp_jacobian_fcn_state_prod(
-                fcn, basis_j, self._fname("w_raw"), self._solver_state,
+                fcn, basis_j, self._fname("w_raw"), self._solver_state
             )
             w_j = w_raw.apply_precond_jacobian(
                 self._fname("precond", 0), self._fname("w"), self._solver_state

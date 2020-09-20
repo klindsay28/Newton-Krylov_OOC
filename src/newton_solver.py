@@ -75,9 +75,9 @@ class NewtonSolver:
                 "method": "{method}",
                 "dimensions": ("iteration", "region"),
                 "attrs": {
-                    "long_name": "{method} of {tracer_module_name} Newton {state_name}",
+                    "long_name": "{method} of {tracer_module_name} Newton {state_name}"
                 },
-            },
+            }
         }
         state_names = ["iterate", "fcn", "increment"]
         methods = ["mean", "norm"]
@@ -103,7 +103,7 @@ class NewtonSolver:
                     ),
                     "units": "1",
                 },
-            },
+            }
         }
         for tracer_module in self._iterate.tracer_modules:
             repl_dict = {"tracer_module_name": tracer_module.name}
@@ -219,7 +219,7 @@ class NewtonSolver:
         if not resume:
             self.log()
         krylov_solver = KrylovSolver(
-            self._iterate, krylov_dir, resume, rewind, self._fname("hist"),
+            self._iterate, krylov_dir, resume, rewind, self._fname("hist")
         )
         self._solver_state.log_step(step)
         increment = krylov_solver.solve(

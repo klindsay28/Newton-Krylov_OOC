@@ -39,9 +39,9 @@ class TracerModuleStateBase:
         self.tracer_cnt = len(self._tracer_module_def["tracers"])
         # units common to all tracers
         self.units = attr_common(self._tracer_module_def["tracers"], "units")
-        self._vals, self._dimensions = self._read_vals(  # pylint: disable=no-member
+        self._vals, self._dimensions = self._read_vals(
             tracer_module_name, fname
-        )
+        )  # pylint: disable=no-member
 
     def tracer_names(self):
         """return list of tracer names"""
@@ -84,9 +84,7 @@ class TracerModuleStateBase:
         elif vals.ndim == 2:
             for i in range(vals.shape[0]):
                 for j in range(vals.shape[1]):
-                    logger.info(
-                        "%s[%s,%d,%d]=%e", msg, self.name, i, j, vals[i, j],
-                    )
+                    logger.info("%s[%s,%d,%d]=%e", msg, self.name, i, j, vals[i, j])
         else:
             msg = "vals.ndim=%d not handled" % vals.ndim
             raise ValueError(msg)
@@ -271,22 +269,22 @@ class TracerModuleStateBase:
                 "ik,jk,jk",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,  # pylint: disable=protected-access
-            )
+                other._vals,
+            )  # pylint: disable=protected-access
         elif ndim == 2:
             tmp = np.einsum(
                 "ikl,jkl,jkl",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,  # pylint: disable=protected-access
-            )
+                other._vals,
+            )  # pylint: disable=protected-access
         else:
             tmp = np.einsum(
                 "iklm,jklm,jklm",
                 model_config.model_config_obj.grid_weight,
                 self._vals,
-                other._vals,  # pylint: disable=protected-access
-            )
+                other._vals,
+            )  # pylint: disable=protected-access
         # return RegionScalars object
         return RegionScalars(tmp)
 

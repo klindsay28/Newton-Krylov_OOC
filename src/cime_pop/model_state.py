@@ -124,13 +124,7 @@ class ModelState(ModelStateBase):
                     fptr.write("%s\n" % opt)
             matrix_fname = os.path.join(workdir, "matrix_" + matrix_name + ".nc")
             matrix_gen_exe = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
-            cmd = [
-                matrix_gen_exe,
-                "-D1",
-                "-o",
-                matrix_opts_fname,
-                matrix_fname,
-            ]
+            cmd = [matrix_gen_exe, "-D1", "-o", matrix_opts_fname, matrix_fname]
             logger.info('cmd="%s"', " ".join(cmd))
             subprocess.run(cmd, check=True)
 

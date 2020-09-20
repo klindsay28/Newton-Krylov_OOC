@@ -79,9 +79,7 @@ def main(args):
     # store cfg_fname in modelinfo, to follow what is done in other scripts
     config["modelinfo"]["cfg_fname"] = args.cfg_fname
 
-    gen_invoker_script(
-        args, config["modelinfo"], config["DEFAULT"]["repo_root"],
-    )
+    gen_invoker_script(args, config["modelinfo"], config["DEFAULT"]["repo_root"])
 
 
 if __name__ == "__main__":

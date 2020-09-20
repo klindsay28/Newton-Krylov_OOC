@@ -30,9 +30,7 @@ class TracerModuleState(TracerModuleStateBase):
     def _read_vals(self, tracer_module_name, fname):
         """return tracer values and dimension names and lengths, read from fname)"""
         logger = logging.getLogger(__name__)
-        logger.debug(
-            'tracer_module_name="%s", fname="%s"', tracer_module_name, fname,
-        )
+        logger.debug('tracer_module_name="%s", fname="%s"', tracer_module_name, fname)
         if fname == "gen_init_iterate":
             tracers_metadata = self._tracer_module_def["tracers"]
             vals = np.empty((len(tracers_metadata), len(self.depth)))
@@ -240,10 +238,7 @@ class TracerModuleState(TracerModuleStateBase):
         for dimname in ["depth"]:
             attrs = fptr_hist.variables[dimname].__dict__
             attrs["_FillValue"] = None
-            res[dimname] = {
-                "dimensions": (dimname,),
-                "attrs": attrs,
-            }
+            res[dimname] = {"dimensions": (dimname,), "attrs": attrs}
 
         # add metadata for tracer-like variables
 

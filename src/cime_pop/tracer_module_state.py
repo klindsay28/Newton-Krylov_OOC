@@ -96,10 +96,7 @@ class TracerModuleState(TracerModuleStateBase):
         for dimname in ["z_t"]:
             attrs = fptr_hist.variables[dimname].__dict__
             attrs["_FillValue"] = None
-            res[dimname] = {
-                "dimensions": (dimname,),
-                "attrs": attrs,
-            }
+            res[dimname] = {"dimensions": (dimname,), "attrs": attrs}
 
         # add metadata for tracer-like variables
 

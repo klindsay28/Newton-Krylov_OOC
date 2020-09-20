@@ -274,14 +274,7 @@ def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
     the mean is written to fname_out
     """
 
-    cmd = [
-        "ncra",
-        "-O",
-        "-o",
-        fname_out,
-        "-p",
-        dir_in,
-    ]
+    cmd = ["ncra", "-O", "-o", fname_out, "-p", dir_in]
 
     fnames = [fname_fmt.format(year=year0 + inc) for inc in range(cnt)]
 
@@ -326,16 +319,7 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
         fname_fmt.format(year=yr_vals[inc], month=month_vals[inc]) for inc in range(cnt)
     ]
 
-    cmd = [
-        "ncra",
-        "-O",
-        "-w",
-        days_all_str,
-        "-o",
-        fname_out,
-        "-p",
-        dir_in,
-    ]
+    cmd = ["ncra", "-O", "-w", days_all_str, "-o", fname_out, "-p", dir_in]
     cmd.extend(fnames)
 
     logger = logging.getLogger(__name__)

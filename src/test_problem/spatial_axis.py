@@ -126,10 +126,7 @@ class SpatialAxis:
         }
         res[self.dump_names["edges"]] = {
             "dimensions": (self.dump_names["edges"],),
-            "attrs": {
-                "long_name": self.axisname + " layer edges",
-                "units": self.units,
-            },
+            "attrs": {"long_name": self.axisname + " layer edges", "units": self.units},
         }
         res[self.dump_names["delta"]] = {
             "dimensions": (self.axisname,),

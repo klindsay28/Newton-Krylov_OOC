@@ -35,10 +35,10 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         po4_uptake = self.po4_uptake(tracer_vals[0, :])
 
         self._comp_tend_phosphorus_core(
-            time, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :], vert_mix,
+            time, po4_uptake, tracer_vals[0:3, :], dtracer_vals_dt[0:3, :], vert_mix
         )
         self._comp_tend_phosphorus_core(
-            time, po4_uptake, tracer_vals[3:6, :], dtracer_vals_dt[3:6, :], vert_mix,
+            time, po4_uptake, tracer_vals[3:6, :], dtracer_vals_dt[3:6, :], vert_mix
         )
 
         # restore po4_s to po4, at a rate of 1 / day
