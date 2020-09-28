@@ -11,7 +11,7 @@ def test_spatial_axis_defn_dict():
     assert defn_dict["axisname"]["value"] == "depth"
 
 
-def test_SpatialAxis():
+def test_spatial_axis_init():
     """test SpatialAxis"""
     defn_dict = spatial_axis_defn_dict()
     depth = SpatialAxis(defn_dict=defn_dict)
