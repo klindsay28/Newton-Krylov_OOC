@@ -36,6 +36,11 @@ def parse_args(args_list_in=None):
             flag, type=value["type"], help=value["help"], default=value["value"]
         )
     parser.add_argument(
+        "--init_iterate_opt",
+        help="option for specifying initial iterate",
+        default="gen_init_iterate",
+    )
+    parser.add_argument(
         "--fp_cnt",
         type=int,
         help="number of fixed point iterations to apply to init_iterate",
@@ -85,7 +90,7 @@ def main(args):
     ModelConfig(modelinfo)
 
     # generate initial condition
-    init_iterate = ModelState("gen_init_iterate")
+    init_iterate = ModelState(args.init_iterate_opt)
 
     if args.prof_comp_fcn_fname is not None:
         cProfile.runctx(

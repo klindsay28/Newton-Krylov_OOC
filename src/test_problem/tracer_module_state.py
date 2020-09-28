@@ -31,6 +31,10 @@ class TracerModuleState(TracerModuleStateBase):
         """return tracer values and dimension names and lengths, read from fname)"""
         logger = logging.getLogger(__name__)
         logger.debug('tracer_module_name="%s", fname="%s"', tracer_module_name, fname)
+        if fname == "zeros":
+            tracers_metadata = self._tracer_module_def["tracers"]
+            vals = np.zeros((len(tracers_metadata), len(self.depth)))
+            return vals, {"depth": len(self.depth)}
         if fname == "gen_init_iterate":
             tracers_metadata = self._tracer_module_def["tracers"]
             vals = np.empty((len(tracers_metadata), len(self.depth)))
