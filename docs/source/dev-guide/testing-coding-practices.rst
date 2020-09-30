@@ -11,6 +11,7 @@ Testing
 A small amount of Continuous Integration (ci) testing is performed on the solver using `travis-ci <https://travis-ci.com/>`_.
 Testing on travis-ci currently does the following:
 
+#. Run the source code through `isort <https://pycqa.github.io/isort/>`_ to ensure consistent order of python import statements.
 #. Run the source code through `black <https://black.readthedocs.io/en/stable/>`_ to check code style against a particular subset of the python style guide in `PEP 8 <https://www.python.org/dev/peps/pep-0008/>`_.
 #. Run the source code through `flake8 <https://flake8.pycqa.org/en/latest/>`_, which analyzes the code and detects various errors.
 #. Run the setup script for the test_problem model, which performs 1 fixed point iteration.
