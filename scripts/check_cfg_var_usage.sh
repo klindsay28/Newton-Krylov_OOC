@@ -12,7 +12,8 @@ varnames=`cut -f1 -d'#' $cfg_fname | grep -i '^[a-z].*=' | cut -f1 -d=`
 for varname in $varnames; do
     # check for usage outside of comments in src
     for fname in `ls src/*.py src/$model_name/*.py`; do
-        cut -f1 -d'#' $fname | grep -q $varname
+        python -m tokenize $fname | awk '{print $2,$3}' | grep -E '^NAME|^STRING' \
+            | awk '{print $2}' | cut -f2 -d\' | cut -f2 -d\"  | grep -q "^$varname$"
         if [ $? -eq 0 ]; then continue 2; fi
     done
     # check for interpolation usage outside of comments in cfg_fname
