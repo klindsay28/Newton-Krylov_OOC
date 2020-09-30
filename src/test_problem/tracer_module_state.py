@@ -169,8 +169,8 @@ class TracerModuleState(TracerModuleStateBase):
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", depth integral"
-            res[varname]["attrs"]["units"] = self.depth.int_vals_mid_units(
-                res[varname]["attrs"]["units"]
+            res[varname]["attrs"]["units"] = " ".join(
+                ["(", res[varname]["attrs"]["units"], ")", "(", self.depth.units, ")"]
             )
         return res
 

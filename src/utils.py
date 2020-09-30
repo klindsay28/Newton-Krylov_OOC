@@ -10,6 +10,7 @@ from datetime import datetime
 
 import numpy as np
 from netCDF4 import Dataset, default_fillvals
+from pint import UnitRegistry
 
 ################################################################################
 # utilities related to python built-in types
@@ -125,6 +126,30 @@ def mkdir_exist_okay(path):
             pass
         else:
             raise
+
+
+################################################################################
+# utilities related to unit strings
+
+
+def units_str_format(units_str):
+    """
+    Return units string in canonical format
+    parsing is very primitive
+    """
+
+    ureg = UnitRegistry()
+    res = "{:~}".format(ureg(units_str).units)
+    # do some replacements
+    term_repl = {"a": "years"}
+    res = " ".join([term_repl.get(term, term) for term in res.split()])
+    res = res.replace(" ** ", "^")
+    res = res.replace(" * ", " ")
+    # some reordering
+    res_split = res.split(" / ")
+    if len(res_split) == 3 and (res_split[1] in ["d", "s"]):
+        res = " / ".join([res_split[0], res_split[2], res_split[1]])
+    return res
 
 
 ################################################################################

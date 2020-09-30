@@ -4,7 +4,6 @@ from datetime import datetime
 
 import numpy as np
 from netCDF4 import Dataset
-from pint import UnitRegistry
 
 from ..utils import class_name, create_dimensions_verify, create_vars
 
@@ -152,24 +151,6 @@ class SpatialAxis:
         works for multiple tracer values, assuming vertical axis is last
         """
         return (self.delta * vals).sum(axis=-1)
-
-    def int_vals_mid_units(self, vals_units):
-        """
-        units of int_vals_mid result, assuming units of vals are vals_units
-        parsing is very primitive
-        """
-        ureg = UnitRegistry()
-        res = "{:~}".format(ureg(" ".join([self.units, vals_units])).units)
-        # do some replacements
-        term_repl = {"a": "years"}
-        res = " ".join([term_repl.get(term, term) for term in res.split()])
-        res = res.replace(" ** ", "^")
-        res = res.replace(" * ", " ")
-        # some reordering
-        res_split = res.split(" / ")
-        if len(res_split) == 3 and (res_split[1] in ["d", "s"]):
-            res = " / ".join([res_split[0], res_split[2], res_split[1]])
-        return res
 
 
 def _gen_edges(defn_dict):
