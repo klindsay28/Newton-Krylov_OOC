@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """set up files needed to run NK solver for cime_pop"""
 
+import glob
 import logging
 import os
+import shutil
 import sys
 from datetime import datetime
 from distutils.util import strtobool
@@ -12,7 +14,7 @@ from netCDF4 import Dataset
 
 from .. import gen_invoker_script
 from ..cime import cime_xmlquery, cime_yr_cnt
-from ..model_config import ModelConfig
+from ..model_config import ModelConfig, get_modelinfo
 from ..share import (
     args_replace,
     common_args,
@@ -57,6 +59,16 @@ def main(args):
     logger = logging.getLogger(__name__)
 
     logger.info('args.cfg_fname="%s"', repro_fname(solverinfo, args.cfg_fname))
+
+    # ensure workdir exists
+    mkdir_exist_okay(solverinfo["workdir"])
+
+    # copy rpointer files from RUNDIR to rpointer_dir
+    rundir = cime_xmlquery("RUNDIR")
+    rpointer_dir = get_modelinfo("rpointer_dir")
+    mkdir_exist_okay(rpointer_dir)
+    for src in glob.glob(os.path.join(rundir, "rpointer.*")):
+        shutil.copy(src, rpointer_dir)
 
     # generate invoker script
     args.model_name = "cime_pop"

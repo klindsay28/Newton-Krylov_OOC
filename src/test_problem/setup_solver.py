@@ -66,6 +66,9 @@ def main(args):
 
     logger.info('args.cfg_fname="%s"', repro_fname(solverinfo, args.cfg_fname))
 
+    # ensure workdir exists
+    mkdir_exist_okay(solverinfo["workdir"])
+
     # generate invoker script
     args.model_name = "test_problem"
     gen_invoker_script.main(args)
