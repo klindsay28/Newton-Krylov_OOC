@@ -57,11 +57,6 @@ Post-processing of the IRF output to a single file is performed in a subsequent 
 Specifics for the case used by solver for forward model runs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Copy the rpointer files from ``RUN_REFCASE`` to a directory where they not not be overwritten by doing a forward model run.
-The solver will copy these to the run directory before each forward model run.
-This directory is specified by ``rpointer_dir`` in the cfg file.
-The default location is $CASEROOT/rpointers.
-
 Ensure that the model produces for each tracer module the output fields needed to construct the preconditioner in the Krylov solver.
 
 Disable short term archiving, by changing the xml variable ``DOUT_S`` to ``FALSE``.
@@ -81,7 +76,7 @@ The following variables are the most likely to need to be set by the user:
 * ``tracer_module_names``: a comma separated string of tracer modules names that the solver is applied to
 * ``caseroot``: caseroot directory of the case used by solver for forward model runs
 * ``STOP_OPTION``, ``STOP_N``, ``RESUBMIT``: options for the duration of forward model runs
-* ``rpointer_dir``: directory containing rpointer files used to start forward model runs
+* ``rpointer_dir``: directory for a copy of the rpointer files used to start forward model runs
 * ``irf_case``, ``irf_hist_dir``, ``irf_hist_freq_opt``: specifications of history (tavg) output from the IRF generating case
 * ``irf_hist_start_date``, ``irf_hist_yr_cnt``: starting date and duration of IRF history output that is to be used; these settings can be left blank if the IRF output to be used coincides with the run duration in the forward model runs
 * ``batch_charge_account``: project number to be used in batch jobs applying the Krylov solver preconditioner
@@ -106,7 +101,8 @@ The ``setup_solver.sh`` script does the following:
 #. Create the work directory.
    The path of the work directory, which defaults to ``/glade/scratch/$USER/newton_krylov``, is specified by ``workdir`` in the cfg file.
    This is appropriate on NCAR's cheyenne supercomputer.
-   The work directory contents for cime_pop are moderate.
+   The work directory contents for cime_pop are moderate in size.
+#. Copy the rpointer files from ``RUNDIR`` to ``rpointer_dir``.
 #. Invoke ``gen_invoker_script``, to generate the solver's invocation script.
    The location of the solver's invocation script, which defaults to a file in the work directory, is specified by ``invoker_script_fname`` in the cfg file.
 #. Create a time mean irf file.
