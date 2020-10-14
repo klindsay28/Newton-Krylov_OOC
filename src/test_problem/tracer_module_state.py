@@ -12,6 +12,7 @@ from ..utils import (
     create_vars,
     datatype_sname,
     extract_dimensions,
+    units_str_format,
 )
 
 
@@ -169,9 +170,10 @@ class TracerModuleState(TracerModuleStateBase):
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", depth integral"
-            res[varname]["attrs"]["units"] = " ".join(
+            units_str = " ".join(
                 ["(", res[varname]["attrs"]["units"], ")", "(", self.depth.units, ")"]
             )
+            res[varname]["attrs"]["units"] = units_str_format(units_str)
         return res
 
     def hist_vars_metadata_tracer_like(self):
