@@ -5,7 +5,7 @@ from datetime import datetime
 import numpy as np
 from netCDF4 import Dataset
 
-from ..utils import class_name, create_dimensions_verify, create_vars
+from .utils import class_name, create_dimensions_verify, create_vars
 
 
 class SpatialAxis:

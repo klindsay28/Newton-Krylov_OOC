@@ -16,9 +16,9 @@ from ..share import (
     read_cfg_file,
     repro_fname,
 )
+from ..spatial_axis import SpatialAxis, spatial_axis_defn_dict
 from ..utils import mkdir_exist_okay
 from .model_state import ModelState
-from .spatial_axis import SpatialAxis, spatial_axis_defn_dict
 
 
 def parse_args(args_list_in=None):

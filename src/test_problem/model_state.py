@@ -17,8 +17,8 @@ from scipy.integrate import solve_ivp
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, logging_config, read_cfg_file
+from ..spatial_axis import SpatialAxis
 from ..utils import class_name, create_dimensions_verify, create_vars
-from .spatial_axis import SpatialAxis
 from .vert_mix import VertMix
 
 
