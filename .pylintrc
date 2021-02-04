@@ -7,7 +7,7 @@ extension-pkg-whitelist=netCDF4
 
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
-ignore=CVS
+ignore=CVS,.ipynb_checkpoints
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
@@ -417,6 +417,8 @@ good-names=i,
            k,
            ex,
            Run,
+           ds,  # typical name for xarray Dataset
+           da,  # typical name for xarray DataArray
            _
 
 # Include a hint for the correct naming format with invalid-name.
