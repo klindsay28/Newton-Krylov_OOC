@@ -28,7 +28,7 @@ echo running setup_solver.sh
     --model_name test_problem \
     --workdir $HOME/travis_short_workdir || err_cnt=$((err_cnt+1))
 
-for fname in depth_axis_test.nc; do
+for fname in depth_axis.nc; do
     echo comparing $fname
     python -m src.baseline_cmp --fname $fname \
         --expr_dir $HOME/travis_short_workdir \
