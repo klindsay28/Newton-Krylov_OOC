@@ -21,10 +21,10 @@ class TracerModuleState(TracerModuleStateBase):
     It implements _read_vals and dump.
     """
 
-    def _read_vals(self, tracer_module_name, fname):
+    def _read_vals(self, fname):
         """return tracer values and dimension names and lengths, read from fname)"""
         logger = logging.getLogger(__name__)
-        logger.debug('tracer_module_name="%s", fname="%s"', tracer_module_name, fname)
+        logger.debug('tracer_module_name="%s", fname="%s"', self.name, fname)
         suffix = "_CUR"
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
@@ -39,8 +39,7 @@ class TracerModuleState(TracerModuleStateBase):
                 if extract_dimensions(fptr, tracer_name + suffix) != dimensions:
                     msg = (
                         "not all vars have same dimensions"
-                        ", tracer_module_name=%s, fname=%s"
-                        % (tracer_module_name, fname)
+                        ", tracer_module_name=%s, fname=%s" % (self.name, fname)
                     )
                     raise ValueError(msg)
             # read values
@@ -48,7 +47,7 @@ class TracerModuleState(TracerModuleStateBase):
                 msg = (
                     "ndim too large (for implementation of dot_prod)"
                     "tracer_module_name=%s, fname=%s, ndim=%s"
-                    % (tracer_module_name, fname, len(dimensions))
+                    % (self.name, fname, len(dimensions))
                 )
                 raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):

@@ -39,9 +39,22 @@ class TracerModuleStateBase:
         self.tracer_cnt = len(self._tracer_module_def["tracers"])
         # units common to all tracers
         self.units = attr_common(self._tracer_module_def["tracers"], "units")
-        self._vals, self._dimensions = self._read_vals(  # pylint: disable=no-member
-            tracer_module_name, fname
-        )
+        self._vals, self._dimensions = self._read_vals(fname)
+
+    def _read_vals(self, fname):
+        """
+        return tracer values and dimension names and lengths, read from fname)
+        implemented in derived classes
+        """
+        raise NotImplementedError("Method must be implemented in derived class")
+
+    def dump(self, fptr, action):
+        """
+        perform an action (define or write) of dumping a TracerModuleState object
+        to an open file
+        implemented in derived classes
+        """
+        raise NotImplementedError("Method must be implemented in derived class")
 
     def tracer_names(self):
         """return list of tracer names"""
