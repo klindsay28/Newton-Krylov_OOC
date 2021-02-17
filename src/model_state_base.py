@@ -69,6 +69,20 @@ class ModelStateBase:
             tracer_module.tracer_cnt for tracer_module in self.tracer_modules
         )
 
+    def comp_fcn(self, res_fname, solver_state, hist_fname=None):
+        """
+        evalute function being solved with Newton's method
+        implemented in derived classes
+        """
+        raise NotImplementedError("Method must be implemented in derived class")
+
+    def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
+        """
+        apply preconditioner of jacobian of comp_fcn to model state object, self
+        implemented in derived classes
+        """
+        raise NotImplementedError("Method must be implemented in derived class")
+
     def tracer_names(self):
         """return list of tracer names"""
         res = []
