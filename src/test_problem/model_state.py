@@ -27,7 +27,7 @@ def parse_args(args_list_in=None):
 
     args_list = [] if args_list_in is None else args_list_in
     parser, args_remaining = common_args(
-        "test problem model standalone driver for Newton-Krylov solver",
+        "test_problem model standalone driver for Newton-Krylov solver",
         "test_problem",
         args_list,
     )
@@ -57,7 +57,7 @@ def _resolve_fname(fname_dir, fname):
 
 
 def main(args):
-    """test problem for Newton-Krylov solver"""
+    """test_problem for Newton-Krylov solver"""
 
     config = read_cfg_file(args)
     solverinfo = config["solverinfo"]

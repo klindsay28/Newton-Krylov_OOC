@@ -46,7 +46,7 @@ def parse_args(args_list_in=None):
 
 
 def main(args):
-    """cime pop hooks for Newton-Krylov solver"""
+    """cime_pop hooks for Newton-Krylov solver"""
 
     config = read_cfg_file(args)
     solverinfo = config["solverinfo"]
