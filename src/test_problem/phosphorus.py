@@ -5,6 +5,7 @@ from scipy.linalg import svd
 from scipy.sparse import diags, eye
 from scipy.sparse.linalg import spsolve
 
+from ..model_config import get_modelinfo
 from .tracer_module_state import TracerModuleState
 
 
@@ -21,7 +22,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
         # 0: surface layer only, 1 / day
         # 1: d po4_uptake / d po4
-        self.po4_s_restoring_opt = 1
+        self.po4_s_restoring_opt = int(get_modelinfo("po4_s_restoring_opt"))
 
     def comp_tend(self, time, tracer_vals_flat, vert_mix):
         """

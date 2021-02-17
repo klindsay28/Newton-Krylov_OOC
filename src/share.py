@@ -32,6 +32,7 @@ cfg_override_args = {
         "override_val": "False",
         "section": "modelinfo",
     },
+    "po4_s_restoring_opt": {"model_name": "test_problem", "section": "modelinfo"},
 }
 
 
