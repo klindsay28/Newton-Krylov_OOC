@@ -10,8 +10,7 @@ from inspect import signature
 import numpy as np
 from netCDF4 import Dataset
 
-from . import model_config
-from .model_config import get_modelinfo, get_precond_matrix_def
+from .model_config import get_model_config_attr, get_modelinfo, get_precond_matrix_def
 from .solver_state import action_step_log_wrap
 from .tracer_module_state_base import TracerModuleStateBase
 from .utils import (
@@ -33,15 +32,9 @@ class ModelStateBase:
     def __init__(self, fname):
         logger = logging.getLogger(__name__)
         logger.debug('ModelStateBase, fname="%s"', fname)
-        if model_config.model_config_obj is None:
-            msg = (
-                "model_config.model_config_obj is None, %s must be called before %s"
-                % ("ModelConfig.__init__", "ModelStateBase.__init__")
-            )
-            raise RuntimeError(msg)
         tracer_module_names = get_modelinfo("tracer_module_names").split(",")
         self.tracer_modules = np.empty(len(tracer_module_names), dtype=np.object)
-        tracer_module_defs = model_config.model_config_obj.tracer_module_defs
+        tracer_module_defs = get_model_config_attr("tracer_module_defs")
 
         pos_args = ["self", "tracer_module_name", "fname"]
 

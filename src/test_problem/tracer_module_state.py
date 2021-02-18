@@ -5,7 +5,7 @@ import logging
 import numpy as np
 from netCDF4 import Dataset
 
-from ..model_config import get_region_cnt
+from ..model_config import get_model_config_attr
 from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import (
     create_dimensions_verify,
@@ -270,7 +270,7 @@ class TracerModuleState(TracerModuleStateBase):
     def stats_vars_vals(self, fptr_hist):
         """return tracer module specific stats variables for the current iteration"""
 
-        if get_region_cnt() != 1:
+        if get_model_config_attr("region_cnt") != 1:
             raise NotImplementedError("region_cnt > 1 not implemented")
 
         # return values for tracer-like variables

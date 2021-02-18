@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from .. import model_config
+from ..model_config import get_model_config_attr
 from .tracer_module_state import TracerModuleState
 
 
@@ -47,7 +47,7 @@ class abio_dic_dic14(TracerModuleState):  # pylint: disable=invalid-name
 
         # add region dimension to surface version of region_mask
         # assume surf region_cnt at surf is same as full-depth region_cnt
-        region_mask_no_region_dim = model_config.model_config_obj.region_mask[0, :, :]
+        region_mask_no_region_dim = get_model_config_attr("region_mask")[0, :, :]
         region_cnt = region_mask_no_region_dim.max()
         region_mask = np.empty((region_cnt,) + region_mask_no_region_dim.shape)
         for region_ind in range(region_cnt):

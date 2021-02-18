@@ -5,7 +5,7 @@ import logging
 
 import numpy as np
 
-from . import model_config
+from .model_config import get_model_config_attr
 from .region_scalars import RegionScalars, to_ndarray
 from .utils import attr_common
 
@@ -26,14 +26,8 @@ class TracerModuleStateBase:
             tracer_module_name,
             fname,
         )
-        if model_config.model_config_obj is None:
-            msg = (
-                "model_config.model_config_obj is None, %s must be called before %s"
-                % ("ModelConfig.__init__", "TracerModuleStateBase.__init__")
-            )
-            raise RuntimeError(msg)
         self.name = tracer_module_name
-        self._tracer_module_def = model_config.model_config_obj.tracer_module_defs[
+        self._tracer_module_def = get_model_config_attr("tracer_module_defs")[
             tracer_module_name
         ]
         self.tracer_cnt = len(self._tracer_module_def["tracers"])
@@ -167,7 +161,7 @@ class TracerModuleStateBase:
             res._vals = self._vals * other
         elif isinstance(other, RegionScalars):
             res._vals = self._vals * other.broadcast(
-                model_config.model_config_obj.region_mask
+                get_model_config_attr("region_mask")
             )
         elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals * other._vals
@@ -190,7 +184,7 @@ class TracerModuleStateBase:
         if isinstance(other, float):
             self._vals *= other
         elif isinstance(other, RegionScalars):
-            self._vals *= other.broadcast(model_config.model_config_obj.region_mask)
+            self._vals *= other.broadcast(get_model_config_attr("region_mask"))
         elif isinstance(other, TracerModuleStateBase):
             self._vals *= other._vals
         else:
@@ -207,7 +201,7 @@ class TracerModuleStateBase:
             res._vals = self._vals * (1.0 / other)
         elif isinstance(other, RegionScalars):
             res._vals = self._vals * other.recip().broadcast(
-                model_config.model_config_obj.region_mask
+                get_model_config_attr("region_mask")
             )
         elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals / other._vals
@@ -225,7 +219,7 @@ class TracerModuleStateBase:
             res._vals = other / self._vals
         elif isinstance(other, RegionScalars):
             res._vals = (
-                other.broadcast(model_config.model_config_obj.region_mask) / self._vals
+                other.broadcast(get_model_config_attr("region_mask")) / self._vals
             )
         else:
             return NotImplemented
@@ -239,9 +233,7 @@ class TracerModuleStateBase:
         if isinstance(other, float):
             self._vals *= 1.0 / other
         elif isinstance(other, RegionScalars):
-            self._vals *= other.recip().broadcast(
-                model_config.model_config_obj.region_mask
-            )
+            self._vals *= other.recip().broadcast(get_model_config_attr("region_mask"))
         elif isinstance(other, TracerModuleStateBase):
             self._vals /= other._vals
         else:
@@ -256,16 +248,12 @@ class TracerModuleStateBase:
         # k,l,m : grid dimensions
         # sum over model grid dimensions, leaving region and tracer dimensions
         if ndim == 1:
-            tmp = np.einsum(
-                "ik,jk", model_config.model_config_obj.grid_weight, self._vals
-            )
+            tmp = np.einsum("ik,jk", get_model_config_attr("grid_weight"), self._vals)
         elif ndim == 2:
-            tmp = np.einsum(
-                "ikl,jkl", model_config.model_config_obj.grid_weight, self._vals
-            )
+            tmp = np.einsum("ikl,jkl", get_model_config_attr("grid_weight"), self._vals)
         else:
             tmp = np.einsum(
-                "iklm,jklm", model_config.model_config_obj.grid_weight, self._vals
+                "iklm,jklm", get_model_config_attr("grid_weight"), self._vals
             )
         # sum over tracer dimension, and return RegionScalars object
         return RegionScalars(np.sum(tmp, axis=-1))
@@ -280,21 +268,21 @@ class TracerModuleStateBase:
         if ndim == 1:
             tmp = np.einsum(
                 "ik,jk,jk",
-                model_config.model_config_obj.grid_weight,
+                get_model_config_attr("grid_weight"),
                 self._vals,
                 other._vals,  # pylint: disable=protected-access
             )
         elif ndim == 2:
             tmp = np.einsum(
                 "ikl,jkl,jkl",
-                model_config.model_config_obj.grid_weight,
+                get_model_config_attr("grid_weight"),
                 self._vals,
                 other._vals,  # pylint: disable=protected-access
             )
         else:
             tmp = np.einsum(
                 "iklm,jklm,jklm",
-                model_config.model_config_obj.grid_weight,
+                get_model_config_attr("grid_weight"),
                 self._vals,
                 other._vals,  # pylint: disable=protected-access
             )
@@ -386,7 +374,7 @@ class TracerModuleStateBase:
         """set _vals to zero where region_mask == 0"""
         for tracer_ind in range(self.tracer_cnt):
             self._vals[tracer_ind, :] = np.where(
-                model_config.model_config_obj.region_mask != 0,
+                get_model_config_attr("region_mask") != 0,
                 self._vals[tracer_ind, :],
                 0.0,
             )

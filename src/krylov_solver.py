@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 
-from .model_config import get_region_cnt
+from .model_config import get_model_config_attr
 from .model_state_base import lin_comb
 from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver_state import SolverState, action_step_log_wrap
@@ -93,7 +93,7 @@ class KrylovSolver:
                         len(iterate.tracer_modules),
                         j_val + 2,
                         j_val + 1,
-                        get_region_cnt(),
+                        get_model_config_attr("region_cnt"),
                     )
                 )
             )

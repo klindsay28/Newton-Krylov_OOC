@@ -2,9 +2,9 @@
 
 import os
 
-from src import model_config
 from src.model_config import (
     ModelConfig,
+    get_model_config_attr,
     get_precond_matrix_def,
     propagate_base_matrix_defs_to_all,
 )
@@ -12,7 +12,7 @@ from src.share import common_args, read_cfg_file
 
 
 def test_model_config():
-    """create ModelConfig object and confirm that model_config_obj is created"""
+    """create ModelConfig object and confirm that _model_config_obj is created"""
     workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
     args_list = ["--workdir", workdir]
     parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
@@ -20,7 +20,8 @@ def test_model_config():
     config = read_cfg_file(args)
     ModelConfig(config["modelinfo"])
 
-    assert model_config.model_config_obj is not None
+    # confirm that _model_config_obj is created by getting an attr from it
+    assert get_model_config_attr("modelinfo") == config["modelinfo"]
 
 
 def test_propagate_base_matrix_defs_to_all():
@@ -43,12 +44,12 @@ def test_propagate_base_matrix_defs_to_all():
 
     # add a hist var to base, re-propagate, and verify that it is added to phosphorus
     base_def["hist_to_precond_varnames"].append("new_hist_var")
-    propagate_base_matrix_defs_to_all(model_config.model_config_obj.precond_matrix_defs)
+    propagate_base_matrix_defs_to_all(get_model_config_attr("precond_matrix_defs"))
     assert "new_hist_var" in phosphorus["hist_to_precond_varnames"]
 
     # add a matrix opt to base, re-propagate, and verify that it is added to phosphorus
     base_def["precond_matrices_opts"] = ["matrix_opt_A sub_opt"]
-    propagate_base_matrix_defs_to_all(model_config.model_config_obj.precond_matrix_defs)
+    propagate_base_matrix_defs_to_all(get_model_config_attr("precond_matrix_defs"))
     assert "precond_matrices_opts" in phosphorus
     assert "matrix_opt_A sub_opt" in phosphorus["precond_matrices_opts"]
 
@@ -57,7 +58,7 @@ def test_propagate_base_matrix_defs_to_all():
     # verify that matrix_opt_A wasn't added again
     base_def["precond_matrices_opts"].append("matrix_opt_B sub_opt_base")
     phosphorus["precond_matrices_opts"].append("matrix_opt_B sub_opt_phosphorus")
-    propagate_base_matrix_defs_to_all(model_config.model_config_obj.precond_matrix_defs)
+    propagate_base_matrix_defs_to_all(get_model_config_attr("precond_matrix_defs"))
     assert "precond_matrices_opts" in phosphorus
     assert "matrix_opt_B sub_opt_phosphorus" in phosphorus["precond_matrices_opts"]
     assert "matrix_opt_B sub_opt_base" not in phosphorus["precond_matrices_opts"]

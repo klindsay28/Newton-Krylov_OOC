@@ -5,7 +5,7 @@ import logging
 import numpy as np
 from netCDF4 import Dataset
 
-from .. import model_config
+from ..model_config import get_model_config_attr
 from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import (
     create_dimensions_verify,
@@ -137,7 +137,7 @@ class TracerModuleState(TracerModuleStateBase):
 
         # return values for tracer-like variables
 
-        grid_weight = model_config.model_config_obj.grid_weight
+        grid_weight = get_model_config_attr("grid_weight")
 
         denom_nlon = grid_weight.sum(axis=-1)
         numer_nlon = np.empty(denom_nlon.shape)

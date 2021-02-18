@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from .model_config import get_region_cnt
+from .model_config import get_model_config_attr
 
 
 class RegionScalars:
@@ -81,7 +81,7 @@ class RegionScalars:
             _vals[ind]    where region_mask == ind+1
         """
         res = np.full(shape=region_mask.shape, fill_value=fill_value)
-        for region_ind in range(get_region_cnt()):
+        for region_ind in range(get_model_config_attr("region_cnt")):
             res = np.where(region_mask == region_ind + 1, self._vals[region_ind], res)
         return res
 
@@ -96,7 +96,7 @@ def to_ndarray(array_in):
     if isinstance(array_in, RegionScalars):
         return np.array(array_in.vals())
 
-    res = np.empty(array_in.shape + (get_region_cnt(),))
+    res = np.empty(array_in.shape + (get_model_config_attr("region_cnt"),))
 
     if array_in.ndim == 0:
         res[:] = array_in[()].vals()
@@ -127,8 +127,8 @@ def to_region_scalar_ndarray(array_in):
     res.
     """
 
-    if array_in.shape[-1] != get_region_cnt():
-        msg = "last dimension must have length get_region_cnt()"
+    if array_in.shape[-1] != get_model_config_attr("region_cnt"):
+        msg = "last dimension must have length %d" % get_model_config_attr("region_cnt")
         raise ValueError(msg)
 
     res = np.empty(array_in.shape[:-1], dtype=np.object)

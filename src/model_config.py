@@ -11,23 +11,27 @@ from .share import repro_fname
 from .utils import fmt_vals
 
 # model configuration info
-model_config_obj = None
+_model_config_obj = None
 
 
-# functions to commonly accessed vars in model_config_obj
-def get_region_cnt():
-    """return number of regions specified by region_mask"""
-    return model_config_obj.region_cnt
-
-
-def get_precond_matrix_def(matrix_name):
-    """return an entry from precond_matrix_defs"""
-    return model_config_obj.precond_matrix_defs[matrix_name]
+def get_model_config_attr(name):
+    """return attribute from _model_config_obj"""
+    if _model_config_obj is None:
+        raise RuntimeError(
+            "_model_config_obj is None, ModelConfig.__init__ "
+            "must be called before get_model_config_attr"
+        )
+    return getattr(_model_config_obj, name)
 
 
 def get_modelinfo(key):
     """return value associated in modelinfo with key"""
-    return model_config_obj.modelinfo[key]
+    return get_model_config_attr("modelinfo")[key]
+
+
+def get_precond_matrix_def(matrix_name):
+    """return an entry from precond_matrix_defs"""
+    return get_model_config_attr("precond_matrix_defs")[matrix_name]
 
 
 class ModelConfig:
@@ -115,8 +119,8 @@ class ModelConfig:
             )
 
         # store contents in module level var, to enable use elsewhere
-        global model_config_obj  # pylint: disable=global-statement
-        model_config_obj = self
+        global _model_config_obj  # pylint: disable=global-statement
+        _model_config_obj = self
 
     def tracer_module_expand_all(self, tracer_module_names):
         """
