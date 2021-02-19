@@ -108,13 +108,24 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    def __init__(self, fname):
-        self.time_range = (0.0, 365.0)
-        self.depth = SpatialAxis(axisname="depth", fname=get_modelinfo("depth_fname"))
+    time_range = (0.0, 365.0)
+    depth = None
+    vert_mix = None
 
-        self.vert_mix = VertMix(self.depth)
+    def __init__(self, fname):
+
+        if ModelState.depth is None:
+            self._set_class_vars()
 
         super().__init__(fname)
+
+    @staticmethod
+    def _set_class_vars():
+        """set (time-invariant) class variables"""
+        ModelState.depth = SpatialAxis(
+            axisname="depth", fname=get_modelinfo("depth_fname")
+        )
+        ModelState.vert_mix = VertMix(ModelState.depth)
 
     def get_tracer_vals_all(self):
         """get all tracer values"""

@@ -55,7 +55,7 @@ def main(args):
     lvl = logging.DEBUG if args.resume else logging.INFO
     ModelConfig(config["modelinfo"], lvl)
 
-    model_state_class = _model_state_class()
+    model_state_class = get_model_state_class()
     logger.log(
         lvl,
         "using class %s from %s for model state",
@@ -75,7 +75,7 @@ def main(args):
         newton_solver.step()
 
 
-def _model_state_class():
+def get_model_state_class():
     """return tracer module state class for tracer_module_name"""
 
     model_state_class = ModelStateBase
