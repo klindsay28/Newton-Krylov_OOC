@@ -1,24 +1,18 @@
 """test functions in model_config.py"""
 
-import os
-
 from src.model_config import (
-    ModelConfig,
     get_model_config_attr,
     get_precond_matrix_def,
     propagate_base_matrix_defs_to_all,
 )
-from src.share import common_args, read_cfg_files
+
+from .share import config_test_problem
 
 
 def test_model_config():
     """create ModelConfig object and confirm that _model_config_obj is created"""
-    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
-    args_list = ["--workdir", workdir]
-    parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
-    args = parser.parse_args(args_remaining)
-    config = read_cfg_files(args)
-    ModelConfig(config["modelinfo"])
+
+    config = config_test_problem()
 
     # confirm that _model_config_obj is created by getting an attr from it
     assert get_model_config_attr("modelinfo") == config["modelinfo"]
@@ -27,13 +21,7 @@ def test_model_config():
 def test_propagate_base_matrix_defs_to_all():
     """test propagate_base_matrix_defs_to_all"""
 
-    # read cfg for test_problem
-    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
-    args_list = ["--workdir", workdir]
-    parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
-    args = parser.parse_args(args_remaining)
-    config = read_cfg_files(args)
-    ModelConfig(config["modelinfo"])
+    config_test_problem()
 
     base_def = get_precond_matrix_def("base")
     phosphorus = get_precond_matrix_def("phosphorus")

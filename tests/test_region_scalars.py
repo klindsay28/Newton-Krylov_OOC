@@ -1,24 +1,18 @@
 """test functions in region_scalars.py"""
 
-import os
-
 import numpy as np
 import pytest
 
-from src.model_config import ModelConfig
 from src.region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
-from src.share import common_args, read_cfg_files
+
+from .share import config_test_problem
 
 
 @pytest.mark.parametrize("ndim", [0, 1, 2, 3])
 def test_to_ndarray(ndim):
     """test to_ndarray for different arg_in ranks"""
-    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
-    args_list = ["--workdir", workdir]
-    parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
-    args = parser.parse_args(args_remaining)
-    config = read_cfg_files(args)
-    ModelConfig(config["modelinfo"])
+
+    config_test_problem()
 
     arg_in_shape = tuple(range(3, 3 + ndim))
     arg_in = np.full(arg_in_shape, RegionScalars(1.0))
@@ -33,12 +27,8 @@ def test_to_ndarray(ndim):
 @pytest.mark.parametrize("ndim", [0, 1, 2, 3])
 def test_to_region_scalar_ndarray(ndim):
     """test to_region_scalar_ndarray for different arg_in ranks"""
-    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
-    args_list = ["--workdir", workdir]
-    parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
-    args = parser.parse_args(args_remaining)
-    config = read_cfg_files(args)
-    ModelConfig(config["modelinfo"])
+
+    config_test_problem()
 
     expected_shape = tuple(range(3, 3 + ndim))
     expected = np.full(expected_shape, RegionScalars(1.0))

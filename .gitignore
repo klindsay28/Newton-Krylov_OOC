@@ -53,6 +53,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 tseries_test/
+workdir/
 
 # Translations
 *.mo
