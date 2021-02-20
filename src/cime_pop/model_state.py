@@ -56,9 +56,6 @@ def main(args):
 
     logger.info('args.cmd="%s"', args.cmd)
 
-    # store cfg_fnames in modelinfo, to ease access to its values elsewhere
-    config["modelinfo"]["cfg_fnames"] = args.cfg_fnames
-
     ModelConfig(config["modelinfo"])
 
     msg = "%s not implemented for command line execution in %s " % (args.cmd, __file__)

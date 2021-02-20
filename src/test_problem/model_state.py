@@ -67,9 +67,6 @@ def main(args):
 
     logger.info('args.cmd="%s"', args.cmd)
 
-    # store cfg_fnames in modelinfo, to ease access to its value elsewhere
-    config["modelinfo"]["cfg_fnames"] = args.cfg_fnames
-
     ModelConfig(config["modelinfo"])
 
     ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))

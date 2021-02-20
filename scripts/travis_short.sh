@@ -13,6 +13,9 @@ black --check . || err_cnt=$((err_cnt+1))
 echo running flake8
 flake8 || err_cnt=$((err_cnt+1))
 
+echo running pytest
+pytest || err_cnt=$((err_cnt+1))
+
 for model_dir in input/*; do
     model_name=$(basename $model_dir)
     echo checking variable usage in newton_krylov.cfg for $model_name
@@ -41,10 +44,6 @@ for fname in fcn_00.nc hist_00.nc init_iterate.nc init_iterate_00.nc; do
         --expr_dir $HOME/travis_short_workdir/gen_init_iterate \
         --baseline_dir baselines/travis_short || err_cnt=$((err_cnt+1))
 done
-
-# now that the travis_short_workdir is populated, pytest tests have what they need
-echo running pytest
-pytest || err_cnt=$((err_cnt+1))
 
 echo err_cnt=$err_cnt
 

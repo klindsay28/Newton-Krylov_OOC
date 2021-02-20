@@ -49,9 +49,6 @@ def main(args):
         logger.warning("KILL file detected, exiting")
         raise SystemExit
 
-    # store cfg_fnames in modelinfo, to ease access to its values elsewhere
-    config["modelinfo"]["cfg_fnames"] = args.cfg_fnames
-
     lvl = logging.DEBUG if args.resume else logging.INFO
     ModelConfig(config["modelinfo"], lvl)
 
