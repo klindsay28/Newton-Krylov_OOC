@@ -16,7 +16,7 @@ from scipy.integrate import solve_ivp
 
 from ..model_config import ModelConfig, get_modelinfo
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, logging_config, read_cfg_file
+from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..spatial_axis import SpatialAxis
 from ..utils import class_name, create_dimensions_verify, create_vars
 from .vert_mix import VertMix
@@ -59,7 +59,7 @@ def _resolve_fname(fname_dir, fname):
 def main(args):
     """test_problem for Newton-Krylov solver"""
 
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     solverinfo = config["solverinfo"]
 
     logging_config(args, solverinfo, filemode="a")
@@ -67,8 +67,8 @@ def main(args):
 
     logger.info('args.cmd="%s"', args.cmd)
 
-    # store cfg_fname in modelinfo, to ease access to its value elsewhere
-    config["modelinfo"]["cfg_fname"] = args.cfg_fname
+    # store cfg_fnames in modelinfo, to ease access to its value elsewhere
+    config["modelinfo"]["cfg_fnames"] = args.cfg_fnames
 
     ModelConfig(config["modelinfo"])
 

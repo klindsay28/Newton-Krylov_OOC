@@ -18,7 +18,7 @@ from netCDF4 import Dataset
 from ..cime import cime_case_submit, cime_xmlchange, cime_xmlquery, cime_yr_cnt
 from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, logging_config, read_cfg_file
+from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..solver_state import action_step_log_wrap
 from ..utils import ann_files_to_mean_file, class_name, mon_files_to_mean_file
 
@@ -48,7 +48,7 @@ def parse_args(args_list_in=None):
 def main(args):
     """cime_pop hooks for Newton-Krylov solver"""
 
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     solverinfo = config["solverinfo"]
 
     logging_config(args, solverinfo, filemode="a")
@@ -56,8 +56,8 @@ def main(args):
 
     logger.info('args.cmd="%s"', args.cmd)
 
-    # store cfg_fname in modelinfo, to ease access to its values elsewhere
-    config["modelinfo"]["cfg_fname"] = args.cfg_fname
+    # store cfg_fnames in modelinfo, to ease access to its values elsewhere
+    config["modelinfo"]["cfg_fnames"] = args.cfg_fnames
 
     ModelConfig(config["modelinfo"])
 
@@ -187,7 +187,7 @@ class ModelState(ModelStateBase):
             shutil.copy(src, rundir)
 
         # generate post-modelrun script and point POSTRUN_SCRIPT to it
-        # this will propagate cfg_fname and hist_fname across model run
+        # this will propagate cfg_fnames and hist_fname across model run
         post_modelrun_script_fname = os.path.join(
             solver_state.get_workdir(), "post_modelrun.sh"
         )

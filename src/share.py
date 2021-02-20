@@ -55,10 +55,12 @@ def common_args(description, model_name, args_list):
         parents=[parent_parser],
     )
     repo_root = dirname(dirname(realpath(__file__)))
+    cfg_fname = path.join(repo_root, "input", args.model_name, "newton_krylov.cfg")
+    params_fname = path.join(repo_root, "input", args.model_name, "model_params.cfg")
     parser.add_argument(
-        "--cfg_fname",
-        help="name of configuration file",
-        default=path.join(repo_root, "input", args.model_name, "newton_krylov.cfg"),
+        "--cfg_fnames",
+        help="names of configuration files",
+        default=",".join([cfg_fname, params_fname]),
     )
 
     # add arguments that override cfg file
@@ -97,19 +99,22 @@ def args_replace(args):
     return args
 
 
-def read_cfg_file(args):
+def read_cfg_files(args):
     """
-    read cfg file
+    read cfg files
     set defaults common to all occurrances
     """
-    cfg_fname = args.cfg_fname
+    cfg_fnames = args.cfg_fnames
 
     defaults = {key: environ[key] for key in ["HOME", "USER"]}
     defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
     config = configparser.ConfigParser(defaults, allow_no_value=True)
-    config.read_file(open(cfg_fname))
+    files_read = config.read(cfg_fnames.split(","))
+    if len(files_read) == 0:
+        msg = "cfg_fnames not read: %s" % cfg_fnames
+        raise RuntimeError(msg)
 
-    _check_config_no_values(cfg_fname, config)
+    _check_config_no_values(cfg_fnames, config)
 
     _apply_cfg_override_args(args, config)
 
@@ -123,7 +128,7 @@ def read_cfg_file(args):
     return config
 
 
-def _check_config_no_values(cfg_fname, config):
+def _check_config_no_values(cfg_fnames, config):
     """verify that only names in no_value_allowed have no value"""
     # no_value_allowed is allowed to have no value or not be present
     if "no_value_allowed" in config["DEFAULT"]:
@@ -135,7 +140,7 @@ def _check_config_no_values(cfg_fname, config):
     for section in config.sections():
         for name in config[section]:
             if config[section][name] is None and name not in nva_list:
-                msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fname)
+                msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fnames)
                 raise ValueError(msg)
 
 

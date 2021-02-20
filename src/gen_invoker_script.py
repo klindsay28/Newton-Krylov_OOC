@@ -10,7 +10,7 @@ from .share import (
     args_replace,
     cfg_override_args,
     common_args,
-    read_cfg_file,
+    read_cfg_files,
     repro_fname,
 )
 from .utils import mkdir_exist_okay
@@ -36,7 +36,7 @@ def gen_invoker_script(args, modelinfo, repo_root):
                 fptr.write("source %s\n" % modelinfo["mpi_cmd_env_cmds_fname"])
 
         # construct invocation command
-        line = 'python -m src.nk_driver --cfg_fname "%s" ' % modelinfo["cfg_fname"]
+        line = 'python -m src.nk_driver --cfg_fnames "%s" ' % modelinfo["cfg_fnames"]
         if "model_name" in args:
             line = line + '--model_name "%s" ' % args.model_name
         for argname, metadata in cfg_override_args.items():
@@ -74,10 +74,10 @@ def parse_args(args_list_in=None):
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
 
-    # store cfg_fname in modelinfo, to follow what is done in other scripts
-    config["modelinfo"]["cfg_fname"] = args.cfg_fname
+    # store cfg_fnames in modelinfo, to follow what is done in other scripts
+    config["modelinfo"]["cfg_fnames"] = args.cfg_fnames
 
     gen_invoker_script(args, config["modelinfo"], config["DEFAULT"]["repo_root"])
 

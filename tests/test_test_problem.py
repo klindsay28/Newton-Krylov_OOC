@@ -3,7 +3,7 @@
 import os
 
 from src.model_config import ModelConfig
-from src.share import common_args, read_cfg_file
+from src.share import common_args, read_cfg_files
 from src.test_problem.model_state import ModelState
 
 
@@ -13,7 +13,7 @@ def test_depth_shared():
     args_list = ["--workdir", workdir]
     parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
     args = parser.parse_args(args_remaining)
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     ModelConfig(config["modelinfo"])
 
     model_state_a = ModelState("gen_init_iterate")

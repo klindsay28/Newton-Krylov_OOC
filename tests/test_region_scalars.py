@@ -7,7 +7,7 @@ import pytest
 
 from src.model_config import ModelConfig
 from src.region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
-from src.share import common_args, read_cfg_file
+from src.share import common_args, read_cfg_files
 
 
 @pytest.mark.parametrize("ndim", [0, 1, 2, 3])
@@ -17,7 +17,7 @@ def test_to_ndarray(ndim):
     args_list = ["--workdir", workdir]
     parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
     args = parser.parse_args(args_remaining)
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     ModelConfig(config["modelinfo"])
 
     arg_in_shape = tuple(range(3, 3 + ndim))
@@ -37,7 +37,7 @@ def test_to_region_scalar_ndarray(ndim):
     args_list = ["--workdir", workdir]
     parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
     args = parser.parse_args(args_remaining)
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     ModelConfig(config["modelinfo"])
 
     expected_shape = tuple(range(3, 3 + ndim))

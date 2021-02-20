@@ -19,7 +19,7 @@ from ..share import (
     args_replace,
     common_args,
     logging_config,
-    read_cfg_file,
+    read_cfg_files,
     repro_fname,
 )
 from ..utils import (
@@ -52,13 +52,13 @@ def parse_args(args_list_in=None):
 def main(args):
     """set up files needed to run NK solver for cime_pop"""
 
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     solverinfo = config["solverinfo"]
 
     logging_config(args, solverinfo, filemode="w")
     logger = logging.getLogger(__name__)
 
-    logger.info('args.cfg_fname="%s"', repro_fname(solverinfo, args.cfg_fname))
+    logger.info('args.cfg_fnames="%s"', repro_fname(solverinfo, args.cfg_fnames))
 
     # ensure workdir exists
     mkdir_exist_okay(solverinfo["workdir"])

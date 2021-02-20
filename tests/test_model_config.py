@@ -8,7 +8,7 @@ from src.model_config import (
     get_precond_matrix_def,
     propagate_base_matrix_defs_to_all,
 )
-from src.share import common_args, read_cfg_file
+from src.share import common_args, read_cfg_files
 
 
 def test_model_config():
@@ -17,7 +17,7 @@ def test_model_config():
     args_list = ["--workdir", workdir]
     parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
     args = parser.parse_args(args_remaining)
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     ModelConfig(config["modelinfo"])
 
     # confirm that _model_config_obj is created by getting an attr from it
@@ -32,7 +32,7 @@ def test_propagate_base_matrix_defs_to_all():
     args_list = ["--workdir", workdir]
     parser, args_remaining = common_args("test_model_config", "test_problem", args_list)
     args = parser.parse_args(args_remaining)
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     ModelConfig(config["modelinfo"])
 
     base_def = get_precond_matrix_def("base")

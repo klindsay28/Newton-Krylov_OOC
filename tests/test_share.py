@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from src.share import common_args, read_cfg_file
+from src.share import common_args, read_cfg_files
 
 
 def test_parse_args():
@@ -17,14 +17,14 @@ def test_parse_args():
 
 
 @pytest.mark.parametrize("args_list", [[], ["--persist"]])
-def test_read_cfg_file(args_list):
-    """run read_cfg_file function and confirm a setting from each section"""
+def test_read_cfg_files(args_list):
+    """run read_cfg_files function and confirm a setting from each section"""
     model_name = "test_problem"
     workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
     args_list.extend(["--workdir", workdir])
     parser, args_remaining = common_args("test_share", model_name, args_list)
     args = parser.parse_args(args_remaining)
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
 
     assert config["DEFAULT"]["model_name"] == model_name
     assert config["solverinfo"]["newton_max_iter"] == "3"

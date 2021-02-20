@@ -8,7 +8,7 @@ import sys
 from .model_config import ModelConfig, get_modelinfo
 from .model_state_base import ModelStateBase
 from .newton_solver import NewtonSolver
-from .share import args_replace, common_args, logging_config, read_cfg_file
+from .share import args_replace, common_args, logging_config, read_cfg_files
 from .utils import get_subclasses
 
 
@@ -39,7 +39,7 @@ def parse_args(args_list_in=None):
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = read_cfg_file(args)
+    config = read_cfg_files(args)
     solverinfo = config["solverinfo"]
 
     logging_config(args, solverinfo, filemode="a")
@@ -49,8 +49,8 @@ def main(args):
         logger.warning("KILL file detected, exiting")
         raise SystemExit
 
-    # store cfg_fname in modelinfo, to ease access to its values elsewhere
-    config["modelinfo"]["cfg_fname"] = args.cfg_fname
+    # store cfg_fnames in modelinfo, to ease access to its values elsewhere
+    config["modelinfo"]["cfg_fnames"] = args.cfg_fnames
 
     lvl = logging.DEBUG if args.resume else logging.INFO
     ModelConfig(config["modelinfo"], lvl)
