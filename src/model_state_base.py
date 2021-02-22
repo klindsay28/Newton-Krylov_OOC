@@ -42,7 +42,7 @@ class ModelStateBase:
 
         modelinfo = self.model_config_obj.modelinfo
         tracer_module_names = modelinfo["tracer_module_names"].split(",")
-        self.tracer_modules = np.empty(len(tracer_module_names), dtype=np.object)
+        self.tracer_modules = np.empty(len(tracer_module_names), dtype=object)
         tracer_module_defs = self.model_config_obj.tracer_module_defs
 
         pos_args = ["self", "tracer_module_name", "fname"]
@@ -336,14 +336,14 @@ class ModelStateBase:
 
     def mean(self):
         """compute weighted mean of self"""
-        res = np.empty(self.tracer_modules.shape, dtype=np.object)
+        res = np.empty(self.tracer_modules.shape, dtype=object)
         for ind, tracer_module in enumerate(self.tracer_modules):
             res[ind] = tracer_module.mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        res = np.empty(self.tracer_modules.shape, dtype=np.object)
+        res = np.empty(self.tracer_modules.shape, dtype=object)
         for ind, tracer_module in enumerate(self.tracer_modules):
             res[ind] = tracer_module.dot_prod(other.tracer_modules[ind])
         return res
@@ -357,7 +357,7 @@ class ModelStateBase:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty((len(self.tracer_modules), basis_cnt), dtype=np.object)
+        h_val = np.empty((len(self.tracer_modules), basis_cnt), dtype=object)
         for i_val in range(0, basis_cnt):
             basis_i = type(self)(fname_fcn(quantity, i_val))
             h_val[:, i_val] = self.dot_prod(basis_i)

@@ -372,5 +372,5 @@ class TracerModuleStateBase:
         """set _vals to zero where region_mask == 0"""
         for tracer_ind in range(self.tracer_cnt):
             self._vals[tracer_ind, :] = np.where(
-                self.model_config_obj.region_mask != 0, self._vals[tracer_ind, :], 0.0,
+                self.model_config_obj.region_mask != 0, self._vals[tracer_ind, :], 0.0
             )

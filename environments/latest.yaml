@@ -1,11 +1,11 @@
-name: Newton-Krylov_OOC
+name: Newton-Krylov_OOC.latest
 channels:
 - conda-forge
 - defaults
 dependencies:
 # development
 - pip
-- python=3.6
+- python=3.8
 - pytest
 - pylint
 - isort

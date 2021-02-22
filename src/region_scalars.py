@@ -131,7 +131,7 @@ def to_region_scalar_ndarray(array_in):
         msg = "last dimension must have length %d" % RegionScalars.region_cnt
         raise ValueError(msg)
 
-    res = np.empty(array_in.shape[:-1], dtype=np.object)
+    res = np.empty(array_in.shape[:-1], dtype=object)
 
     if array_in.ndim == 1:
         res[()] = RegionScalars(array_in[:])
