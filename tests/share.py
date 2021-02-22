@@ -30,7 +30,5 @@ def config_test_problem():
     depth_fname = config["modelinfo"]["depth_fname"]
     depth.dump(depth_fname, caller="tests.share.config_test_problem")
 
-    # configure model
-    ModelConfig(config["modelinfo"])
-
-    return config
+    # configure model and return result
+    return ModelConfig(config["modelinfo"])

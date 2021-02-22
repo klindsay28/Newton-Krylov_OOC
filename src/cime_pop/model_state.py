@@ -16,7 +16,7 @@ from datetime import datetime
 from netCDF4 import Dataset
 
 from ..cime import cime_case_submit, cime_xmlchange, cime_xmlquery, cime_yr_cnt
-from ..model_config import ModelConfig, get_modelinfo, get_precond_matrix_def
+from ..model_config import ModelConfig
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..solver_state import action_step_log_wrap
@@ -75,6 +75,14 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
+    def __init__(self, fname):
+
+        # confirm that model_config_obj has been set for this class
+        if ModelState.model_config_obj is None:
+            raise RuntimeError("ModelState.model_config_obj is None")
+
+        super().__init__(fname)
+
     @action_step_log_wrap(
         step="ModelState.gen_precond_jacobian {precond_fname}", per_iteration=False
     )
@@ -98,19 +106,23 @@ class ModelState(ModelStateBase):
         evaluated at self
         """
         logger = logging.getLogger(__name__)
-        jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
+
+        modelinfo = self.model_config_obj.modelinfo
+
+        jacobian_precond_tools_dir = modelinfo["jacobian_precond_tools_dir"]
 
         opt_str_subs = {
-            "day_cnt": 365 * cime_yr_cnt(),
+            "day_cnt": 365 * cime_yr_cnt(modelinfo),
             "precond_fname": precond_fname,
-            "reg_fname": get_modelinfo("region_mask_fname"),
-            "irf_fname": get_modelinfo("irf_fname"),
+            "reg_fname": modelinfo["region_mask_fname"],
+            "irf_fname": modelinfo["irf_fname"],
         }
 
         workdir = os.path.dirname(precond_fname)
 
+        precond_matrix_defs = self.model_config_obj.precond_matrix_defs
         for matrix_name in self.precond_matrix_list():
-            matrix_opts = get_precond_matrix_def(matrix_name)["precond_matrices_opts"]
+            matrix_opts = precond_matrix_defs[matrix_name]["precond_matrices_opts"]
             # apply option string substitutions
             for ind, matrix_opt in enumerate(matrix_opts):
                 matrix_opts[ind] = matrix_opt.format(**opt_str_subs)
@@ -149,7 +161,7 @@ class ModelState(ModelStateBase):
 
         self._comp_fcn_pre_modelrun(res_fname=res_fname, solver_state=solver_state)
 
-        _gen_hist(hist_fname)
+        _gen_hist(self.model_config_obj.modelinfo, hist_fname)
 
         ms_res = self._comp_fcn_post_modelrun()
 
@@ -168,19 +180,24 @@ class ModelState(ModelStateBase):
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s"', res_fname)
 
+        modelinfo = self.model_config_obj.modelinfo
+        caseroot = modelinfo["caseroot"]
+
         # relative pathname of tracer_ic
         tracer_ic_fname_rel = "tracer_ic.nc"
-        fname = os.path.join(cime_xmlquery("RUNDIR"), tracer_ic_fname_rel)
+        fname = os.path.join(cime_xmlquery(caseroot, "RUNDIR"), tracer_ic_fname_rel)
         caller = __name__ + "._comp_fcn_pre_modelrun"
         self.dump(fname, caller)
 
         # ensure certain env xml vars are set properly
-        cime_xmlchange("POP_PASSIVE_TRACER_RESTART_OVERRIDE", tracer_ic_fname_rel)
-        cime_xmlchange("CONTINUE_RUN", "FALSE")
+        cime_xmlchange(
+            caseroot, "POP_PASSIVE_TRACER_RESTART_OVERRIDE", tracer_ic_fname_rel
+        )
+        cime_xmlchange(caseroot, "CONTINUE_RUN", "FALSE")
 
         # copy rpointer files to rundir
-        rundir = cime_xmlquery("RUNDIR")
-        for src in glob.glob(os.path.join(get_modelinfo("rpointer_dir"), "rpointer.*")):
+        rundir = cime_xmlquery(caseroot, "RUNDIR")
+        for src in glob.glob(os.path.join(modelinfo["rpointer_dir"], "rpointer.*")):
             shutil.copy(src, rundir)
 
         # generate post-modelrun script and point POSTRUN_SCRIPT to it
@@ -188,15 +205,15 @@ class ModelState(ModelStateBase):
         post_modelrun_script_fname = os.path.join(
             solver_state.get_workdir(), "post_modelrun.sh"
         )
-        _gen_post_modelrun_script(post_modelrun_script_fname)
-        cime_xmlchange("POSTRUN_SCRIPT", post_modelrun_script_fname)
+        _gen_post_modelrun_script(modelinfo, post_modelrun_script_fname)
+        cime_xmlchange(caseroot, "POSTRUN_SCRIPT", post_modelrun_script_fname)
 
         # set model duration parameters
         for xml_varname in ["STOP_OPTION", "STOP_N", "RESUBMIT"]:
-            cime_xmlchange(xml_varname, get_modelinfo(xml_varname))
+            cime_xmlchange(caseroot, xml_varname, modelinfo[xml_varname])
 
         # submit the model run and exit
-        cime_case_submit()
+        cime_case_submit(modelinfo)
 
         logger.debug("raising SystemExit (in decorator function)")
 
@@ -233,10 +250,13 @@ class ModelState(ModelStateBase):
         """
 
         # determine name of end of run restart file from POP's rpointer file
-        rpointer_fname = os.path.join(cime_xmlquery("RUNDIR"), "rpointer.ocn.restart")
+        caseroot = self.model_config_obj.modelinfo["caseroot"]
+        rpointer_fname = os.path.join(
+            cime_xmlquery(caseroot, "RUNDIR"), "rpointer.ocn.restart"
+        )
         with open(rpointer_fname, mode="r") as fptr:
             rest_file_fname_rel = fptr.readline().strip()
-        fname = os.path.join(cime_xmlquery("RUNDIR"), rest_file_fname_rel)
+        fname = os.path.join(cime_xmlquery(caseroot, "RUNDIR"), rest_file_fname_rel)
 
         return ModelState(fname) - self
 
@@ -258,15 +278,18 @@ class ModelState(ModelStateBase):
             return
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        if get_modelinfo("batch_cmd_precond"):
+        modelinfo = self.model_config_obj.modelinfo
+
+        if modelinfo["batch_cmd_precond"]:
             # determine node_cnt and cpus_per_node
-            ocn_grid = cime_xmlquery("OCN_GRID")
-            gigabyte_per_node = int(get_modelinfo("gigabyte_per_node"))
-            cpus_per_node_max = int(get_modelinfo("cpus_per_node_max"))
+            ocn_grid = cime_xmlquery(modelinfo["caseroot"], "OCN_GRID")
+            gigabyte_per_node = int(modelinfo["gigabyte_per_node"])
+            cpus_per_node_max = int(modelinfo["cpus_per_node_max"])
 
             cpus_per_node_list = []
+            precond_matrix_defs = self.model_config_obj.precond_matrix_defs
             for matrix_name in self.precond_matrix_list():
-                matrix_def = get_precond_matrix_def(matrix_name)
+                matrix_def = precond_matrix_defs[matrix_name]
                 matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
                 # account for 1 task/node having increased memory usage (25%)
                 gigabyte_per_task = matrix_solve_opts["gigabyte_per_task"]
@@ -280,21 +303,24 @@ class ModelState(ModelStateBase):
             cpus_per_node = 2 ** int(math.log2(cpus_per_node))
 
             node_cnt_list = []
+            precond_matrix_defs = self.model_config_obj.precond_matrix_defs
             for matrix_name in self.precond_matrix_list():
-                matrix_def = get_precond_matrix_def(matrix_name)
+                matrix_def = precond_matrix_defs[matrix_name]
                 matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
                 task_cnt = matrix_solve_opts["task_cnt"]
                 node_cnt = int(math.ceil(task_cnt / cpus_per_node))
                 node_cnt_list.append(node_cnt)
             node_cnt = max(node_cnt_list)
 
+            modelinfo = self.model_config_obj.modelinfo
+
             opt_str_subs = {"node_cnt": node_cnt, "cpus_per_node": cpus_per_node}
             batch_cmd = (
-                get_modelinfo("batch_cmd_precond").replace("\n", " ").replace("\r", " ")
+                modelinfo["batch_cmd_precond"].replace("\n", " ").replace("\r", " ")
             )
             cmd = "%s %s --resume" % (
                 batch_cmd.format(**opt_str_subs),
-                get_modelinfo("invoker_script_fname"),
+                modelinfo["invoker_script_fname"],
             )
             logger.info('cmd="%s"', cmd)
             subprocess.run(cmd, check=True, shell=True)
@@ -324,17 +350,20 @@ class ModelState(ModelStateBase):
         caller = __name__ + "._apply_precond_jacobian_solve_lin_eqns"
         self.dump(res_fname, caller)
 
-        jacobian_precond_tools_dir = get_modelinfo("jacobian_precond_tools_dir")
+        modelinfo = self.model_config_obj.modelinfo
+
+        jacobian_precond_tools_dir = modelinfo["jacobian_precond_tools_dir"]
 
         tracer_names_all = self.tracer_names()
 
-        ocn_grid = cime_xmlquery("OCN_GRID")
+        ocn_grid = cime_xmlquery(modelinfo["caseroot"], "OCN_GRID")
 
+        precond_matrix_defs = self.model_config_obj.precond_matrix_defs
         for (
             matrix_name,
             tracer_names_subset,
         ) in self.tracer_names_per_precond_matrix().items():
-            matrix_def = get_precond_matrix_def(matrix_name)
+            matrix_def = precond_matrix_defs[matrix_name]
             matrix_solve_opts = matrix_def["precond_matrices_solve_opts"][ocn_grid]
             task_cnt = matrix_solve_opts["task_cnt"]
             nprow, npcol = _matrix_block_decomp(task_cnt)
@@ -343,7 +372,7 @@ class ModelState(ModelStateBase):
                 solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
             )
             # split mpi_cmd, in case it has spaces because of arguments
-            cmd = get_modelinfo("mpi_cmd").split()
+            cmd = modelinfo["mpi_cmd"].split()
             cmd.extend(
                 [
                     os.path.join(jacobian_precond_tools_dir, "bin", "solve_ABdist"),
@@ -370,16 +399,16 @@ class ModelState(ModelStateBase):
         return ms_res
 
 
-def _gen_post_modelrun_script(script_fname):
+def _gen_post_modelrun_script(modelinfo, script_fname):
     """
     generate script that will be called by cime after the model run
     script_fname is called by CIME, and submits invoker_script_fname
         with the command batch_cmd_script (which can be an empty string)
     """
-    batch_cmd_script = get_modelinfo("batch_cmd_script")
+    batch_cmd_script = modelinfo["batch_cmd_script"]
     if batch_cmd_script is not None:
         batch_cmd_script = batch_cmd_script.replace("\n", " ").replace("\r", " ")
-    invoker_script_fname = get_modelinfo("invoker_script_fname")
+    invoker_script_fname = modelinfo["invoker_script_fname"]
     with open(script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
         fptr.write("if ./xmlquery --value RESUBMIT | grep -q '^0$'; then\n")
@@ -400,32 +429,35 @@ def _gen_post_modelrun_script(script_fname):
     os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
 
 
-def _gen_hist(hist_fname):
+def _gen_hist(modelinfo, hist_fname):
     """generate history file corresponding to just completed model run"""
 
     if hist_fname is None:
         return
 
-    # initial implementation only works for annual mean output
+    caseroot = modelinfo["caseroot"]
+
+    # initial implementation only works for annual or monthly mean output
     # confirm that this is the case
-    if _pop_nl_var_exists("tavg_freq_opt(1)"):
-        tavg_freq_opt_0 = _get_pop_nl_var("tavg_freq_opt(1)").split()[0].split("'")[1]
+    if _pop_nl_var_exists(caseroot, "tavg_freq_opt(1)"):
+        varname = "tavg_freq_opt(1)"
     else:
-        tavg_freq_opt_0 = _get_pop_nl_var("tavg_freq_opt").split()[0].split("'")[1]
+        varname = "tavg_freq_opt"
+    tavg_freq_opt_0 = _get_pop_nl_var(caseroot, varname).split()[0].split("'")[1]
     if tavg_freq_opt_0 not in ["nyear", "nmonth"]:
         msg = "tavg_freq_opt_0 = %s not implemented" % tavg_freq_opt_0
         raise NotImplementedError(msg)
 
-    tavg_freq_0 = _get_pop_nl_var("tavg_freq").split()[0]
+    tavg_freq_0 = _get_pop_nl_var(caseroot, "tavg_freq").split()[0]
     if tavg_freq_0 != "1":
         msg = "tavg_freq_0 = %s not implemented" % tavg_freq_0
         raise NotImplementedError(msg)
 
     # get starting year and month
-    if cime_xmlquery("RUN_TYPE") == "branch":
-        date0 = cime_xmlquery("RUN_REFDATE")
+    if cime_xmlquery(caseroot, "RUN_TYPE") == "branch":
+        date0 = cime_xmlquery(caseroot, "RUN_REFDATE")
     else:
-        date0 = cime_xmlquery("RUN_STARTDATE")
+        date0 = cime_xmlquery(caseroot, "RUN_STARTDATE")
     (yr_str, mon_str, day_str) = date0.split("-")
 
     # basic error checking
@@ -439,23 +471,23 @@ def _gen_hist(hist_fname):
         raise NotImplementedError(msg)
 
     # location of history files
-    hist_dir = cime_xmlquery("RUNDIR")
+    hist_dir = cime_xmlquery(caseroot, "RUNDIR")
 
     caller = "src.cime_pop.model_state._gen_hist"
     if tavg_freq_opt_0 == "nyear":
-        fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}.nc"
+        fname_fmt = cime_xmlquery(caseroot, "CASE") + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(
-            hist_dir, fname_fmt, int(yr_str), cime_yr_cnt(), hist_fname, caller
+            hist_dir, fname_fmt, int(yr_str), cime_yr_cnt(modelinfo), hist_fname, caller
         )
 
     if tavg_freq_opt_0 == "nmonth":
-        fname_fmt = cime_xmlquery("CASE") + ".pop.h.{year:04d}-{month:02d}.nc"
+        fname_fmt = cime_xmlquery(caseroot, "CASE") + ".pop.h.{year:04d}-{month:02d}.nc"
         mon_files_to_mean_file(
             hist_dir,
             fname_fmt,
             int(yr_str),
             int(mon_str),
-            12 * cime_yr_cnt(),
+            12 * cime_yr_cnt(modelinfo),
             hist_fname,
             caller,
         )
@@ -496,7 +528,7 @@ def _apply_tracers_sflux_term(
     )
     model_state = ModelState(res_fname)
     term_applied = False
-    delta_time = 365.0 * 86400.0 * cime_yr_cnt()
+    delta_time = 365.0 * 86400.0 * cime_yr_cnt(model_state.model_config_obj.modelinfo)
     with Dataset(precond_fname, mode="r") as fptr:
         for tracer_name_src in tracer_names_subset:
             for tracer_name_dst_ind in range(
@@ -526,16 +558,16 @@ def _apply_tracers_sflux_term(
         model_state.dump(res_fname, caller)
 
 
-def _pop_nl_var_exists(varname):
+def _pop_nl_var_exists(caseroot, varname):
     """
     does varname exist as a variable in the pop namelist
     """
-    nl_fname = os.path.join(get_modelinfo("caseroot"), "CaseDocs", "pop_in")
+    nl_fname = os.path.join(caseroot, "CaseDocs", "pop_in")
     cmd = ["grep", "-q", "^ *" + varname + " *=", nl_fname]
     return subprocess.call(cmd) == 0
 
 
-def _get_pop_nl_var(varname):
+def _get_pop_nl_var(caseroot, varname):
     """
     extract the value(s) of a pop namelist variable
     return contents to the right of the '=' character,
@@ -543,7 +575,7 @@ def _get_pop_nl_var(varname):
     can lead to unexpected results if the rhs has strings with commas
     does not handle multiple matches of varname in pop_in
     """
-    nl_fname = os.path.join(get_modelinfo("caseroot"), "CaseDocs", "pop_in")
+    nl_fname = os.path.join(caseroot, "CaseDocs", "pop_in")
     cmd = ["grep", "^ *" + varname + " *=", nl_fname]
     line = subprocess.check_output(cmd).decode()
     return line.split("=")[1].strip().replace(",", " ")

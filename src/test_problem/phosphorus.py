@@ -5,15 +5,14 @@ from scipy.linalg import svd
 from scipy.sparse import diags, eye
 from scipy.sparse.linalg import spsolve
 
-from ..model_config import get_modelinfo
 from .tracer_module_state import TracerModuleState
 
 
 class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
     """phosphorus tracer module specifics for TracerModuleState"""
 
-    def __init__(self, tracer_module_name, fname, depth):
-        super().__init__(tracer_module_name, fname, depth)
+    def __init__(self, tracer_module_name, fname, model_config_obj, depth):
+        super().__init__(tracer_module_name, fname, model_config_obj, depth)
 
         # light has e-folding decay of 25m
         self.light_lim = np.exp((-1.0 / 25.0) * depth.mid)
@@ -22,7 +21,9 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
         # 0: surface layer only, 1 / day
         # 1: d po4_uptake / d po4
-        self.po4_s_restoring_opt = int(get_modelinfo("po4_s_restoring_opt"))
+        self.po4_s_restoring_opt = int(
+            model_config_obj.modelinfo["po4_s_restoring_opt"]
+        )
 
     def comp_tend(self, time, tracer_vals_flat, vert_mix):
         """

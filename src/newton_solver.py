@@ -6,8 +6,7 @@ import os
 import numpy as np
 
 from .krylov_solver import KrylovSolver
-from .model_config import get_modelinfo
-from .region_scalars import to_ndarray, to_region_scalar_ndarray
+from .region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
 from .solver_state import SolverState, action_step_log_wrap
 from .stats_file import StatsFile
 from .utils import class_name, dict_sel, fmt_vals, mkdir_exist_okay
@@ -36,13 +35,16 @@ class NewtonSolver:
         if self._solver_state.step_logged(step, per_iteration=False):
             self._iterate = model_state_class(self._fname("iterate"))
         else:
-            self._iterate = model_state_class(get_modelinfo("init_iterate_fname"))
+            self._iterate = model_state_class(
+                model_state_class.model_config_obj.modelinfo["init_iterate_fname"]
+            )
             caller = class_name(self) + ".__init__"
             self._iterate.copy_real_tracers_to_shadow_tracers().dump(
                 self._fname("iterate"), caller
             )
             self._solver_state.log_step(step, per_iteration=False)
 
+        self._def_solver_stats_dimensions(solver_state=self._solver_state)
         self._stats_vars_metadata = self.gen_stats_vars_metadata()
         self._def_solver_stats_vars(solver_state=self._solver_state)
 
@@ -63,6 +65,14 @@ class NewtonSolver:
         self._iterate.put_stats_vars(
             self._stats_file, self._fname("hist"), solver_state=self._solver_state
         )
+
+    @action_step_log_wrap(
+        step="NewtonSolver._def_solver_stats_dimensions", per_iteration=False
+    )
+    # pylint: disable=unused-argument
+    def _def_solver_stats_dimensions(self, solver_state):
+        """define stats dimensions from Newton solver"""
+        self._stats_file.def_dimensions({"region": RegionScalars.region_cnt})
 
     def gen_stats_vars_metadata(self):
         """generate metadata for stats vars from Newton solver"""

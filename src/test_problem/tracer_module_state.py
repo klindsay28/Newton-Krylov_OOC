@@ -5,7 +5,7 @@ import logging
 import numpy as np
 from netCDF4 import Dataset
 
-from ..model_config import get_model_config_attr
+from ..region_scalars import RegionScalars
 from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import (
     create_dimensions_verify,
@@ -22,11 +22,14 @@ class TracerModuleState(TracerModuleStateBase):
     It implements _read_vals and dump.
     """
 
-    def __init__(self, tracer_module_name, fname, depth):
+    def __init__(self, tracer_module_name, fname, model_config_obj, depth):
+
+        if RegionScalars.region_cnt != 1:
+            raise NotImplementedError("region_cnt > 1 not implemented")
 
         self.depth = depth
 
-        super().__init__(tracer_module_name, fname)
+        super().__init__(tracer_module_name, fname, model_config_obj)
 
     def _read_vals(self, fname):
         """return tracer values and dimension names and lengths, read from fname)"""
@@ -269,9 +272,6 @@ class TracerModuleState(TracerModuleStateBase):
 
     def stats_vars_vals(self, fptr_hist):
         """return tracer module specific stats variables for the current iteration"""
-
-        if get_model_config_attr("region_cnt") != 1:
-            raise NotImplementedError("region_cnt > 1 not implemented")
 
         # return values for tracer-like variables
         time_weights = self.hist_time_mean_weights(fptr_hist)

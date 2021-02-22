@@ -10,7 +10,6 @@ from inspect import signature
 import numpy as np
 from netCDF4 import Dataset
 
-from .model_config import get_model_config_attr, get_modelinfo, get_precond_matrix_def
 from .solver_state import action_step_log_wrap
 from .tracer_module_state_base import TracerModuleStateBase
 from .utils import (
@@ -29,19 +28,29 @@ class ModelStateBase:
     # give ModelStateBase operators higher priority than those of numpy
     __array_priority__ = 100
 
+    model_config_obj = None
+
     def __init__(self, fname):
         logger = logging.getLogger(__name__)
         logger.debug('ModelStateBase, fname="%s"', fname)
-        tracer_module_names = get_modelinfo("tracer_module_names").split(",")
+
+        # confirm that model_config_obj has been set for this instance
+        if self.model_config_obj is None:
+            raise RuntimeError(
+                "self.model_config_obj is None, it should be set in derived class"
+            )
+
+        modelinfo = self.model_config_obj.modelinfo
+        tracer_module_names = modelinfo["tracer_module_names"].split(",")
         self.tracer_modules = np.empty(len(tracer_module_names), dtype=np.object)
-        tracer_module_defs = get_model_config_attr("tracer_module_defs")
+        tracer_module_defs = self.model_config_obj.tracer_module_defs
 
         pos_args = ["self", "tracer_module_name", "fname"]
 
         for ind, tracer_module_name in enumerate(tracer_module_names):
             tracer_module_def = tracer_module_defs[tracer_module_name]
-            tracer_module_state_class = _tracer_module_state_class(
-                tracer_module_name, tracer_module_def
+            tracer_module_state_class = _get_tracer_module_state_class(
+                modelinfo["model_name"], tracer_module_name, tracer_module_def
             )
             logger.debug(
                 "using class %s from %s for tracer module %s",
@@ -358,12 +367,12 @@ class ModelStateBase:
     def hist_vars_for_precond_list(self):
         """Return list of hist vars needed for preconditioner of jacobian of comp_fcn"""
         res = []
+        precond_matrix_defs = self.model_config_obj.precond_matrix_defs
         for matrix_name in self.precond_matrix_list() + ["base"]:
-            precond_matrix_def = get_precond_matrix_def(matrix_name)
-            if "hist_to_precond_varnames" in precond_matrix_def:
-                for varname in precond_matrix_def["hist_to_precond_varnames"]:
-                    if varname not in res:
-                        res.append(varname)
+            precond_matrix_def = precond_matrix_defs[matrix_name]
+            for varname in precond_matrix_def["hist_to_precond_varnames"]:
+                if varname not in res:
+                    res.append(varname)
         return res
 
     def precond_matrix_list(self):
@@ -605,12 +614,10 @@ def lin_comb(res_type, coeff, fname_fcn, quantity):
     return res
 
 
-def _tracer_module_state_class(tracer_module_name, tracer_module_def):
+def _get_tracer_module_state_class(model_name, tracer_module_name, tracer_module_def):
     """return tracer module state class for tracer_module_name"""
 
     tracer_module_state_class = TracerModuleStateBase
-
-    model_name = get_modelinfo("model_name")
 
     # look for model specific derived class
     mod_name = ".".join(["src", model_name, "tracer_module_state"])

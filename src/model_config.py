@@ -7,31 +7,9 @@ import numpy as np
 import yaml
 from netCDF4 import Dataset
 
+from .region_scalars import RegionScalars
 from .share import repro_fname
 from .utils import fmt_vals
-
-# model configuration info
-_model_config_obj = None
-
-
-def get_model_config_attr(name):
-    """return attribute from _model_config_obj"""
-    if _model_config_obj is None:
-        raise RuntimeError(
-            "_model_config_obj is None, ModelConfig.__init__ "
-            "must be called before get_model_config_attr"
-        )
-    return getattr(_model_config_obj, name)
-
-
-def get_modelinfo(key):
-    """return value associated in modelinfo with key"""
-    return get_model_config_attr("modelinfo")[key]
-
-
-def get_precond_matrix_def(matrix_name):
-    """return an entry from precond_matrix_defs"""
-    return get_model_config_attr("precond_matrix_defs")[matrix_name]
 
 
 class ModelConfig:
@@ -103,13 +81,12 @@ class ModelConfig:
             self.region_mask == 0, 0.0, grid_weight_no_region_dim
         )
 
-        self.region_cnt = self.region_mask.max()
+        region_cnt = self.region_mask.max()
+        RegionScalars.region_cnt = region_cnt
 
         # add region dimension to grid_weight and normalize
-        self.grid_weight = np.empty(
-            (self.region_cnt,) + grid_weight_no_region_dim.shape
-        )
-        for region_ind in range(self.region_cnt):
+        self.grid_weight = np.empty((region_cnt,) + grid_weight_no_region_dim.shape)
+        for region_ind in range(region_cnt):
             self.grid_weight[region_ind, :] = np.where(
                 self.region_mask == region_ind + 1, grid_weight_no_region_dim, 0.0
             )
@@ -117,10 +94,6 @@ class ModelConfig:
             self.grid_weight[region_ind, :] *= 1.0 / np.sum(
                 self.grid_weight[region_ind, :]
             )
-
-        # store contents in module level var, to enable use elsewhere
-        global _model_config_obj  # pylint: disable=global-statement
-        _model_config_obj = self
 
     def tracer_module_expand_all(self, tracer_module_names):
         """

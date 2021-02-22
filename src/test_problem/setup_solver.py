@@ -90,7 +90,7 @@ def main(args):
 
     # confirm that model configuration works with generated file
     # ModelState relies on model being configured
-    ModelConfig(modelinfo)
+    ModelState.model_config_obj = ModelConfig(modelinfo)
 
     # generate initial condition
     init_iterate = ModelState(args.init_iterate_opt)

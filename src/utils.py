@@ -266,9 +266,12 @@ def datatype_sname(var):
     """
     datatype_replace = {"float64": "f8", "float32": "f4"}
     datatype = str(var.datatype)
+    # drop leading endian specifying character if present
+    if datatype[0] in [">", "<"]:
+        datatype = datatype[1:]
     datatype = datatype_replace.get(datatype, datatype)
     if datatype not in default_fillvals:
-        msg = "unknown datatype %s" % datatype
+        msg = "unknown datatype %s->%s for %s" % (str(var.datatype), datatype, var.name)
         raise ValueError(msg)
     return datatype
 

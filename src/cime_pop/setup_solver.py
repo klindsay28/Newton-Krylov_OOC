@@ -14,7 +14,7 @@ from netCDF4 import Dataset
 
 from .. import gen_invoker_script
 from ..cime import cime_xmlquery, cime_yr_cnt
-from ..model_config import ModelConfig, get_modelinfo
+from ..model_config import ModelConfig
 from ..share import (
     args_replace,
     common_args,
@@ -54,6 +54,7 @@ def main(args):
 
     config = read_cfg_files(args)
     solverinfo = config["solverinfo"]
+    modelinfo = config["modelinfo"]
 
     logging_config(args, solverinfo, filemode="w")
     logger = logging.getLogger(__name__)
@@ -64,8 +65,8 @@ def main(args):
     mkdir_exist_okay(solverinfo["workdir"])
 
     # copy rpointer files from RUNDIR to rpointer_dir
-    rundir = cime_xmlquery("RUNDIR")
-    rpointer_dir = get_modelinfo("rpointer_dir")
+    rundir = cime_xmlquery(modelinfo["caseroot"], "RUNDIR")
+    rpointer_dir = modelinfo["rpointer_dir"]
     mkdir_exist_okay(rpointer_dir)
     for src in glob.glob(os.path.join(rundir, "rpointer.*")):
         shutil.copy(src, rpointer_dir)
@@ -73,8 +74,6 @@ def main(args):
     # generate invoker script
     args.model_name = "cime_pop"
     gen_invoker_script.main(args)
-
-    modelinfo = config["modelinfo"]
 
     # generate irf file
     irf_fname = modelinfo["irf_fname"]
@@ -99,6 +98,7 @@ def main(args):
     mkdir_exist_okay(os.path.dirname(region_mask_fname))
     gen_region_mask_file(modelinfo)
 
+    # confirm that generated files can be read
     ModelConfig(modelinfo)
 
 
@@ -111,17 +111,15 @@ def gen_irf_file(modelinfo):
         msg = "irf_hist_freq_opt = %s not implemented" % irf_hist_freq_opt
         raise NotImplementedError(msg)
 
-    hist_dir = modelinfo["irf_hist_dir"]
-
     # get start date for date range getting averaged into irf file
 
     # fallbacks values if they are not specified in the cfg file
     if modelinfo["irf_hist_start_date"] is None:
-        caseroot = modelinfo["caseroot"]
-        if cime_xmlquery("RUN_TYPE", caseroot=caseroot) == "branch":
-            irf_hist_start_date = cime_xmlquery("RUN_REFDATE", caseroot=caseroot)
+        if cime_xmlquery(modelinfo["caseroot"], "RUN_TYPE") == "branch":
+            varname = "RUN_REFDATE"
         else:
-            irf_hist_start_date = cime_xmlquery("RUN_STARTDATE", caseroot=caseroot)
+            varname = "RUN_STARTDATE"
+        irf_hist_start_date = cime_xmlquery(modelinfo["caseroot"], varname)
     else:
         irf_hist_start_date = modelinfo["irf_hist_start_date"]
 
@@ -152,7 +150,7 @@ def gen_irf_file(modelinfo):
     if irf_hist_freq_opt == "nyear":
         fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(
-            hist_dir,
+            modelinfo["irf_hist_dir"],
             fname_fmt,
             int(irf_hist_year0),
             int(irf_hist_yr_cnt),
@@ -163,7 +161,7 @@ def gen_irf_file(modelinfo):
     if irf_hist_freq_opt == "nmonth":
         fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}-{month:02d}.nc"
         mon_files_to_mean_file(
-            hist_dir,
+            modelinfo["irf_hist_dir"],
             fname_fmt,
             int(irf_hist_year0),
             int(irf_hist_month0),

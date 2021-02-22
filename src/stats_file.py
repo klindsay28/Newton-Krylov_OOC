@@ -5,7 +5,6 @@ from datetime import datetime
 
 from netCDF4 import Dataset, default_fillvals
 
-from .model_config import get_model_config_attr
 from .solver_state import action_step_log_wrap
 from .utils import class_name, create_dimensions_verify, create_vars
 
@@ -30,9 +29,7 @@ class StatsFile:
             fptr.history = msg
 
             # define dimensions
-            create_dimensions_verify(
-                fptr, {"iteration": None, "region": get_model_config_attr("region_cnt")}
-            )
+            create_dimensions_verify(fptr, {"iteration": None})
 
             # define coordinate variables
             vars_metadata = {

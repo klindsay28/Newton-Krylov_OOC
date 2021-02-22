@@ -14,7 +14,7 @@ import numpy as np
 from netCDF4 import Dataset
 from scipy.integrate import solve_ivp
 
-from ..model_config import ModelConfig, get_modelinfo
+from ..model_config import ModelConfig
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..spatial_axis import SpatialAxis
@@ -67,7 +67,7 @@ def main(args):
 
     logger.info('args.cmd="%s"', args.cmd)
 
-    ModelConfig(config["modelinfo"])
+    ModelState.model_config_obj = ModelConfig(config["modelinfo"])
 
     ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))
     if args.cmd == "comp_fcn":
@@ -111,17 +111,19 @@ class ModelState(ModelStateBase):
 
     def __init__(self, fname):
 
+        # confirm that model_config_obj has been set for this class
+        if ModelState.model_config_obj is None:
+            raise RuntimeError("ModelState.model_config_obj is None")
+
         if ModelState.depth is None:
-            self._set_class_vars()
+            self._set_class_vars(self.model_config_obj.modelinfo)
 
         super().__init__(fname)
 
     @staticmethod
-    def _set_class_vars():
+    def _set_class_vars(modelinfo):
         """set (time-invariant) class variables"""
-        ModelState.depth = SpatialAxis(
-            axisname="depth", fname=get_modelinfo("depth_fname")
-        )
+        ModelState.depth = SpatialAxis(axisname="depth", fname=modelinfo["depth_fname"])
         ModelState.vert_mix = VertMix(ModelState.depth)
 
     def get_tracer_vals_all(self):
@@ -214,8 +216,9 @@ class ModelState(ModelStateBase):
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
-            if strtobool(get_modelinfo("reinvoke")):
-                cmd = [get_modelinfo("invoker_script_fname"), "--resume"]
+            modelinfo = self.model_config_obj.modelinfo
+            if strtobool(modelinfo["reinvoke"]):
+                cmd = [modelinfo["invoker_script_fname"], "--resume"]
                 logger.info('cmd="%s"', " ".join(cmd))
                 # use Popen instead of run because we don't want to wait
                 subprocess.Popen(cmd)

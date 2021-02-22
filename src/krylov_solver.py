@@ -5,9 +5,8 @@ import os
 
 import numpy as np
 
-from .model_config import get_model_config_attr
 from .model_state_base import lin_comb
-from .region_scalars import to_ndarray, to_region_scalar_ndarray
+from .region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
 from .solver_state import SolverState, action_step_log_wrap
 from .utils import class_name, mkdir_exist_okay
 
@@ -87,14 +86,10 @@ class KrylovSolver:
 
         while True:
             j_val = self._solver_state.get_iteration()
+            region_cnt = RegionScalars.region_cnt
             h_mat = to_region_scalar_ndarray(
                 np.zeros(
-                    (
-                        len(iterate.tracer_modules),
-                        j_val + 2,
-                        j_val + 1,
-                        get_model_config_attr("region_cnt"),
-                    )
+                    (len(iterate.tracer_modules), j_val + 2, j_val + 1, region_cnt)
                 )
             )
             if j_val > 0:

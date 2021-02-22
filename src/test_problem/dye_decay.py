@@ -9,8 +9,8 @@ from .tracer_module_state import TracerModuleState
 class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
     """dye_decay tracer module specifics for TracerModuleState"""
 
-    def __init__(self, tracer_module_name, fname, depth):
-        super().__init__(tracer_module_name, fname, depth)
+    def __init__(self, tracer_module_name, fname, model_config_obj, depth):
+        super().__init__(tracer_module_name, fname, model_config_obj, depth)
 
         # integral of surface flux over year is 1 mol m-2
         self._dye_decay_surf_flux_times = 365.0 * np.array([0.1, 0.2, 0.6, 0.7])
