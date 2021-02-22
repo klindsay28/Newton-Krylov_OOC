@@ -4,6 +4,7 @@
     "__init__",
     "_create_stats_file HOME/travis_long_dye_decay_workdir/Newton_stats.nc",
     "Newton iterate 0 written",
+    "NewtonSolver._def_solver_stats_dimensions",
     "NewtonSolver._def_solver_stats_vars",
     "00:comp_fcn complete for HOME/travis_long_dye_decay_workdir/fcn_00.nc",
     "00:write iterate mean vals to stats file",
