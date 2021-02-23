@@ -27,9 +27,9 @@ done
 # this does perform forward model runs, since fp_cnt=1
 # also exercises passing --model_name to setup_solver.sh
 echo running setup_solver.sh
-./scripts/setup_solver.sh --fp_cnt 1 --nlevs 20 --persist \
+./scripts/setup_solver.sh --fp_cnt 1 --depth_nlevs 20 --persist \
     --model_name test_problem \
-    --workdir $HOME/travis_short_workdir || err_cnt=$((err_cnt+1))
+    --workdir $HOME/travis_short_workdir $@ || err_cnt=$((err_cnt+1))
 
 for fname in depth_axis.nc; do
     echo comparing $fname

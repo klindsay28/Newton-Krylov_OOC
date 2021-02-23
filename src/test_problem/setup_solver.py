@@ -30,11 +30,10 @@ def parse_args(args_list_in=None):
     )
 
     # axis related arguments
-    for key, value in spatial_axis_defn_dict(axisname="depth").items():
-        flag = "--%s" % key
-        parser.add_argument(
-            flag, type=value["type"], help=value["help"], default=value["value"]
-        )
+    defn = spatial_axis_defn_dict(axisname="depth")["nlevs"]
+    parser.add_argument(
+        "--depth_nlevs", type=defn["type"], help=defn["help"], default=defn["value"]
+    )
     parser.add_argument(
         "--init_iterate_opt",
         help="option for specifying initial iterate",
@@ -73,12 +72,17 @@ def main(args):
     args.model_name = "test_problem"
     gen_invoker_script.main(args)
 
-    # generate depth axis from args
-    depth = SpatialAxis(
-        defn_dict=spatial_axis_defn_dict(trap_unknown=False, **(args.__dict__))
-    )
-
     modelinfo = config["modelinfo"]
+
+    # generate depth axis from args and modelinfo
+    defn_dict = {}
+    for key, defn in spatial_axis_defn_dict(axisname="depth").items():
+        depth_key = "depth_" + key
+        if hasattr(args, depth_key):
+            defn_dict[key] = getattr(args, depth_key)
+        else:
+            defn_dict[key] = (defn["type"])(modelinfo[depth_key])
+    depth = SpatialAxis(defn_dict=spatial_axis_defn_dict(**defn_dict))
 
     caller = "src.test_problem.setup_solver.main"
 

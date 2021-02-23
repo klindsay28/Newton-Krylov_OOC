@@ -176,7 +176,7 @@ def _isclose_one_var(var1, var2, rtol, atol):
     logger = logging.getLogger(__name__)
 
     # further comparisons do not make sense if shapes differ
-    if var1.shape != var1.shape:
+    if var1.shape != var2.shape:
         logger.info(
             "    var1.shape %s != var2.shape %s for %s",
             var1.shape,
