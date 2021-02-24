@@ -31,7 +31,7 @@ Run the following command from ``$TOP`` to set up usage of the solver
 
   ./scripts/setup_solver.sh --model_name test_problem --cfg_fnames <cfg_fname1>[,<cfg_fname2>...]
 
-where <cfg_fnameN> are the paths of the customized cfg files [#f2]_.
+where <cfg_fnameN> are the paths of the customized cfg files.
 Running ``./scripts/setup_solver.sh -h`` shows what command line options are available.
 The ``setup_solver.sh`` script does the following:
 
