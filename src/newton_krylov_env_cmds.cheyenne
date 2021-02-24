@@ -1,5 +1,0 @@
-# shell commands that creates an environment that the Newton-Krylov scripts can run in
-# source this from a bash/sh shell
-source /etc/profile.d/modules.sh
-module load ncarenv python/3.6.4 nco
-ncar_pylib > /dev/null

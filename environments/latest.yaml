@@ -1,0 +1,38 @@
+name: Newton-Krylov_OOC.latest
+channels:
+- conda-forge
+- defaults
+dependencies:
+# development
+- pip
+- python=3.8
+- pytest
+- pylint
+- isort
+- black
+- flake8
+- pre-commit
+
+# documentation
+- sphinx
+- sphinx_rtd_theme
+- sphinxcontrib-bibtex
+
+# solver requirements
+- netCDF4
+- numpy
+- pyyaml
+- gitpython
+
+# test_problem requirements
+- scipy
+- pint
+
+# cime_pop requirements
+- nco
+
+# notebooks
+- jupyterlab
+- matplotlib
+- xarray
+- nc-time-axis

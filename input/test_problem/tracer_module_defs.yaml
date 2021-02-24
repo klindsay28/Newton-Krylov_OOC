@@ -1,0 +1,61 @@
+# tracer module definitions for model=test_problem
+
+tracer_module_defs:
+    iage:  # module name
+        tracers:
+            iage:
+                attrs: {long_name: "ideal age", units: "years"}
+                init_iterate_val_depths: [125.0, 650.0]
+                init_iterate_vals: [0.0, 1000]
+    phosphorus:  # module name
+        tracers:
+            po4:
+                attrs:
+                    long_name: "phosphate"
+                    units: "mmol / m^3"
+                init_iterate_val_depths: [125.0, 375.0]
+                init_iterate_vals: [0.0, 4.1]
+                precond_matrix: phosphorus
+            dop:
+                attrs:
+                    long_name: "dissolved organic phosphorus"
+                    units: "mmol / m^3"
+                init_iterate_val_depths: [100.0, 250.0]
+                init_iterate_vals: [7.3e-2, 0]
+            pop:
+                attrs:
+                    long_name: "particulate organic phosphorus"
+                    units: "mmol / m^3"
+                init_iterate_val_depths: [175.0, 425.0]
+                init_iterate_vals: [1.8e-2, 0.0]
+            po4_s:
+                attrs:
+                    long_name: "shadow phosphate"
+                    units: "mmol / m^3"
+                shadows: po4
+            dop_s:
+                attrs:
+                    long_name: "shadow dissolved organic phosphorus"
+                    units: "mmol / m^3"
+                shadows: dop
+            pop_s:
+                attrs:
+                    long_name: "shadow particulate organic phosphorus"
+                    units: "mmol / m^3"
+                shadows: pop
+    dye_decay_{suff}:  # root module name
+        py_mod_name: "dye_decay"
+        tracers:
+            dye_decay_{suff}:
+                attrs: {long_name: "dye decay {suff}", units: "mol / m^3"}
+                init_iterate_val_depths: [150.0]
+                init_iterate_vals: [0.0]
+
+precond_matrix_defs:
+    base:
+        hist_to_precond_varnames:
+            - 'mixing_coeff:mean'
+            - 'mixing_coeff:log_mean'
+    phosphorus:
+        hist_to_precond_varnames:
+            - 'po4_s_restore_tau_r:mean'

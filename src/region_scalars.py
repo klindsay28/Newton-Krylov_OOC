@@ -2,14 +2,23 @@
 
 import numpy as np
 
-from .model_config import get_region_cnt
-
 
 class RegionScalars:
     """class to hold per-region scalars"""
 
+    region_cnt = 0
+
     def __init__(self, vals):
         self._vals = np.array(vals)
+
+    def __eq__(self, other):
+        """
+        equality operator
+        called to evaluate res == other
+        """
+        if isinstance(other, RegionScalars):
+            return np.all(other._vals == self._vals)
+        return NotImplemented
 
     def __mul__(self, other):
         """
@@ -19,7 +28,7 @@ class RegionScalars:
         if isinstance(other, float):
             return RegionScalars(self._vals * other)
         if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals * other._vals)  # pylint: disable=W0212
+            return RegionScalars(self._vals * other._vals)
         return NotImplemented
 
     def __rmul__(self, other):
@@ -37,7 +46,7 @@ class RegionScalars:
         if isinstance(other, float):
             return RegionScalars(self._vals / other)
         if isinstance(other, RegionScalars):
-            return RegionScalars(self._vals / other._vals)  # pylint: disable=W0212
+            return RegionScalars(self._vals / other._vals)
         return NotImplemented
 
     def __rtruediv__(self, other):
@@ -54,7 +63,9 @@ class RegionScalars:
         return self._vals
 
     def recip(self):
-        """return RegionScalars object with reciprocal operator applied to vals in self"""
+        """
+        return RegionScalars object with reciprocal operator applied to vals in self
+        """
         return RegionScalars(1.0 / self._vals)
 
     def sqrt(self):
@@ -70,12 +81,9 @@ class RegionScalars:
             _vals[ind]    where region_mask == ind+1
         """
         res = np.full(shape=region_mask.shape, fill_value=fill_value)
-        for region_ind in range(get_region_cnt()):
+        for region_ind in range(self.region_cnt):
             res = np.where(region_mask == region_ind + 1, self._vals[region_ind], res)
         return res
-
-
-################################################################################
 
 
 def to_ndarray(array_in):
@@ -88,7 +96,7 @@ def to_ndarray(array_in):
     if isinstance(array_in, RegionScalars):
         return np.array(array_in.vals())
 
-    res = np.empty(array_in.shape + (get_region_cnt(),))
+    res = np.empty(array_in.shape + (RegionScalars.region_cnt,))
 
     if array_in.ndim == 0:
         res[:] = array_in[()].vals()
@@ -119,11 +127,11 @@ def to_region_scalar_ndarray(array_in):
     res.
     """
 
-    if array_in.shape[-1] != get_region_cnt():
-        msg = "last dimension must have length get_region_cnt()"
+    if array_in.shape[-1] != RegionScalars.region_cnt:
+        msg = "last dimension must have length %d" % RegionScalars.region_cnt
         raise ValueError(msg)
 
-    res = np.empty(array_in.shape[:-1], dtype=np.object)
+    res = np.empty(array_in.shape[:-1], dtype=object)
 
     if array_in.ndim == 1:
         res[()] = RegionScalars(array_in[:])

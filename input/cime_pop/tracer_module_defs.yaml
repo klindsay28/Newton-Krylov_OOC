@@ -1,0 +1,55 @@
+# tracer module definitions for model=cime_pop
+
+tracer_module_defs:
+    iage:  # module name
+        tracers:
+            IAGE:
+                attrs: {units: "years"}
+                precond_matrix: iage_like
+
+    abio_dic_dic14:  # module name
+        tracers:
+            ABIO_DIC:
+                attrs: {units: "nmol/cm^3"}
+                precond_matrix: abio_dic
+            ABIO_DIC14:
+                attrs: {units: "nmol/cm^3"}
+                precond_matrix: abio_dic14
+
+precond_matrix_defs:
+    base:
+        hist_to_precond_varnames: [KMT, REGION_MASK, TLONG, TLAT, z_t, dz]
+        precond_matrices_opts:
+            - day_cnt {day_cnt}
+            - reg_fname {reg_fname}
+            - circ_fname {irf_fname}
+            - adv_type upwind3
+            - hmix_type isop_file
+            - vmix_type file
+        precond_matrices_solve_opts:
+            gx1v7:
+                task_cnt: 256
+                gigabyte_per_task: 2.3
+            gx3v7:
+                task_cnt: 64
+                gigabyte_per_task: 0.32
+
+    iage_like:
+        precond_matrices_opts:
+            - sink_type const_shallow 8760.0 10.0e2
+
+    abio_dic:
+        hist_to_precond_varnames:
+            - d_SF_ABIO_DIC_d_ABIO_DIC
+        precond_matrices_opts:
+            - tracer_fname {precond_fname}
+            - sf d_SF_ABIO_DIC_d_ABIO_DIC
+
+    abio_dic14:
+        hist_to_precond_varnames:
+            - d_SF_ABIO_DIC14_d_ABIO_DIC14
+            - d_SF_ABIO_DIC14_d_ABIO_DIC
+        precond_matrices_opts:
+            - tracer_fname {precond_fname}
+            - sink_type const 1.21e-4
+            - sf d_SF_ABIO_DIC14_d_ABIO_DIC14

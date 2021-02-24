@@ -1,0 +1,62 @@
+{
+  "iteration": 2,
+  "step_log": [
+    "__init__",
+    "_create_stats_file HOME/travis_long_dye_decay_workdir/Newton_stats.nc",
+    "Newton iterate 0 written",
+    "NewtonSolver._def_solver_stats_dimensions",
+    "NewtonSolver._def_solver_stats_vars",
+    "00:comp_fcn complete for HOME/travis_long_dye_decay_workdir/fcn_00.nc",
+    "00:write iterate mean vals to stats file",
+    "00:write iterate norm vals to stats file",
+    "00:write fcn mean vals to stats file",
+    "00:write fcn norm vals to stats file",
+    "ModelStateBase.def_stats_vars",
+    "ModelStateBase.put_stats_vars_iteration_invariant",
+    "00:ModelStateBase.put_stats_vars",
+    "00:KrylovSolver instantiated",
+    "00:write increment mean vals to stats file",
+    "00:write increment norm vals to stats file",
+    "00:_comp_increment complete",
+    "00:NewtonSolver._armijo_init",
+    "00:comp_fcn complete for HOME/travis_long_dye_decay_workdir/prov_fcn_Armijo_00_00.nc",
+    "00:_comp_next_iterate complete",
+    "00:fp iterations started",
+    "00:prov updated for fp iteration 00",
+    "01:inc_iteration",
+    "01:comp_fcn complete for HOME/travis_long_dye_decay_workdir/fcn_01.nc",
+    "01:write iterate mean vals to stats file",
+    "01:write iterate norm vals to stats file",
+    "01:write fcn mean vals to stats file",
+    "01:write fcn norm vals to stats file",
+    "01:ModelStateBase.put_stats_vars",
+    "01:KrylovSolver instantiated",
+    "01:write increment mean vals to stats file",
+    "01:write increment norm vals to stats file",
+    "01:_comp_increment complete",
+    "01:NewtonSolver._armijo_init",
+    "01:comp_fcn complete for HOME/travis_long_dye_decay_workdir/prov_fcn_Armijo_00_01.nc",
+    "01:_comp_next_iterate complete",
+    "01:fp iterations started",
+    "01:prov updated for fp iteration 00",
+    "02:inc_iteration",
+    "02:comp_fcn complete for HOME/travis_long_dye_decay_workdir/fcn_02.nc",
+    "02:write iterate mean vals to stats file",
+    "02:write iterate norm vals to stats file",
+    "02:write fcn mean vals to stats file",
+    "02:write fcn norm vals to stats file",
+    "02:ModelStateBase.put_stats_vars"
+  ],
+  "armijo_ind": 0,
+  "armijo_factor_flat": {
+    "__ndarray__": [
+      [
+        1.0
+      ],
+      [
+        1.0
+      ]
+    ]
+  },
+  "fp_iter": 1
+}

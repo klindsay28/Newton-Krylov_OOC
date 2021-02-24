@@ -5,21 +5,20 @@ import os
 
 import numpy as np
 
-from .gen_invoker_script import mkdir_exist_okay
-from .model import lin_comb
-from .model_config import get_region_cnt
-from .region_scalars import to_ndarray, to_region_scalar_ndarray
-from .solver import SolverState
+from .model_state_base import lin_comb
+from .region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
+from .solver_state import SolverState, action_step_log_wrap
+from .utils import class_name, mkdir_exist_okay
 
 
 class KrylovSolver:
     """
-    class for applying Krylov method to approximate the solution of system of linear
+    class for applying a Krylov method to approximate the solution of a system of linear
     equations
 
     The specific Krylov method used is Left-Preconditioned GMRES, algorithm 9.4 of
-    'Iterative Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad, available at
-    https://www-users.cs.umn.edu/~saad/books.html.
+    'Iterative Methods for Sparse Linear Systems, 2nd Edition', Yousef Saad, available
+    at https://www-users.cs.umn.edu/~saad/books.html.
 
     The solver is applied to A x = -fcn, where A is
     comp_jacobian_fcn_state_prod evaluated at iterate.
@@ -27,7 +26,7 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, newton_fcn_obj, iterate, workdir, resume, rewind, hist_fname):
+    def __init__(self, iterate, workdir, resume, rewind, hist_fname):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug(
@@ -41,12 +40,13 @@ class KrylovSolver:
         # ensure workdir exists
         mkdir_exist_okay(workdir)
 
-        self._newton_fcn_obj = newton_fcn_obj
         self._workdir = workdir
         self._solver_state = SolverState("Krylov", workdir, resume, rewind)
 
-        self._newton_fcn_obj.gen_precond_jacobian(
-            iterate, hist_fname, self._fname("precond", 0), self._solver_state
+        iterate.gen_precond_jacobian(
+            hist_fname,
+            precond_fname=self._fname("precond", iteration=0),
+            solver_state=self._solver_state,
         )
 
     def _fname(self, quantity, iteration=None):
@@ -59,38 +59,37 @@ class KrylovSolver:
         """is solver converged"""
         return self._solver_state.get_iteration() >= 3
 
-    def _solve0(self, fcn):
+    @action_step_log_wrap(step="KrylovSolver._solve0", per_iteration=False)
+    # pylint: disable=unused-argument
+    def _solve0(self, fcn, solver_state):
         """
         steps of solve that are only performed for iteration 0
         This is step 1 of Saad's alogrithm 9.4.
         """
-        fcn_complete_step = "_solve0 complete"
-        if not self._solver_state.step_logged(fcn_complete_step):
-            # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
-            precond_fcn = self._newton_fcn_obj.apply_precond_jacobian(
-                fcn,
-                self._fname("precond", 0),
-                self._fname("precond_fcn"),
-                self._solver_state,
-            )
-            beta = precond_fcn.norm()
-            (-precond_fcn / beta).dump(self._fname("basis"))
-            self._solver_state.set_value_saved_state("beta_ndarray", to_ndarray(beta))
-            self._solver_state.log_step(fcn_complete_step)
+        # assume x0 = 0, so r0 = M.inv*(rhs - A*x0) = M.inv*rhs = -M.inv*fcn
+        precond_fcn = fcn.apply_precond_jacobian(
+            self._fname("precond", 0), self._fname("precond_fcn"), self._solver_state
+        )
+        beta = precond_fcn.norm()
+        caller = class_name(self) + "._solve0"
+        (-precond_fcn / beta).dump(self._fname("basis"), caller)
+        self._solver_state.set_value_saved_state("beta_ndarray", to_ndarray(beta))
 
     def solve(self, res_fname, iterate, fcn):
         """apply Krylov method"""
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s"', res_fname)
 
-        if self._solver_state.get_iteration() == 0:
-            self._solve0(fcn)
+        self._solve0(fcn, solver_state=self._solver_state)
+
+        caller = class_name(self) + ".solve"
 
         while True:
             j_val = self._solver_state.get_iteration()
+            region_cnt = RegionScalars.region_cnt
             h_mat = to_region_scalar_ndarray(
                 np.zeros(
-                    (iterate.tracer_module_cnt, j_val + 2, j_val + 1, get_region_cnt())
+                    (len(iterate.tracer_modules), j_val + 2, j_val + 1, region_cnt)
                 )
             )
             if j_val > 0:
@@ -98,11 +97,11 @@ class KrylovSolver:
                     self._solver_state.get_value_saved_state("h_mat_ndarray")
                 )
             basis_j = type(iterate)(self._fname("basis"))
-            w_raw = self._newton_fcn_obj.comp_jacobian_fcn_state_prod(
-                iterate, fcn, basis_j, self._fname("w_raw"), self._solver_state
+            w_raw = iterate.comp_jacobian_fcn_state_prod(
+                fcn, basis_j, self._fname("w_raw"), self._solver_state
             )
-            w_j = self._newton_fcn_obj.apply_precond_jacobian(
-                w_raw, self._fname("precond", 0), self._fname("w"), self._solver_state
+            w_j = w_raw.apply_precond_jacobian(
+                self._fname("precond", 0), self._fname("w"), self._solver_state
             )
             h_mat[:, :-1, -1] = w_j.mod_gram_schmidt(j_val + 1, self._fname, "basis")
             h_mat[:, -1, -1] = w_j.norm()
@@ -121,15 +120,15 @@ class KrylovSolver:
                 self._fname,
                 "basis",
             )
-            res.dump(self._fname("krylov_res", j_val))
+            res.dump(self._fname("krylov_res", j_val), caller)
 
             if self.converged():
                 break
 
             self._solver_state.inc_iteration()
-            w_j.dump(self._fname("basis"))
+            w_j.dump(self._fname("basis"), caller)
 
-        return res.dump(res_fname)
+        return res.dump(res_fname, caller)
 
     def comp_krylov_basis_coeffs(self, h_mat_ndarray):
         """solve least-squares minimization problem for each tracer module"""

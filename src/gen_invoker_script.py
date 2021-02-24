@@ -1,89 +1,83 @@
 #!/usr/bin/env python
 """generate script for invoking nk_driver.py"""
 
-import argparse
-import configparser
-import errno
+import logging
 import os
 import stat
+import sys
+
+from .share import (
+    args_replace,
+    cfg_override_args,
+    common_args,
+    read_cfg_files,
+    repro_fname,
+)
+from .utils import mkdir_exist_okay
 
 
-def mkdir_exist_okay(path):
-    """
-    Create a directory named path.
-    It is okay if it already exists.
-    """
-    try:
-        os.mkdir(path)
-    except OSError as err:
-        if err.errno == errno.EEXIST:
-            pass
-        else:
-            raise
-
-
-def invoker_script_fname(workdir):
-    """
-    full path of script for invoking nk_driver.py
-    """
-    return os.path.join(workdir, "nk_driver.sh")
-
-
-def gen_invoker_script(workdir, toplevel_dir, modelinfo):
+def gen_invoker_script(args, modelinfo, repo_root):
     """
     generate script for invoking nk_driver.py with optional arguments
-    return the name of the generated script
     """
 
-    mkdir_exist_okay(workdir)
-    script_fname = invoker_script_fname(workdir)
-    print("generating %s" % script_fname)
+    invoker_script_fname = modelinfo["invoker_script_fname"]
+    mkdir_exist_okay(os.path.dirname(invoker_script_fname))
 
-    with open(script_fname, mode="w") as fptr:
+    logger = logging.getLogger(__name__)
+    logger.info("generating %s", repro_fname(modelinfo, invoker_script_fname))
+
+    with open(invoker_script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
-        fptr.write("source %s\n" % modelinfo["newton_krylov_env_cmds_fname"])
-        fptr.write("if [ -z ${PYTHONPATH+x} ]; then\n")
-        fptr.write("    export PYTHONPATH=models\n")
-        fptr.write("else\n")
-        fptr.write("    export PYTHONPATH=models:$PYTHONPATH\n")
-        fptr.write("fi\n")
-        fptr.write("cd %s\n" % toplevel_dir)
-        fptr.write('./nk_driver.py --cfg_fname %s "$@"\n' % modelinfo["cfg_fname"])
+        fptr.write("cd %s\n" % repo_root)
+        fptr.write("source scripts/newton_krylov_env_cmds\n")
+        if "mpi_cmd_env_cmds_fname" in modelinfo:
+            if modelinfo["mpi_cmd_env_cmds_fname"] is not None:
+                fptr.write("source %s\n" % modelinfo["mpi_cmd_env_cmds_fname"])
 
-    # ensure script_fname is executable by the user, while preserving other permissions
-    fstat = os.stat(script_fname)
-    os.chmod(script_fname, fstat.st_mode | stat.S_IXUSR)
+        # construct invocation command
+        line = 'python -m src.nk_driver --cfg_fnames "%s" ' % args.cfg_fnames
+        if "model_name" in args:
+            line = line + '--model_name "%s" ' % args.model_name
+        for argname, metadata in cfg_override_args.items():
+            # skip conditional overrides that were not added
+            if argname not in args:
+                continue
+            if "action" not in metadata:
+                if getattr(args, argname) is not None:
+                    line = line + '--%s "%s" ' % (argname, getattr(args, argname))
+            elif metadata["action"] == "store_true":
+                if getattr(args, argname):
+                    line = line + "--%s " % argname
+            else:
+                msg = "action = %s not implemented" % metadata["action"]
+                raise NotImplementedError(msg)
+        line = line + '"$@"\n'
+        fptr.write(line)
 
-    return script_fname
+    # ensure script is executable by the user, while preserving other permissions
+    fstat = os.stat(invoker_script_fname)
+    os.chmod(invoker_script_fname, fstat.st_mode | stat.S_IXUSR)
 
 
-def parse_args():
+def parse_args(args_list_in=None):
     """parse command line arguments"""
 
-    parser = argparse.ArgumentParser(description="Newton's method example")
-
-    parser.add_argument(
-        "--cfg_fname", help="name of configuration file", default="newton_krylov.cfg"
+    args_list = [] if args_list_in is None else args_list_in
+    parser, args_remaining = common_args(
+        "generate script for invoking nk_driver.py", "test_problem", args_list
     )
 
-    return parser.parse_args()
+    return args_replace(parser.parse_args(args_remaining))
 
 
 def main(args):
     """driver for Newton-Krylov solver"""
 
-    config = configparser.ConfigParser(os.environ)
-    config.read_file(open(args.cfg_fname))
+    config = read_cfg_files(args)
 
-    # store cfg_fname in modelinfo, to follow what is done in other scripts
-    config["modelinfo"]["cfg_fname"] = args.cfg_fname
-
-    gen_invoker_script(
-        config["solverinfo"]["workdir"],
-        config["DEFAULT"]["toplevel_dir"],
-        config["modelinfo"],
-    )
+    gen_invoker_script(args, config["modelinfo"], config["DEFAULT"]["repo_root"])
 
 
 if __name__ == "__main__":
-    main(parse_args())
+    main(parse_args(sys.argv[1:]))

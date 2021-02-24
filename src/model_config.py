@@ -1,31 +1,15 @@
 """class to hold model configuration info"""
 
+import copy
 import logging
 
 import numpy as np
-from netCDF4 import Dataset
 import yaml
+from netCDF4 import Dataset
 
-# model configuration info
-model_config_obj = None
-
-# functions to commonly accessed vars in model_config_obj
-def get_region_cnt():
-    """return number of regions specified by region_mask"""
-    return model_config_obj.region_cnt
-
-
-def get_precond_matrix_def(matrix_name):
-    """return an entry from precond_matrix_defs"""
-    return model_config_obj.precond_matrix_defs[matrix_name]
-
-
-def get_modelinfo(key):
-    """return value associated in modelinfo with key"""
-    return model_config_obj.modelinfo[key]
-
-
-################################################################################
+from .region_scalars import RegionScalars
+from .share import repro_fname
+from .utils import fmt_vals
 
 
 class ModelConfig:
@@ -40,23 +24,32 @@ class ModelConfig:
 
         # load content from tracer_module_defs_fname
         fname = modelinfo["tracer_module_defs_fname"]
-        logger.log(lvl, "loading content from %s", fname)
+        logger.log(lvl, "loading content from %s", repro_fname(modelinfo, fname))
         with open(fname, mode="r") as fptr:
             file_contents = yaml.safe_load(fptr)
         self.tracer_module_defs = file_contents["tracer_module_defs"]
         check_shadow_tracers(self.tracer_module_defs, lvl)
-        self.precond_matrix_defs = pad_defs(
-            file_contents["precond_matrix_defs"],
-            "precond matrix",
-            {"hist_to_precond_var_names": "list"},
-            lvl,
+        check_tracer_module_suffs(self.tracer_module_defs)
+        check_tracer_module_names(
+            modelinfo["tracer_module_names"], self.tracer_module_defs
         )
+        self.precond_matrix_defs = file_contents["precond_matrix_defs"]
+        propagate_base_matrix_defs_to_all(self.precond_matrix_defs)
         check_precond_matrix_defs(self.precond_matrix_defs)
+
+        modelinfo["tracer_module_names"] = self.tracer_module_expand_all(
+            modelinfo["tracer_module_names"]
+        )
 
         # extract grid_weight from modelinfo config object
         fname = modelinfo["grid_weight_fname"]
         varname = modelinfo["grid_weight_varname"]
-        logger.log(lvl, "reading %s from %s for grid_weight", varname, fname)
+        logger.log(
+            lvl,
+            "reading %s from %s for grid_weight",
+            varname,
+            repro_fname(modelinfo, fname),
+        )
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
             grid_weight_no_region_dim = fptr.variables[varname][:]
@@ -64,8 +57,13 @@ class ModelConfig:
         # extract region_mask from modelinfo config object
         fname = modelinfo["region_mask_fname"]
         varname = modelinfo["region_mask_varname"]
-        if not fname == "None" and not varname == "None":
-            logger.log(lvl, "reading %s from %s for region_mask", varname, fname)
+        if fname is not None and varname is not None:
+            logger.log(
+                lvl,
+                "reading %s from %s for region_mask",
+                varname,
+                repro_fname(modelinfo, fname),
+            )
             with Dataset(fname, mode="r") as fptr:
                 fptr.set_auto_mask(False)
                 self.region_mask = fptr.variables[varname][:]
@@ -83,13 +81,12 @@ class ModelConfig:
             self.region_mask == 0, 0.0, grid_weight_no_region_dim
         )
 
-        self.region_cnt = self.region_mask.max()
+        region_cnt = self.region_mask.max()
+        RegionScalars.region_cnt = region_cnt
 
         # add region dimension to grid_weight and normalize
-        self.grid_weight = np.empty(
-            (self.region_cnt,) + grid_weight_no_region_dim.shape
-        )
-        for region_ind in range(self.region_cnt):
+        self.grid_weight = np.empty((region_cnt,) + grid_weight_no_region_dim.shape)
+        for region_ind in range(region_cnt):
             self.grid_weight[region_ind, :] = np.where(
                 self.region_mask == region_ind + 1, grid_weight_no_region_dim, 0.0
             )
@@ -98,9 +95,75 @@ class ModelConfig:
                 self.grid_weight[region_ind, :]
             )
 
-        # store contents in module level var, to enable use elsewhere
-        global model_config_obj  # pylint: disable=W0603
-        model_config_obj = self
+    def tracer_module_expand_all(self, tracer_module_names):
+        """
+        Perform substitution/expansion on parameterized tracer modules.
+        Generate new tracer module definitions.
+        """
+
+        tracer_module_names_new = []
+        for tracer_module_name in tracer_module_names.split(","):
+            if ":" not in tracer_module_name:
+                tracer_module_names_new.append(tracer_module_name)
+                continue
+            (tracer_module_name_root, _, suffs) = tracer_module_name.partition(":")
+            for suff in suffs.split(":"):
+                tracer_module_name_new = self.tracer_module_expand_one(
+                    tracer_module_name_root, suff
+                )
+                tracer_module_names_new.append(tracer_module_name_new)
+        return ",".join(tracer_module_names_new)
+
+    def tracer_module_expand_one(self, tracer_module_name_root, suff):
+        """
+        Perform substitution/expansion on parameterized tracer modules.
+        Generate new tracer module definitions.
+        """
+
+        fmt = {"suff": suff}
+
+        tracer_module_name_new = tracer_module_name_root.format(**fmt)
+        # construct new tracer_module_def
+        # with {suff} replaced with suff throughout metadata
+        tracer_module_def_root = self.tracer_module_defs[tracer_module_name_root]
+        tracer_module_def = fmt_vals(tracer_module_def_root, fmt)
+        self.tracer_module_defs[tracer_module_name_new] = tracer_module_def
+
+        # apply replacement to referenced precond matrices,
+        # if their name is parameterized
+        for tracer_metadata in tracer_module_def_root["tracers"].values():
+            if "precond_matrix" in tracer_metadata:
+                matrix_name = tracer_metadata["precond_matrix"]
+                matrix_name_new = matrix_name.format(**fmt)
+                if matrix_name_new != matrix_name:
+                    self.precond_matrix_defs[matrix_name_new] = fmt_vals(
+                        self.precond_matrix_defs[matrix_name], fmt
+                    )
+
+        return tracer_module_name_new
+
+
+def check_tracer_module_names(tracer_module_names, tracer_module_defs):
+    """
+    Confirm that tracer_module_names names exist in tracer_module_defs and that
+    parameterized tracer modules in tracer_module_names are provided a suffix.
+    """
+
+    fmt = {"suff": "suff"}  # dummy suff replacement
+
+    for tracer_module_name in tracer_module_names.split(","):
+        has_suff = ":" in tracer_module_name
+        if has_suff:
+            tracer_module_name = tracer_module_name.partition(":")[0]
+        if tracer_module_name not in tracer_module_defs:
+            msg = "unknown tracer module name %s" % tracer_module_name
+            raise ValueError(msg)
+        if has_suff == (tracer_module_name.format(**fmt) == tracer_module_name):
+            if has_suff:
+                msg = "%s doesn't expect suff" % tracer_module_name
+            else:
+                msg = "%s expects suff" % tracer_module_name
+            raise ValueError(msg)
 
 
 def check_shadow_tracers(tracer_module_defs, lvl):
@@ -111,10 +174,10 @@ def check_shadow_tracers(tracer_module_defs, lvl):
     for tracer_module_name, tracer_module_def in tracer_module_defs.items():
         shadowed_tracers = []
         # Verify that shadows is a known tracer names.
-        # Verify that no tracer is shadowe multiple times.
-        for tracer_name, tracer_metadata in tracer_module_def.items():
+        # Verify that no tracer is shadowed multiple times.
+        for tracer_name, tracer_metadata in tracer_module_def["tracers"].items():
             if "shadows" in tracer_metadata:
-                if tracer_metadata["shadows"] not in tracer_module_def:
+                if tracer_metadata["shadows"] not in tracer_module_def["tracers"]:
                     msg = "shadows value %s for %s in tracer module %s not known" % (
                         tracer_metadata["shadows"],
                         tracer_name,
@@ -137,32 +200,77 @@ def check_shadow_tracers(tracer_module_defs, lvl):
                 shadowed_tracers.append(tracer_metadata["shadows"])
 
 
-def pad_defs(def_dict, obj_desc, def_entries, lvl):
+def check_tracer_module_suffs(tracer_module_defs):
     """
-    Place emtpy objects in dict of definitions where they do not exist.
-    This is to ease subsequent coding.
+    Confirm that tracer module names with a suff correspond to tracer module defs with a
+    suff. Confirm that tracer names in tracer modules with a suff have a suff.
     """
+
+    fmt = {"suff": "suff"}  # dummy suff replacement
+
+    for name, metadata in tracer_module_defs.items():
+        name_has_suff = name.format(**fmt) != name
+        metadata_has_suff = fmt_vals(metadata, fmt) != metadata
+        if name_has_suff != metadata_has_suff:
+            msg = "%s: name_has_suff must equal metadata_has_suff" % name
+            raise ValueError(msg)
+        if name_has_suff:
+            for tracer_name in metadata["tracers"]:
+                if tracer_name.format(**fmt) == tracer_name:
+                    msg = "%s: tracer %s must have suff" % (name, tracer_name)
+                    raise ValueError(msg)
+
+
+def propagate_base_matrix_defs_to_all(matrix_defs):
+    """propagate matrix_defs from matrix_def 'base' to all other matrix_defs"""
     logger = logging.getLogger(__name__)
-    for def_dict_key, def_dict_value in def_dict.items():
-        for entry, entry_type in def_entries.items():
-            if entry not in def_dict_value:
-                logger.log(lvl, "%s %s has no entry %s", obj_desc, def_dict_key, entry)
-                def_dict_value[entry] = [] if entry_type == "list" else {}
-    return def_dict
+    if "base" not in matrix_defs:
+        return
+    for matrix_name, matrix_def in matrix_defs.items():
+        if matrix_name != "base":
+            logger.debug("propagating matrix def to %s", matrix_name)
+            propagate_base_matrix_defs_to_one(matrix_defs["base"], matrix_def)
+
+
+def propagate_base_matrix_defs_to_one(base_def, matrix_def):
+    """propagate matrix_defs from base_def to one matrix_def"""
+    for base_def_key, base_def_value in base_def.items():
+        if base_def_key not in matrix_def:
+            matrix_def[base_def_key] = copy.deepcopy(base_def_value)
+        else:
+            matrix_def_value = matrix_def[base_def_key]
+            if isinstance(base_def_value, list):
+                # generate list of 1st words of opts from matrix_def_value
+                matrix_def_value_word0 = [opt.split()[0] for opt in matrix_def_value]
+                for opt in base_def_value:
+                    # only append opt to matrix_def_value if opt's 1st word isn't
+                    # already present in list of 1st words
+                    if opt.split()[0] not in matrix_def_value_word0:
+                        matrix_def_value.append(opt)
+            elif isinstance(base_def_value, dict):
+                for key in base_def_value:
+                    if key not in matrix_def_value:
+                        matrix_def_value[key] = base_def_value[key]
+            else:
+                msg = "base defn type %s not implemented" % type(base_def_value)
+                raise NotImplementedError(msg)
 
 
 def check_precond_matrix_defs(precond_matrix_defs):
     """Perform basic vetting of precond_matrix_defs"""
     # This check is done for all entries in def_dict,
     # whether they are being used or not.
+    logger = logging.getLogger(__name__)
     for precond_matrix_name, precond_matrix_def in precond_matrix_defs.items():
-        # verify that suffixes in hist_to_precond_var_names are recognized
-        for hist_var in precond_matrix_def["hist_to_precond_var_names"]:
-            _, _, time_op = hist_var.partition(":")
-            if time_op not in ["avg", "log_avg", "copy", ""]:
-                msg = "unknown time_op=%s in %s from %s" % (
-                    time_op,
-                    hist_var,
-                    precond_matrix_name,
-                )
-                raise ValueError(msg)
+        logger.debug("checking precond_matrix_def for %s", precond_matrix_name)
+        # verify that suffixes in hist_to_precond_varnames are recognized
+        if "hist_to_precond_varnames" in precond_matrix_def:
+            for hist_var in precond_matrix_def["hist_to_precond_varnames"]:
+                _, _, time_op = hist_var.partition(":")
+                if time_op not in ["mean", "log_mean", ""]:
+                    msg = "unknown time_op=%s in %s from %s" % (
+                        time_op,
+                        hist_var,
+                        precond_matrix_name,
+                    )
+                    raise ValueError(msg)
