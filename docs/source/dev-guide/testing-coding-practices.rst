@@ -25,8 +25,8 @@ Testing on travis-ci currently does the following:
 Because the test_problem model produces different answers on different platforms, baseline comparisons do not check for equality.
 They instead use ``numpy.isclose``.
 
-Tests executed via travis-ci are performed with python versions 3.6, 3.7, and 3.8.
-Conda is currently unable to create environments with the required pakages using earlier versions of python.
+Tests executed via travis-ci are performed with python versions 3.6, 3.7, 3.8, and 3.9.
+Conda is currently unable to create environments with the required packages using earlier versions of python.
 
 The solver has been run for the cime_pop model with the iage and abio_dic_dic14 tracer modules successfully on the NCAR/CISL machine cheyenne using python3.6.
 

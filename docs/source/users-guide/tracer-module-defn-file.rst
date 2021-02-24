@@ -45,9 +45,9 @@ Parameterized Tracer Modules
 
 Tracer module definitions can be parameterized with string.
 This is represented in the tracer module name with the substring ``{suff}``.
-When parameterized tracer modules are provided to ``tracer_module_names`` in the cfg file, a suffix of colon separated values for ``suff`` is also provided.
+When parameterized tracer modules are provided to ``tracer_module_names`` in the cfg files, a suffix of colon separated values for ``suff`` is also provided.
 For each provided suffix, a tracer module definition is generated with ``{suff}`` replaced by the provided suffix.
-If the tracers in this tracer module have a ``precond_matrix`` whose definition contains the substring ``{suff}``, this matrix definition is similarly replicated and ``{suff}`` in the matrix definition is replaced by the suffix values specified in ``tracer_module_names`` in the cfg file.
+If the tracers in this tracer module have a ``precond_matrix`` whose definition contains the substring ``{suff}``, this matrix definition is similarly replicated and ``{suff}`` in the matrix definition is replaced by the suffix values specified in ``tracer_module_names`` in the cfg files.
 
 --------------------------------------------
 Preconditioner Matrix Definition Description
@@ -65,7 +65,7 @@ The key ``hist_to_precond_varnames`` is utilized by all models that the solver i
 The value corresponding to this key is a list of variables from model's history file that are needed to apply the Jacobian preconditioner.
 The variable names in this list can have a ``:time_op`` suffix specifying an operation to be applied to reduce the variable along its time dimension.
 Supported ``time_op`` values are ``mean`` and ``log_mean``.
-If no ``time_op`` is specified, the history file variable is used as during application of the preconditioner, with the exception that singleton time dimensions are dropped.
+If no ``time_op`` is specified, the history file's variable is used as during application of the preconditioner, with the exception that singleton time dimensions are dropped.
 Note that the cime_pop model implementation generates a model history file by taking the time-mean of POP's tavg output, so there is an implicit ``time_op=mean`` for the cime_pop model.
 
 The cime_pop model also utilizes the keys ``precond_matrices_opts`` and ``precond_matrices_solve_opts`` in the preconditioner matrix definition.

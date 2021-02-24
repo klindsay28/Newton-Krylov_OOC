@@ -17,9 +17,9 @@ The steps to add a POP tracer module to the cime_pop model of the solver are:
 
 #. Add metadata for the tracer module to the tracer module definition file.
    Additions to this file need to adhere to the file's format, which is described in the :ref:`user's guide <tracer-module-defn-file>`.
-   These additions can be added to the copy of the tracer module definition file present in the repo at ``$TOP/input/cime_pop/newton_krylov.cfg``, or they can be added to a copy of this file, and the cfg file can point to this modified copy via the cfg file variable ``tracer_module_defs_fname``.
+   These additions can be added to the copy of the tracer module definition file present in the repo at ``$TOP/input/cime_pop/tracer_module_defs.yaml``, or they can be added to a copy of this file, and the cfg files can point to this modified copy via the cfg file's variable ``tracer_module_defs_fname``.
 
-#. To use the tracer module that has been added to the solver, add the tracer module name to the variable ``tracer_module_names`` in the cfg file.
+#. To use the tracer module that has been added to the solver, add the tracer module name to the variable ``tracer_module_names`` in the cfg files.
    Note that this is the name of the tracer module in the tracer module definition file.
    This is not necessarily the same as the name of the tracer module in POP.
 

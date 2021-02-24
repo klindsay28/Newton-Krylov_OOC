@@ -4,8 +4,8 @@
 cime_pop Model Usage
 ====================
 
-User-configurable options for the solver and the cime_pop model are in the cfg file.
-The default location of the cfg file is ``$TOP/input/cime_pop/newton_krylov.cfg``, where ``$TOP`` is the toplevel directory of the repo.
+User-configurable options for the solver and the cime_pop model are in the cfg files.
+The default paths of the cfg files are ``$TOP/input/cime_pop/newton_krylov.cfg`` and ``$TOP/input/cime_pop/model_params.cfg``, where ``$TOP`` is the toplevel directory of the repo.
 Perform the following steps to spin up tracers in the cime_pop model.
 
 ~~~~~~
@@ -65,8 +65,8 @@ Disable short term archiving, by changing the xml variable ``DOUT_S`` to ``FALSE
 Step 2
 ~~~~~~
 
-Customize variable settings in the cfg file.
-We recommend that the user makes these modifications on a copy of the file from the repo, to be able to preserve the settings for a particular application of the solver, and to avoid conflicts if the repo copy is updated.
+Customize variable settings in the cfg files.
+We recommend that the user makes these modifications on copies of these files from the repo, to be able to preserve the settings for a particular application of the solver, and to avoid conflicts if the repo copy is updated.
 The following variables are the most likely to need to be set by the user:
 
 * ``workdir``: directory where solver generated files are stored
@@ -92,25 +92,25 @@ Step 3
 Run the following command from ``$TOP`` to set up usage of the solver
 ::
 
-  ./scripts/setup_solver.sh --model_name cime_pop --cfg_fname <cfg_fname>
+  ./scripts/setup_solver.sh --model_name cime_pop --cfg_fnames <cfg_fname1>[,<cfg_fname2>...]
 
-where <cfg_fname> is the path of the customized cfg file [#f2]_.
+where <cfg_fnameN> are the paths of the customized cfg files [#f2]_.
 Running ``./scripts/setup_solver.sh -h`` shows what command line options are available.
 The ``setup_solver.sh`` script does the following:
 
 #. Create the work directory.
-   The path of the work directory, which defaults to ``/glade/scratch/$USER/newton_krylov``, is specified by ``workdir`` in the cfg file.
+   The path of the work directory, which defaults to ``/glade/scratch/$USER/newton_krylov``, is specified by ``workdir`` in the cfg files.
    This is appropriate on NCAR's cheyenne supercomputer.
    The work directory contents for cime_pop are moderate in size.
 #. Copy the rpointer files from ``RUNDIR`` to ``rpointer_dir``.
 #. Invoke ``gen_invoker_script``, to generate the solver's invocation script.
-   The location of the solver's invocation script, which defaults to a file in the work directory, is specified by ``invoker_script_fname`` in the cfg file.
+   The location of the solver's invocation script, which defaults to a file in the work directory, is specified by ``invoker_script_fname`` in the cfg files.
 #. Create a time mean irf file.
-   The location of the irf file, which defaults to a file in the work directory, is specified by ``irf_fname`` in the cfg file.
+   The location of the irf file, which defaults to a file in the work directory, is specified by ``irf_fname`` in the cfg files.
    The contents of this file are used in the preconditioner in the Krylov solver.
-   Options for specifying the inputs to the mean irf file are in the cfg file.
+   Options for specifying the inputs to the mean irf file are in the cfg files.
 #. Create grid weights and region files.
-   The location of these files, which defaults to files in the work directory, are specified by ``grid_weight_fname`` and ``region_mask_fname`` in the cfg file.
+   The location of these files, which defaults to files in the work directory, are specified by ``grid_weight_fname`` and ``region_mask_fname`` in the cfg files.
    These files are generated from the irf file.
    The solver configuration function is run, to ensure that the generated files are
 
@@ -123,7 +123,7 @@ Run the invocation script generated in the previous step to start the NK solver.
 Users whose default shell is not bash may need to prefix the invocation command with ``bash -i``, to ensure that conda can be invoked in invocation script.
 
 The solver will run until a convergence criteria is met, or the maximum number of Newton iterations is exceeded.
-Both of these options are in the cfg file.
+Both of these options are in the cfg files.
 
 The cime_pop model is hard-wired to reinvoke the solver after each forward model run is submitted to a batch job submission system.
 The solver exits after submitting the job, reducing the amount of time that the solver resides in memory.
@@ -134,4 +134,4 @@ The solver's progress can be monitored through examination of the solver's :ref:
 .. rubric:: Footnotes
 .. [#f1] On the NCAR/CISL machine cheyenne, CISL requests that model builds not be done on login nodes, to reduce computational load on the login nodes.
          The build can be done on batch nodes of cheyenne by running the command ``qcmd -- ./case.build``.
-.. [#f2] On the NCAR/CISL machine cheyenne, the ``setup_solver.sh`` script should be run with the command ``qcmd -- ./scripts/setup_solver.sh --cfg_fname <cfg_fname>`` to reduce computational load on login nodes from computing the mean of the IRF output.
+.. [#f2] On the NCAR/CISL machine cheyenne, the ``setup_solver.sh`` script should be run with the command ``qcmd -- ./scripts/setup_solver.sh --cfg_fnames <cfg_fname1>[,<cfg_fname2>...]`` to reduce computational load on login nodes from computing the mean of the IRF output.

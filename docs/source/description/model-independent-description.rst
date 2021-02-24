@@ -27,7 +27,7 @@ Before proceeding to the next Newton iteration, the solver performs a number of 
 Fixed point iterations tend to be effective at spinning up processes whose timescales are much shorter than the model forward integration duration.
 These fixed point iterations are performed after copying shadow tracers to their real tracer counterparts, for those models that have shadow tracers.
 In this use case, the fixed point iterations enable the shadowed tracers to adjust to the Newton increment.
-The number of these fixed point iterations, which defaults to 1, can be modified by changing ``post_newton_fp_iter`` in the cfg file.
+The number of these fixed point iterations, which defaults to 1, can be modified by changing ``post_newton_fp_iter`` in the cfg files.
 
 ------------------
 Driver Persistence
