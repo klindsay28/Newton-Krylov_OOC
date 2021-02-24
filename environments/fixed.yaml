@@ -14,9 +14,9 @@ dependencies:
 - pre-commit=2.5.1
 
 # documentation
-- sphinx
-- sphinx_rtd_theme
-- sphinxcontrib-bibtex
+- sphinx=3.1.0
+- sphinx_rtd_theme=0.4.3
+- sphinxcontrib-bibtex=1.0.0
 
 # solver requirements
 - netCDF4=1.5.6
