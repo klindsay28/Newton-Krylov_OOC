@@ -228,7 +228,7 @@ class TracerModuleState(TracerModuleStateBase):
 
             # depth integral
             varname = tracer_like_name + "_depth_int"
-            fptr.variables[varname][:] = self.depth.int_vals_mid(tracer_vals)
+            fptr.variables[varname][:] = self.depth.int_vals_mid(tracer_vals, axis=-1)
 
     @staticmethod
     def stats_dimensions(fptr):

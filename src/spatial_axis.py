@@ -150,12 +150,24 @@ class SpatialAxis:
         fptr.variables[self.dump_names["edges"]][:] = self.edges
         fptr.variables[self.dump_names["delta"]][:] = self.delta
 
-    def int_vals_mid(self, vals):
+        fptr.sync()
+
+    def int_vals_mid(self, vals, axis):
         """
-        integral of vals at layer midpoints
-        works for multiple tracer values, assuming vertical axis is last
+        integrate layer vals (i.e., at layer midpoints)
+        axis argument specifies the axis of integration
         """
-        return (self.delta * vals).sum(axis=-1)
+        if vals.shape[axis] != len(self):
+            msg = "length mismatch, %d != %d" % (vals.shape[axis], len(self))
+            raise ValueError(msg)
+        if axis == -1 or axis == vals.ndim - 1:
+            return (self.delta * vals).sum(axis=axis)
+        if axis == -2 or axis == vals.ndim - 2:
+            return (self.delta[:, np.newaxis] * vals).sum(axis=axis)
+        if axis == -3 or axis == vals.ndim - 3:
+            return (self.delta[:, np.newaxis, np.newaxis] * vals).sum(axis=axis)
+        msg = "axis = %d" % axis
+        raise ValueError(msg)
 
 
 def _gen_edges(defn_dict):
