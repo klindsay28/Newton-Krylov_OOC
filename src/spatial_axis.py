@@ -56,6 +56,11 @@ class SpatialAxis:
             if defn_dict is not None:
                 if axisname is not None:
                     raise ValueError("defn_dict and axisname cannot both be provided")
+                # ensure items are set
+                for key in defn_dict:
+                    if defn_dict[key]["value"] is None:
+                        msg = "value for key %s not set" % key
+                        raise ValueError(msg)
             else:
                 defn_dict = spatial_axis_defn_dict(axisname)
             self.axisname = defn_dict["axisname"]["value"]
@@ -221,12 +226,6 @@ def spatial_axis_defn_dict(axisname="depth", trap_unknown=True, **kwargs):
             defn_dict[key]["value"] = value
         elif trap_unknown:
             msg = "unknown key %s" % key
-            raise ValueError(msg)
-
-    # ensure items are set
-    for key in defn_dict:
-        if defn_dict[key]["value"] is None:
-            msg = "value for key %s not set" % key
             raise ValueError(msg)
 
     return defn_dict
