@@ -123,7 +123,9 @@ class ModelState(ModelStateBase):
     @staticmethod
     def _set_class_vars(modelinfo):
         """set (time-invariant) class variables"""
-        ModelState.depth = SpatialAxis(axisname="depth", fname=modelinfo["depth_fname"])
+        ModelState.depth = SpatialAxis(
+            axisname="depth", fname=modelinfo["grid_weight_fname"]
+        )
         ModelState.vert_mix = VertMix(ModelState.depth)
 
     def get_tracer_vals_all(self):

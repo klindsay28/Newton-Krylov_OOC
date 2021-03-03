@@ -27,8 +27,8 @@ def config_test_problem():
     # set up depth axis, using default settings
     # dump to expected location
     depth = SpatialAxis(defn_dict=spatial_axis_defn_dict())
-    depth_fname = config["modelinfo"]["depth_fname"]
-    depth.dump(depth_fname, caller="tests.share.config_test_problem")
+    grid_weight_fname = config["modelinfo"]["grid_weight_fname"]
+    depth.dump(grid_weight_fname, caller="tests.share.config_test_problem")
 
     # configure model and return result
     return ModelConfig(config["modelinfo"])
