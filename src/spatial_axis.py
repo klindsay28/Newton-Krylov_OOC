@@ -160,11 +160,11 @@ class SpatialAxis:
         if vals.shape[axis] != len(self):
             msg = "length mismatch, %d != %d" % (vals.shape[axis], len(self))
             raise ValueError(msg)
-        if axis == -1 or axis == vals.ndim - 1:
+        if axis in (-1, vals.ndim - 1):
             return (self.delta * vals).sum(axis=axis)
-        if axis == -2 or axis == vals.ndim - 2:
+        if axis in (-2, vals.ndim - 2):
             return (self.delta[:, np.newaxis] * vals).sum(axis=axis)
-        if axis == -3 or axis == vals.ndim - 3:
+        if axis in (-3, vals.ndim - 3):
             return (self.delta[:, np.newaxis, np.newaxis] * vals).sum(axis=axis)
         msg = "axis = %d" % axis
         raise ValueError(msg)
