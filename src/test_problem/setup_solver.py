@@ -16,7 +16,7 @@ from ..share import (
     read_cfg_files,
     repro_fname,
 )
-from ..spatial_axis import SpatialAxis, spatial_axis_defn_dict
+from ..spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
 from ..utils import mkdir_exist_okay
 from .model_state import ModelState
 
@@ -78,11 +78,11 @@ def main(args):
     defn_dict = {}
     for key, defn in spatial_axis_defn_dict(axisname="depth").items():
         depth_key = "depth_" + key
+        if depth_key in modelinfo:
+            defn_dict[key] = (defn["type"])(modelinfo[depth_key])
         if hasattr(args, depth_key):
             defn_dict[key] = getattr(args, depth_key)
-        else:
-            defn_dict[key] = (defn["type"])(modelinfo[depth_key])
-    depth = SpatialAxis(defn_dict=spatial_axis_defn_dict(**defn_dict))
+    depth = spatial_axis_from_defn_dict(defn_dict=spatial_axis_defn_dict(**defn_dict))
 
     caller = "src.test_problem.setup_solver.main"
 

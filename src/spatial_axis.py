@@ -11,81 +11,42 @@ from .utils import class_name, create_dimensions_verify, create_vars
 class SpatialAxis:
     """class for spatial axis related quantities"""
 
-    def __init__(self, axisname=None, fname=None, defn_dict=None):
+    def __init__(self, axisname, edges, units=None, defn_dict_values=None):
         """
-        Initialize SpatialAxis object, from a file or a dict defining the axis.
+        Initialize SpatialAxis object from its edge values.
 
         The fundamental quantities defining a SpatialAxis are it layer edges.
         All other quantities are derived from these edges.
 
-        Options for specifying edges are
-        1) read them from a file, specified by fname,
-        2) generate them from axis specs in dict, specified by defn_dect.
+        Argument Descriptions:
+        axisname: name given to axis
+        edges: numpy array of edge values
+        units: units of edges; assumed to be "m" if not provided
+        defn_dict_values: optional defining metadata
 
-        If neither of this arguments are provided, then defn_dict is set to the defaults
-        returned by spatial_axis_defn_dict(axisname).
-
-        file: assume edges variable in fname is named axis_name+"_edges"
-        other fields in the input file are ignored
-
-        dict: defn_dict is a dict required to have the following keys.
-        The values are dicts with a value key whose value is used.
-        E.g. defn_dict["units"]["value"] = "m".
-        The function spatial_axis_defn_dict returns a dict with these required keys:
-            axisname (str): name of axis
-            units (str): units of axis values
-            nlevs (int): number of layers
-            edge_start (float): first edge value
-            edge_end (float): last edge value
-            delta_ratio_max (float): maximum ratio of layer thicknesses
+        See also: spatial_axis_from_file, spatial_axis_from_defn_dict.
         """
 
-        if fname is not None:
-            if defn_dict is not None:
-                raise ValueError("fname and defn_dict cannot both be provided")
-            if axisname is None:
-                msg = "if fname is provided then axisname must be provided also"
-                raise ValueError(msg)
-            self.axisname = axisname
-            with Dataset(fname, mode="r") as fptr:
-                fptr.set_auto_mask(False)
-                self.units = fptr.variables[axisname + "_edges"].units
-                self.edges = fptr.variables[axisname + "_edges"][:]
-                self.defn_dict_values = getattr(fptr, "defn_dict_values", None)
-        else:
-            if defn_dict is not None:
-                if axisname is not None:
-                    raise ValueError("defn_dict and axisname cannot both be provided")
-                # ensure items are set
-                for key in defn_dict:
-                    if defn_dict[key]["value"] is None:
-                        msg = "value for key %s not set" % key
-                        raise ValueError(msg)
-            else:
-                defn_dict = spatial_axis_defn_dict(axisname)
-            self.axisname = defn_dict["axisname"]["value"]
-            self.units = defn_dict["units"]["value"]
-            self.edges = _gen_edges(defn_dict)
-            self.defn_dict_values = "\n".join(
-                key + "=" + "%s" % value["value"] for key, value in defn_dict.items()
-            )
+        self.axisname = axisname
+        self.edges = edges
+        self.units = "m" if units is None else units
+        self.defn_dict_values = defn_dict_values
 
-        self._nlevs = len(self.edges) - 1
         self.mid = 0.5 * (self.edges[:-1] + self.edges[1:])
         self.delta = self.edges[1:] - self.edges[:-1]
         self.delta_r = 1.0 / self.delta
-        self.delta_mid = np.ediff1d(self.mid)
+        self.delta_mid = self.mid[1:] - self.mid[:-1]
         self.delta_mid_r = 1.0 / self.delta_mid
 
         self.dump_names = {
-            "bounds": self.axisname + "_bounds",
-            "edges": self.axisname + "_edges",
-            "delta": self.axisname + "_delta",
+            "bounds": "_".join([self.axisname, "bounds"]),
+            "edges": "_".join([self.axisname, "edges"]),
+            "delta": "_".join([self.axisname, "delta"]),
         }
 
     def __len__(self):
         """length of axis, i.e., number of layers"""
-        return self._nlevs
+        return len(self.mid)
 
     def dump(self, fname, caller):
         """write axis information to a netCDF4 file"""
@@ -170,8 +131,72 @@ class SpatialAxis:
         raise ValueError(msg)
 
 
-def _gen_edges(defn_dict):
-    """generate edges from axis specs in defn_dict"""
+def spatial_axis_from_file(fname, axisname, edges_varname=None):
+    """
+    Return a SpatialAxis object initialized from edge values from a file.
+    fname: name of netCDF file with edge values
+    axisname: name of axis
+    edges_varname: name of variable in fname with axis edge values
+        If None, then assume edges_varname = axisname + "_edges".
+
+    Propagate units from the edges variable in fname, if present.
+    and defn_dict, if they are present in the file.
+    """
+
+    if edges_varname is None:
+        edges_varname = "_".join([axisname, "edges"])
+
+    with Dataset(fname, mode="r") as fptr:
+        fptr.set_auto_mask(False)
+        edges = fptr.variables[edges_varname][:]
+        units = getattr(fptr.variables[edges_varname], "units", None)
+        defn_dict_values = getattr(fptr, "defn_dict_values", None)
+
+    return SpatialAxis(axisname, edges, units, defn_dict_values)
+
+
+def spatial_axis_from_defn_dict(defn_dict):
+    """
+    Return a SpatialAxis object initialized from a defn_dict.
+
+    Keys in defn_dict that are required to have a value are:
+        axisname (str): name of axis
+        nlevs (int): number of layers
+        edge_start (float): first edge value
+        edge_end (float): last edge value
+
+    Exactly one of the following keys is required to have a value:
+        delta_ratio_max (float): maximum ratio of layer thicknesses
+        delta_start (float): first layer thickness
+
+    Keys in defn_dict that may optionally have a value are:
+        units (str): units of axis values
+    """
+
+    # ensure required values are set
+    for key in ["axisname", "nlevs", "edge_start", "edge_end", "delta_ratio_max"]:
+        if defn_dict[key]["value"] is None:
+            msg = "required value for key %s not set" % key
+            raise ValueError(msg)
+
+    if (defn_dict["delta_ratio_max"]["value"] is None) == (
+        defn_dict["delta_start"]["value"] is None
+    ):
+        raise ValueError(
+            "exactly one of delta_ratio_max and delta_start must have a value"
+        )
+
+    axisname = defn_dict["axisname"]["value"]
+    edges = _edges_from_defn_dict(defn_dict)
+    units = defn_dict["units"]["value"]
+    defn_dict_values = "\n".join(
+        key + "=" + "%s" % value["value"] for key, value in defn_dict.items()
+    )
+    return SpatialAxis(axisname, edges, units, defn_dict_values)
+
+
+def _edges_from_defn_dict(defn_dict):
+    """Generate edges from axis specs in defn_dict."""
 
     nlevs = defn_dict["nlevs"]["value"]
 
@@ -187,13 +212,19 @@ def _gen_edges(defn_dict):
         defn_dict["edge_end"]["value"] - defn_dict["edge_start"]["value"]
     )
 
-    delta_ratio_max = defn_dict["delta_ratio_max"]["value"]
-    if delta_ratio_max < 1.0:
-        msg = "delta_ratio_max must be >= 1.0"
-        raise ValueError(msg)
-    # stretch_factor solves
-    # (delta_avg + stretch_factor) / (delta_avg - stretch_factor) = delta_ratio_max
-    stretch_factor = delta_avg * (delta_ratio_max - 1) / (delta_ratio_max + 1)
+    if defn_dict["delta_ratio_max"]["value"] is not None:
+        # compute stretch_factor from delta_ratio_max, by solving
+        # (delta_avg + stretch_factor) / (delta_avg - stretch_factor) = delta_ratio_max
+        delta_ratio_max = defn_dict["delta_ratio_max"]["value"]
+        if delta_ratio_max <= 0.0:
+            raise ValueError("delta_ratio_max must be > 0.0 to ensure delta > 0.0")
+        stretch_factor = delta_avg * (delta_ratio_max - 1) / (delta_ratio_max + 1)
+    else:
+        # compute stretch_factor from delta_start
+        delta_start = defn_dict["delta_start"]["value"]
+        if delta_start <= 0.0:
+            raise ValueError("delta_start must be > 0.0")
+        stretch_factor = delta_avg - delta_start
 
     delta = delta_avg + stretch_factor * stretch_fcn
 
@@ -222,6 +253,7 @@ def spatial_axis_defn_dict(axisname="depth", trap_unknown=True, **kwargs):
             "help": "maximum ratio of layer thicknesses",
             "value": None,
         },
+        "delta_start": {"type": float, "help": "first layer thickness", "value": None},
     }
 
     # set item defaults, based on axisname argument

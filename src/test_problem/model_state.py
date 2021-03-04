@@ -17,7 +17,7 @@ from scipy.integrate import solve_ivp
 from ..model_config import ModelConfig
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, logging_config, read_cfg_files
-from ..spatial_axis import SpatialAxis
+from ..spatial_axis import spatial_axis_from_file
 from ..utils import class_name, create_dimensions_verify, create_vars
 from .vert_mix import VertMix
 
@@ -123,8 +123,8 @@ class ModelState(ModelStateBase):
     @staticmethod
     def _set_class_vars(modelinfo):
         """set (time-invariant) class variables"""
-        ModelState.depth = SpatialAxis(
-            axisname="depth", fname=modelinfo["grid_weight_fname"]
+        ModelState.depth = spatial_axis_from_file(
+            fname=modelinfo["grid_weight_fname"], axisname="depth"
         )
         ModelState.vert_mix = VertMix(ModelState.depth)
 
