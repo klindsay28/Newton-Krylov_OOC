@@ -1,0 +1,15 @@
+# tracer module definitions for model=py_driver_2d
+
+tracer_module_defs:
+    iage:  # module name
+        tracers:
+            iage:
+                attrs: {long_name: "ideal age", units: "years"}
+                init_iterate_val_depths: [55.0, 200.0]
+                init_iterate_vals: [0.0, 2.0]
+
+precond_matrix_defs:
+    base:
+        hist_to_precond_varnames:
+            - 'vert_mixing_coeff:mean'
+            - 'vert_mixing_coeff:log_mean'
