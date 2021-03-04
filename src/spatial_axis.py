@@ -169,6 +169,59 @@ class SpatialAxis:
         msg = "axis = %d" % axis
         raise ValueError(msg)
 
+    def remap_linear_interpolant(self, xvals, yvals):
+        """
+        Conservatively remap piecewise linear interpolant of xvals, yvals to self.
+        """
+
+        # In initial pass, compute average of linear interpolant evaluated at edges.
+        # This is the correct value for layers not containing x values.
+        yvals_at_edges = np.interp(self.edges, xvals, yvals)
+        res = 0.5 * (yvals_at_edges[:-1] + yvals_at_edges[1:])
+
+        # Update values in layers containing x values.
+        # Note that there may be more than one x value in a given layer.
+        # vals_ind is an index whose x value is in layer layer_ind.
+        layer_ind = 0
+        vals_ind = 0
+        while vals_ind < len(xvals):
+            # x value to the left of self; skip to next x value
+            if xvals[vals_ind] < self.edges[0]:
+                vals_ind += 1
+                continue
+
+            # x value to the right of self; we're done
+            if xvals[vals_ind] >= self.edges[-1]:
+                break
+
+            # find layer containing x value
+            # self.edges[layer_ind] <= xvals[vals_ind] < self.edges[layer_ind + 1]
+            while xvals[vals_ind] >= self.edges[layer_ind + 1]:
+                layer_ind += 1
+
+            # contribution from self.edges[layer_ind] <= x < xvals[vals_ind]
+            val = 0.5 * (yvals_at_edges[layer_ind] + yvals[vals_ind])
+            val_sum = (xvals[vals_ind] - self.edges[layer_ind]) * val
+
+            while (vals_ind < len(xvals)) and (
+                xvals[vals_ind] < self.edges[layer_ind + 1]
+            ):
+                if (vals_ind + 1 < len(xvals)) and (
+                    xvals[vals_ind + 1] < self.edges[layer_ind + 1]
+                ):
+                    # contribution from xvals[vals_ind] <= x < xvals[vals_ind + 1]
+                    val = 0.5 * (yvals[vals_ind] + yvals[vals_ind + 1])
+                    val_sum += (xvals[vals_ind + 1] - xvals[vals_ind]) * val
+                else:
+                    # contribution from xvals[vals_ind] <= x < self.edges[layer_ind + 1]
+                    val = 0.5 * (yvals[vals_ind] + yvals_at_edges[layer_ind + 1])
+                    val_sum += (self.edges[layer_ind + 1] - xvals[vals_ind]) * val
+                vals_ind += 1
+
+            res[layer_ind] = val_sum * self.delta_r[layer_ind]
+
+        return res
+
 
 def _gen_edges(defn_dict):
     """generate edges from axis specs in defn_dict"""
