@@ -17,7 +17,7 @@ from scipy.integrate import solve_ivp
 from ..model_config import ModelConfig
 from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, logging_config, read_cfg_files
-from ..spatial_axis import SpatialAxis
+from ..spatial_axis import spatial_axis_from_file
 from ..utils import class_name, create_dimensions_verify, create_vars
 from .advection import Advection
 from .horiz_mix import HorizMix
@@ -127,11 +127,11 @@ class ModelState(ModelStateBase):
             return
 
         ModelState.time_range = (0.0, 365.0 * 86400.0)
-        ModelState.depth = SpatialAxis(
-            axisname="depth", fname=modelinfo["grid_weight_fname"]
+        ModelState.depth = spatial_axis_from_file(
+            fname=modelinfo["grid_weight_fname"], axisname="depth"
         )
-        ModelState.ypos = SpatialAxis(
-            axisname="ypos", fname=modelinfo["grid_weight_fname"]
+        ModelState.ypos = spatial_axis_from_file(
+            fname=modelinfo["grid_weight_fname"], axisname="ypos"
         )
         ModelState.processes = {}
         ModelState.processes["advection"] = Advection(ModelState.depth, ModelState.ypos)

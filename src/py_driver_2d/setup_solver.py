@@ -20,7 +20,7 @@ from ..share import (
     read_cfg_files,
     repro_fname,
 )
-from ..spatial_axis import SpatialAxis, spatial_axis_defn_dict
+from ..spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
 from ..utils import create_dimensions_verify, create_vars, mkdir_exist_okay
 from .model_state import ModelState
 
@@ -168,12 +168,12 @@ def gen_axis(axisname, args, modelinfo):
     defn_dict = {}
     for key, defn in spatial_axis_defn_dict(axisname=axisname).items():
         axis_key = "_".join([axisname, key])
+        if axis_key in modelinfo:
+            defn_dict[key] = (defn["type"])(modelinfo[axis_key])
         if hasattr(args, axis_key):
             defn_dict[key] = getattr(args, axis_key)
-        else:
-            defn_dict[key] = (defn["type"])(modelinfo[axis_key])
 
-    return SpatialAxis(defn_dict=spatial_axis_defn_dict(**defn_dict))
+    return spatial_axis_from_defn_dict(defn_dict=spatial_axis_defn_dict(**defn_dict))
 
 
 if __name__ == "__main__":

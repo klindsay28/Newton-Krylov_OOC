@@ -6,7 +6,7 @@ import git
 
 from src.model_config import ModelConfig
 from src.share import common_args, read_cfg_files
-from src.spatial_axis import SpatialAxis, spatial_axis_defn_dict
+from src.spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
 from src.utils import mkdir_exist_okay
 
 
@@ -26,7 +26,7 @@ def config_test_problem():
 
     # set up depth axis, using default settings
     # dump to expected location
-    depth = SpatialAxis(defn_dict=spatial_axis_defn_dict())
+    depth = spatial_axis_from_defn_dict(defn_dict=spatial_axis_defn_dict())
     grid_weight_fname = config["modelinfo"]["grid_weight_fname"]
     depth.dump(grid_weight_fname, caller="tests.share.config_test_problem")
 
