@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from ..spatial_axis import SpatialAxis
 from .advection import Advection
 from .model_process import ModelProcess
 
@@ -13,6 +14,8 @@ class VertMix(ModelProcess):
 
         VertMix.depth = depth
         VertMix.ypos = ypos
+
+        VertMix.depth_edges_axis = SpatialAxis("depth_edges", depth.mid)
 
         self._mixing_coeff_time = None
         self._mixing_coeff_vals = np.zeros((len(self.depth) - 1, len(self.ypos)))
@@ -47,8 +50,9 @@ class VertMix(ModelProcess):
         res_log_shallow = np.log(1.0e1)
         res_log_deep = np.log(5.0e-4)
         for j in range(len(self.ypos)):
-            self._mixing_coeff_vals[:, j] = np.interp(
-                self.depth.edges[1:-1],
+            self._mixing_coeff_vals[
+                :, j
+            ] = VertMix.depth_edges_axis.remap_linear_interpolant(
                 [bldepth_vals[j] - 20.0, bldepth_vals[j] + 20.0],
                 [res_log_shallow, res_log_deep],
             )
@@ -75,7 +79,7 @@ class VertMix(ModelProcess):
         bldepth_max = np.interp(self.ypos.mid, [5.0e5, 10.0e5], [1500.0, bldepth_min])
         tvals = 365.0 * 86400.0 * np.array([0.3, 0.4, 0.6, 0.7])
         frac = np.interp(time, tvals, [0.0, 1.0, 1.0, 0.0])
-        frac = 1.0
+        # frac = 1.0
         return bldepth_min + (bldepth_max - bldepth_min) * frac
 
     def get_hist_vars_metadata(self):

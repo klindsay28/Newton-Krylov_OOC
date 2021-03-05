@@ -14,7 +14,6 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         compute tendency for iage
         tendency units are tr_units / s
         """
-        print(time / (365.0 * 86400.0))
         shape = (len(self.depth), len(self.ypos))
         dtracer_vals_dt = super().comp_tend(time, tracer_vals_flat, processes)
 
