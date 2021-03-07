@@ -211,6 +211,8 @@ class ModelState(ModelStateBase):
                 atol=1.0e-5,
                 rtol=1.0e-5,
                 args=(self.processes,),
+                jac=tracer_module.comp_jacobian,
+                jac_sparsity=tracer_module.full_jacobian_sparsity(1.0),
             )
             if ind0 == 0:
                 self._hist_write_tracer_module_independent(sol, fptr_hist)

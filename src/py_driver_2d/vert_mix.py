@@ -1,6 +1,7 @@
 """functions related to vertical mixing"""
 
 import numpy as np
+from scipy.sparse import csr_matrix
 
 from ..spatial_axis import SpatialAxis
 from .advection import Advection
@@ -25,7 +26,10 @@ class VertMix(ModelProcess):
         super().__init__(depth, ypos)
 
     def comp_tend(self, time, tracer_vals):
-        """single tracer tendency from mixing, with zero surface and bottom fluxes"""
+        """
+        single tracer tendency from vertical mixing
+        assume zero flux surface and bottom boundary conditions
+        """
         self._tend_work[1:-1, :] = self.mixing_coeff(time) * (
             tracer_vals[1:, :] - tracer_vals[:-1, :]
         )
@@ -118,3 +122,41 @@ class VertMix(ModelProcess):
             ] = fptr_hist.variables["vert_mixing_coeff"][time_ind, -2, :]
 
         fptr_hist.sync()
+
+    def comp_jacobian(self, time):
+        """
+        compute jacobian of tracer tendencies from vertical mixing
+        jacobian units are 1 / s
+        """
+        mixing_coeff_vals = self.mixing_coeff(time)
+        depth_n = len(self.depth)
+        ypos_n = len(self.ypos)
+        data = []
+        row_ind = []
+        col_ind = []
+        for depth_i in range(depth_n):
+            for ypos_i in range(ypos_n):
+                ind_2d_i = ypos_i + ypos_n * depth_i
+                tmp_sum = 0.0
+                # cell shallower
+                if depth_i > 0:
+                    tmp = mixing_coeff_vals[depth_i - 1, ypos_i]
+                    tmp *= self.depth.delta_r[depth_i]
+                    tmp_sum += tmp
+                    data.append(tmp)
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i - ypos_n)
+                # cell deeper
+                if depth_i < depth_n - 1:
+                    tmp = mixing_coeff_vals[depth_i, ypos_i]
+                    tmp *= self.depth.delta_r[depth_i]
+                    tmp_sum += tmp
+                    data.append(tmp)
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i + ypos_n)
+                # cell itself
+                data.append(-tmp_sum)
+                row_ind.append(ind_2d_i)
+                col_ind.append(ind_2d_i)
+        dof = ypos_n * depth_n
+        return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))

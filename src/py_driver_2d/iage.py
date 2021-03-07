@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy.linalg import solve_banded
+from scipy.sparse import csr_matrix
 
 from .tracer_module_state import TracerModuleState
 
@@ -11,7 +12,7 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
 
     def comp_tend(self, time, tracer_vals_flat, processes):
         """
-        compute tendency for iage
+        compute tendency of iage tracers
         tendency units are tr_units / s
         """
         shape = (len(self.depth), len(self.ypos))
@@ -27,6 +28,26 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         tracer_tend_vals[:] += 1.0 / (365.0 * 86400.0)
 
         return tracer_tend_vals
+
+    def comp_jacobian(self, time, tracer_vals_flat, processes):
+        """
+        compute jacobian of iage tracer tendencies
+        jacobian units are 1 / s
+        """
+        jacobian = super().comp_jacobian(time, tracer_vals_flat, processes)
+        jacobian += self.comp_jacobian_surf_restore()
+        return jacobian
+
+    def comp_jacobian_surf_restore(self):
+        """
+        compute jacobian of iage restoring term
+        jacobian units are 1 / s
+        """
+        row_ind = np.arange(len(self.ypos))
+        rate = 24.0 / 86400.0 * self.depth.delta[0] / 10.0
+        data = np.full(len(row_ind), -rate)
+        dof = len(self.ypos) * len(self.depth)
+        return csr_matrix((data, (row_ind, row_ind)), shape=(dof, dof))
 
     def apply_precond_jacobian(self, time_range, res_tms, mca):
         """

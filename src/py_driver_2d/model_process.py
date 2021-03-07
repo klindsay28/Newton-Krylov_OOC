@@ -20,4 +20,11 @@ class ModelProcess:
         return {}
 
     def hist_write(self, sol, fptr_hist):
-        """write processs-specific history variables"""
+        """
+        write processs-specific history variables
+        empty stub provided to support subclasses that do not provide this method
+        """
+
+    def comp_jacobian(self, time):
+        """compute jacobian of tracer tendencies from process"""
+        raise NotImplementedError("Method must be implemented in derived class")

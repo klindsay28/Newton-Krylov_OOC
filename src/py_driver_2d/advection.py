@@ -1,6 +1,7 @@
 """functions related to advection"""
 
 import numpy as np
+from scipy.sparse import csr_matrix
 
 from .model_process import ModelProcess
 
@@ -97,3 +98,56 @@ class Advection(ModelProcess):
         fptr_hist.variables["wvel"][:] = self.wvel
 
         fptr_hist.sync()
+
+    def comp_jacobian(self, time):
+        """
+        compute jacobian of tracer tendencies from advection
+        jacobian units are 1 / s
+        """
+        depth_n = len(self.depth)
+        ypos_n = len(self.ypos)
+        data = []
+        row_ind = []
+        col_ind = []
+        for depth_i in range(depth_n):
+            for ypos_i in range(ypos_n):
+                ind_2d_i = ypos_i + ypos_n * depth_i
+                tmp_sum = 0.0
+                # cell shallower
+                if depth_i > 0:
+                    tmp = -0.5 * self.wvel[depth_i, ypos_i]
+                    tmp *= self.depth.delta_r[depth_i]
+                    tmp_sum += tmp
+                    data.append(tmp)
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i - ypos_n)
+                # cell to the south
+                if ypos_i > 0:
+                    tmp = 0.5 * self.vvel[depth_i, ypos_i]
+                    tmp *= self.ypos.delta_r[ypos_i]
+                    tmp_sum += tmp
+                    data.append(tmp)
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i - 1)
+                # cell to the north
+                if ypos_i < ypos_n - 1:
+                    tmp = -0.5 * self.vvel[depth_i, ypos_i + 1]
+                    tmp *= self.ypos.delta_r[ypos_i]
+                    tmp_sum += tmp
+                    data.append(tmp)
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i + 1)
+                # cell deeper
+                if depth_i < depth_n - 1:
+                    tmp = 0.5 * self.wvel[depth_i + 1, ypos_i]
+                    tmp *= self.depth.delta_r[depth_i]
+                    tmp_sum += tmp
+                    data.append(tmp)
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i + ypos_n)
+                # cell itself
+                data.append(tmp_sum)
+                row_ind.append(ind_2d_i)
+                col_ind.append(ind_2d_i)
+        dof = ypos_n * depth_n
+        return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))

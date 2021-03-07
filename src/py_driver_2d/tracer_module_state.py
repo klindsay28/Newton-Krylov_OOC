@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 from netCDF4 import Dataset
+from scipy.sparse import csr_matrix
 
 from ..region_scalars import RegionScalars
 from ..tracer_module_state_base import TracerModuleStateBase
@@ -126,7 +127,7 @@ class TracerModuleState(TracerModuleStateBase):
 
     def comp_tend(self, time, tracer_vals_flat, processes):
         """
-        compute tendency for tracers
+        compute tendency of tracers
         tendency units are tr_units / s
         """
         shape = (len(self.depth), len(self.ypos))
@@ -259,6 +260,53 @@ class TracerModuleState(TracerModuleStateBase):
             varname = tracer_like_name + "_ypos_mean"
             fptr.variables[varname][:] = self.ypos.int_vals_mid(tracer_vals, axis=-1)
             fptr.variables[varname][:] /= self.ypos.edges.max() - self.ypos.edges.min()
+
+    def comp_jacobian(self, time, tracer_vals_flat, processes):
+        """
+        compute jacobian of tracer tendencies
+        jacobian units are 1 / s
+        """
+        jacobian = self.full_jacobian_sparsity(0.0)
+        for process in processes.values():
+            jacobian += process.comp_jacobian(time)
+        return jacobian
+
+    def full_jacobian_sparsity(self, fill_value):
+        """
+        return csr_matrix of fill_value with sparsity pattern of jacobian
+        assumes self.tracer_cnt = 1
+        tracer modules that have multiple tracers should override this method
+            to handle their own tracer couplings
+        """
+        depth_n = len(self.depth)
+        ypos_n = len(self.ypos)
+        row_ind = []
+        col_ind = []
+        for depth_i in range(depth_n):
+            for ypos_i in range(ypos_n):
+                ind_2d_i = ypos_i + ypos_n * depth_i
+                # cell shallower
+                if depth_i > 0:
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i - ypos_n)
+                # cell to the south
+                if ypos_i > 0:
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i - 1)
+                # cell itself
+                row_ind.append(ind_2d_i)
+                col_ind.append(ind_2d_i)
+                # cell to the north
+                if ypos_i < ypos_n - 1:
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i + 1)
+                # cell deeper
+                if depth_i < depth_n - 1:
+                    row_ind.append(ind_2d_i)
+                    col_ind.append(ind_2d_i + ypos_n)
+        data = np.full(len(row_ind), fill_value)
+        dof = ypos_n * depth_n
+        return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))
 
     @staticmethod
     def stats_dimensions(fptr):
