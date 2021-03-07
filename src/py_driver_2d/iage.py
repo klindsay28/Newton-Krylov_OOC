@@ -15,18 +15,18 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         tendency units are tr_units / s
         """
         shape = (len(self.depth), len(self.ypos))
-        dtracer_vals_dt = super().comp_tend(time, tracer_vals_flat, processes)
+        tracer_tend_vals = super().comp_tend(time, tracer_vals_flat, processes)
 
         # restore surface layer to zero at rate of 24 / day over 10 m
         rate = 24.0 / 86400.0 * self.depth.delta[0] / 10.0
         tracer_vals_2d = tracer_vals_flat.reshape(shape)
-        dtracer_vals_dt_2d = dtracer_vals_dt.reshape(shape)
-        dtracer_vals_dt_2d[0, :] -= rate * tracer_vals_2d[0, :]
+        tracer_tend_vals_2d = tracer_tend_vals.reshape(shape)
+        tracer_tend_vals_2d[0, :] -= rate * tracer_vals_2d[0, :]
 
         # age 1/year
-        dtracer_vals_dt[:] += 1.0 / (365.0 * 86400.0)
+        tracer_tend_vals[:] += 1.0 / (365.0 * 86400.0)
 
-        return dtracer_vals_dt
+        return tracer_tend_vals
 
     def apply_precond_jacobian(self, time_range, res_tms, mca):
         """

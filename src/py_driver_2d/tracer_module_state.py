@@ -131,10 +131,10 @@ class TracerModuleState(TracerModuleStateBase):
         """
         shape = (len(self.depth), len(self.ypos))
         tracer_vals_2d = tracer_vals_flat.reshape(shape)
-        dtracer_vals_dt_2d = np.zeros(shape)
+        tracer_tend_vals_2d = np.zeros(shape)
         for process in processes.values():
-            dtracer_vals_dt_2d[:] += process.comp_tend(time, tracer_vals_2d[:])
-        return dtracer_vals_dt_2d.reshape(-1)
+            tracer_tend_vals_2d[:] += process.comp_tend(time, tracer_vals_2d[:])
+        return tracer_tend_vals_2d.reshape(-1)
 
     def hist_vars_metadata(self):
         """return dict of metadata for vars to appear in the hist file"""
