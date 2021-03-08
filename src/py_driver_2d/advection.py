@@ -19,6 +19,8 @@ class Advection(ModelProcess):
         self._tend_work_y = np.zeros((len(self.depth), len(self.ypos) + 1))
         self._tend_work_z = np.zeros((len(self.depth) + 1, len(self.ypos)))
 
+        Advection.jacobian_cache = None
+
         super().__init__(depth, ypos)
 
     @staticmethod
@@ -104,50 +106,66 @@ class Advection(ModelProcess):
         compute jacobian of tracer tendencies from advection
         jacobian units are 1 / s
         """
-        depth_n = len(self.depth)
-        ypos_n = len(self.ypos)
-        data = []
-        row_ind = []
-        col_ind = []
-        for depth_i in range(depth_n):
-            for ypos_i in range(ypos_n):
-                ind_2d_i = ypos_i + ypos_n * depth_i
-                tmp_sum = 0.0
-                # cell shallower
-                if depth_i > 0:
-                    tmp = -0.5 * self.wvel[depth_i, ypos_i]
-                    tmp *= self.depth.delta_r[depth_i]
-                    tmp_sum += tmp
-                    data.append(tmp)
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i - ypos_n)
-                # cell to the south
-                if ypos_i > 0:
-                    tmp = 0.5 * self.vvel[depth_i, ypos_i]
-                    tmp *= self.ypos.delta_r[ypos_i]
-                    tmp_sum += tmp
-                    data.append(tmp)
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i - 1)
-                # cell to the north
-                if ypos_i < ypos_n - 1:
-                    tmp = -0.5 * self.vvel[depth_i, ypos_i + 1]
-                    tmp *= self.ypos.delta_r[ypos_i]
-                    tmp_sum += tmp
-                    data.append(tmp)
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i + 1)
-                # cell deeper
-                if depth_i < depth_n - 1:
-                    tmp = 0.5 * self.wvel[depth_i + 1, ypos_i]
-                    tmp *= self.depth.delta_r[depth_i]
-                    tmp_sum += tmp
-                    data.append(tmp)
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i + ypos_n)
-                # cell itself
-                data.append(tmp_sum)
-                row_ind.append(ind_2d_i)
-                col_ind.append(ind_2d_i)
-        dof = ypos_n * depth_n
-        return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))
+        if Advection.jacobian_cache is None:
+            depth_n = len(self.depth)
+            ypos_n = len(self.ypos)
+            nnz = 5 * (depth_n - 2) * (ypos_n - 2)
+            nnz += 4 * 2 * (depth_n - 2) + 4 * 2 * (ypos_n - 2) + 3 * 4
+            data = np.empty(nnz)
+            row_ind = np.empty(nnz, int)
+            col_ind = np.empty(nnz, int)
+            mat_ind = 0
+            for depth_i in range(depth_n):
+                for ypos_i in range(ypos_n):
+                    cell_ind = ypos_i + ypos_n * depth_i
+                    tmp_sum = 0.0
+                    # cell shallower
+                    if depth_i > 0:
+                        tmp = -0.5 * self.wvel[depth_i, ypos_i]
+                        tmp *= self.depth.delta_r[depth_i]
+                        tmp_sum += tmp
+                        data[mat_ind] = tmp
+                        row_ind[mat_ind] = cell_ind
+                        col_ind[mat_ind] = cell_ind - ypos_n
+                        mat_ind += 1
+                    # cell to the south
+                    if ypos_i > 0:
+                        tmp = 0.5 * self.vvel[depth_i, ypos_i]
+                        tmp *= self.ypos.delta_r[ypos_i]
+                        tmp_sum += tmp
+                        data[mat_ind] = tmp
+                        row_ind[mat_ind] = cell_ind
+                        col_ind[mat_ind] = cell_ind - 1
+                        mat_ind += 1
+                    # cell to the north
+                    if ypos_i < ypos_n - 1:
+                        tmp = -0.5 * self.vvel[depth_i, ypos_i + 1]
+                        tmp *= self.ypos.delta_r[ypos_i]
+                        tmp_sum += tmp
+                        data[mat_ind] = tmp
+                        row_ind[mat_ind] = cell_ind
+                        col_ind[mat_ind] = cell_ind + 1
+                        mat_ind += 1
+                    # cell deeper
+                    if depth_i < depth_n - 1:
+                        tmp = 0.5 * self.wvel[depth_i + 1, ypos_i]
+                        tmp *= self.depth.delta_r[depth_i]
+                        tmp_sum += tmp
+                        data[mat_ind] = tmp
+                        row_ind[mat_ind] = cell_ind
+                        col_ind[mat_ind] = cell_ind + ypos_n
+                        mat_ind += 1
+                    # cell itself
+                    data[mat_ind] = tmp_sum
+                    row_ind[mat_ind] = cell_ind
+                    col_ind[mat_ind] = cell_ind
+                    mat_ind += 1
+            if mat_ind != nnz:
+                msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
+                raise RuntimeError(msg)
+            dof = ypos_n * depth_n
+            Advection.jacobian_cache = csr_matrix(
+                (data, (row_ind, col_ind)), shape=(dof, dof)
+            )
+
+        return Advection.jacobian_cache

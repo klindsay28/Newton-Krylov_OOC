@@ -208,6 +208,7 @@ class ModelState(ModelStateBase):
                 res_vals[ind0 : ind0 + cnt, :].reshape(-1),
                 "Radau",
                 t_eval,
+                max_step=(self.time_range[1] - self.time_range[0]) * 0.01,
                 atol=1.0e-5,
                 rtol=1.0e-5,
                 args=(self.processes,),

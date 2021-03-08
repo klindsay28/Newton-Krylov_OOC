@@ -53,13 +53,21 @@ class VertMix(ModelProcess):
         bldepth_vals = self.bldepth(time)
         res_log_shallow = np.log(1.0e1)
         res_log_deep = np.log(5.0e-4)
+
+        bldepth_cache = None
         for j in range(len(self.ypos)):
-            self._mixing_coeff_vals[
-                :, j
-            ] = VertMix.depth_edges_axis.remap_linear_interpolant(
-                [bldepth_vals[j] - 20.0, bldepth_vals[j] + 20.0],
-                [res_log_shallow, res_log_deep],
-            )
+            if bldepth_vals[j] != bldepth_cache:
+                self._mixing_coeff_vals[
+                    :, j
+                ] = VertMix.depth_edges_axis.remap_linear_interpolant(
+                    [bldepth_vals[j] - 20.0, bldepth_vals[j] + 20.0],
+                    [res_log_shallow, res_log_deep],
+                )
+                bldepth_cache = bldepth_vals[j]
+                j_cache = j
+            else:
+                self._mixing_coeff_vals[:, j] = self._mixing_coeff_vals[:, j_cache]
+
         self._mixing_coeff_vals[:] = np.exp(self._mixing_coeff_vals[:])
 
         # increase mixing_coeff to keep grid Peclet number <= 2.0
@@ -131,32 +139,40 @@ class VertMix(ModelProcess):
         mixing_coeff_vals = self.mixing_coeff(time)
         depth_n = len(self.depth)
         ypos_n = len(self.ypos)
-        data = []
-        row_ind = []
-        col_ind = []
+        nnz = (3 * (depth_n - 2) + 2 * 2) * ypos_n
+        data = np.empty(nnz)
+        row_ind = np.empty(nnz, int)
+        col_ind = np.empty(nnz, int)
+        mat_ind = 0
         for depth_i in range(depth_n):
             for ypos_i in range(ypos_n):
-                ind_2d_i = ypos_i + ypos_n * depth_i
+                cell_ind = ypos_i + ypos_n * depth_i
                 tmp_sum = 0.0
                 # cell shallower
                 if depth_i > 0:
                     tmp = mixing_coeff_vals[depth_i - 1, ypos_i]
                     tmp *= self.depth.delta_r[depth_i]
                     tmp_sum += tmp
-                    data.append(tmp)
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i - ypos_n)
+                    data[mat_ind] = tmp
+                    row_ind[mat_ind] = cell_ind
+                    col_ind[mat_ind] = cell_ind - ypos_n
+                    mat_ind += 1
                 # cell deeper
                 if depth_i < depth_n - 1:
                     tmp = mixing_coeff_vals[depth_i, ypos_i]
                     tmp *= self.depth.delta_r[depth_i]
                     tmp_sum += tmp
-                    data.append(tmp)
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i + ypos_n)
+                    data[mat_ind] = tmp
+                    row_ind[mat_ind] = cell_ind
+                    col_ind[mat_ind] = cell_ind + ypos_n
+                    mat_ind += 1
                 # cell itself
-                data.append(-tmp_sum)
-                row_ind.append(ind_2d_i)
-                col_ind.append(ind_2d_i)
+                data[mat_ind] = -tmp_sum
+                row_ind[mat_ind] = cell_ind
+                col_ind[mat_ind] = cell_ind
+                mat_ind += 1
+        if mat_ind != nnz:
+            msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
+            raise RuntimeError(msg)
         dof = ypos_n * depth_n
         return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))

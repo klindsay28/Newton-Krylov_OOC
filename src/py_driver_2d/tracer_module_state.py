@@ -280,31 +280,42 @@ class TracerModuleState(TracerModuleStateBase):
         """
         depth_n = len(self.depth)
         ypos_n = len(self.ypos)
-        row_ind = []
-        col_ind = []
+        nnz = 5 * (depth_n - 2) * (ypos_n - 2)
+        nnz += 4 * 2 * (depth_n - 2) + 4 * 2 * (ypos_n - 2) + 3 * 4
+        data = np.full(nnz, fill_value)
+        row_ind = np.empty(nnz, int)
+        col_ind = np.empty(nnz, int)
+        mat_ind = 0
         for depth_i in range(depth_n):
             for ypos_i in range(ypos_n):
-                ind_2d_i = ypos_i + ypos_n * depth_i
+                cell_ind = ypos_i + ypos_n * depth_i
                 # cell shallower
                 if depth_i > 0:
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i - ypos_n)
+                    row_ind[mat_ind] = cell_ind
+                    col_ind[mat_ind] = cell_ind - ypos_n
+                    mat_ind += 1
                 # cell to the south
                 if ypos_i > 0:
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i - 1)
+                    row_ind[mat_ind] = cell_ind
+                    col_ind[mat_ind] = cell_ind - 1
+                    mat_ind += 1
                 # cell itself
-                row_ind.append(ind_2d_i)
-                col_ind.append(ind_2d_i)
+                row_ind[mat_ind] = cell_ind
+                col_ind[mat_ind] = cell_ind
+                mat_ind += 1
                 # cell to the north
                 if ypos_i < ypos_n - 1:
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i + 1)
+                    row_ind[mat_ind] = cell_ind
+                    col_ind[mat_ind] = cell_ind + 1
+                    mat_ind += 1
                 # cell deeper
                 if depth_i < depth_n - 1:
-                    row_ind.append(ind_2d_i)
-                    col_ind.append(ind_2d_i + ypos_n)
-        data = np.full(len(row_ind), fill_value)
+                    row_ind[mat_ind] = cell_ind
+                    col_ind[mat_ind] = cell_ind + ypos_n
+                    mat_ind += 1
+        if mat_ind != nnz:
+            msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
+            raise RuntimeError(msg)
         dof = ypos_n * depth_n
         return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))
 
