@@ -88,7 +88,7 @@ class VertMix(ModelProcess):
         """time varying boundary layer depth"""
 
         bldepth_min = 35.0
-        bldepth_max = np.interp(self.ypos.mid, [5.0e5, 10.0e5], [1500.0, bldepth_min])
+        bldepth_max = np.interp(self.ypos.mid, [3.0e5, 6.0e5], [3000.0, bldepth_min])
         tvals = 365.0 * 86400.0 * np.array([0.3, 0.4, 0.6, 0.7])
         frac = np.interp(time, tvals, [0.0, 1.0, 1.0, 0.0])
         # frac = 1.0
