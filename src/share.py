@@ -26,7 +26,7 @@ cfg_override_args = {
     "tracer_module_names": {"section": "modelinfo"},
     "init_iterate_fname": {"section": "modelinfo"},
     "persist": {
-        "model_name": "test_problem",
+        "model_names": ["test_problem", "py_driver_2d"],
         "override_var": "reinvoke",
         "action": "store_true",
         "override_val": "False",
@@ -64,8 +64,8 @@ def common_args(description, model_name, args_list):
 
     # add arguments that override cfg file
     for argname, metadata in cfg_override_args.items():
-        # skip arguments that are model specific for a different model_name
-        if "model_name" in metadata and args.model_name != metadata["model_name"]:
+        # skip arguments that are model specific for different model_names
+        if args.model_name not in metadata.get("model_names", [args.model_name]):
             continue
         override_var = metadata.get("override_var", argname)
         if "action" not in metadata:

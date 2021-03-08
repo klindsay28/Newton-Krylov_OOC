@@ -11,5 +11,4 @@ tracer_module_defs:
 precond_matrix_defs:
     base:
         hist_to_precond_varnames:
-            - 'vert_mixing_coeff:mean'
-            - 'vert_mixing_coeff:log_mean'
+            - "time"

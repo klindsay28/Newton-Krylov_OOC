@@ -125,13 +125,13 @@ class TracerModuleState(TracerModuleStateBase):
             raise ValueError(msg)
         return self
 
-    def comp_tend(self, time, tracer_vals_flat, processes):
+    def comp_tend(self, time, tracer_vals, processes):
         """
         compute tendency of tracers
         tendency units are tr_units / s
         """
         shape = (len(self.depth), len(self.ypos))
-        tracer_vals_2d = tracer_vals_flat.reshape(shape)
+        tracer_vals_2d = tracer_vals.reshape(shape)
         tracer_tend_vals_2d = np.zeros(shape)
         for process in processes.values():
             tracer_tend_vals_2d[:] += process.comp_tend(time, tracer_vals_2d[:])
@@ -261,7 +261,7 @@ class TracerModuleState(TracerModuleStateBase):
             fptr.variables[varname][:] = self.ypos.int_vals_mid(tracer_vals, axis=-1)
             fptr.variables[varname][:] /= self.ypos.edges.max() - self.ypos.edges.min()
 
-    def comp_jacobian(self, time, tracer_vals_flat, processes):
+    def comp_jacobian(self, time, tracer_vals, processes):
         """
         compute jacobian of tracer tendencies
         jacobian units are 1 / s
@@ -385,5 +385,5 @@ class TracerModuleState(TracerModuleStateBase):
 
             # ypos average
             varname_stats = "_".join([tracer_name, "mean", "ypos"])
-            res[varname_stats] = np.einsum("j,..j", ypos_weights, res[tracer_name])
+            res[varname_stats] = np.einsum("j,...j", ypos_weights, res[tracer_name])
         return res

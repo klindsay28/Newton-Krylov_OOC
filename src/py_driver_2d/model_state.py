@@ -209,8 +209,8 @@ class ModelState(ModelStateBase):
                 "Radau",
                 t_eval,
                 max_step=(self.time_range[1] - self.time_range[0]) * 0.01,
-                atol=1.0e-5,
-                rtol=1.0e-5,
+                atol=1.0e-6,
+                rtol=1.0e-6,
                 args=(self.processes,),
                 jac=tracer_module.comp_jacobian,
                 jac_sparsity=tracer_module.full_jacobian_sparsity(1.0),
@@ -354,7 +354,7 @@ class ModelState(ModelStateBase):
         # ModelState instance for result
         res_ms = copy.deepcopy(self)
 
-        pos_args = ["self", "time_range", "res_tms"]
+        pos_args = ["self", "time_range", "res_tms", "processes"]
 
         arg_to_hist_dict = {
             "mca": "vert_mixing_coeff_log_mean",
@@ -374,7 +374,10 @@ class ModelState(ModelStateBase):
                         kwargs[arg] = hist_var[:]
 
                 tracer_module.apply_precond_jacobian(
-                    self.time_range, res_ms.tracer_modules[tracer_module_ind], **kwargs
+                    self.time_range,
+                    res_ms.tracer_modules[tracer_module_ind],
+                    ModelState.processes,
+                    **kwargs
                 )
 
         if solver_state is not None:
