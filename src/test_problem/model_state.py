@@ -115,6 +115,10 @@ class ModelState(ModelStateBase):
         if ModelState.model_config_obj is None:
             raise RuntimeError("ModelState.model_config_obj is None")
 
+        # Call _set_class_vars before super().__init__ to ensure
+        # that the axis class variable is available in super().__init__.
+        # It is used when generating intial values from tracer module metadata,
+        # or (potentially) regridding from input datasets to the axis.
         if ModelState.depth is None:
             self._set_class_vars(self.model_config_obj.modelinfo)
 

@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 from netCDF4 import Dataset
-from scipy.sparse import csr_matrix
+from scipy import sparse
 
 from ..region_scalars import RegionScalars
 from ..tracer_module_state_base import TracerModuleStateBase
@@ -130,12 +130,12 @@ class TracerModuleState(TracerModuleStateBase):
         compute tendency of tracers
         tendency units are tr_units / s
         """
-        shape = (len(self.depth), len(self.ypos))
-        tracer_vals_2d = tracer_vals.reshape(shape)
-        tracer_tend_vals_2d = np.zeros(shape)
+        shape = (self.tracer_cnt, len(self.depth), len(self.ypos))
+        tracer_vals_3d = tracer_vals.reshape(shape)
+        tracer_tend_vals_3d = np.zeros(shape)
         for process in processes.values():
-            tracer_tend_vals_2d[:] += process.comp_tend(time, tracer_vals_2d[:])
-        return tracer_tend_vals_2d.reshape(-1)
+            tracer_tend_vals_3d[:] += process.comp_tend(time, tracer_vals_3d[:])
+        return tracer_tend_vals_3d.reshape(-1)
 
     def hist_vars_metadata(self):
         """return dict of metadata for vars to appear in the hist file"""
@@ -263,61 +263,22 @@ class TracerModuleState(TracerModuleStateBase):
 
     def comp_jacobian(self, time, tracer_vals, processes):
         """
-        compute jacobian of tracer tendencies
+        compute jacobian of tracer tendencies from processes
         jacobian units are 1 / s
         """
-        jacobian = self.full_jacobian_sparsity(0.0)
+        jacobian = sparse.csr_matrix((tracer_vals.size, tracer_vals.size))
         for process in processes.values():
-            jacobian += process.comp_jacobian(time)
+            jacobian += process.comp_jacobian(time, self.tracer_cnt)
         return jacobian
 
-    def full_jacobian_sparsity(self, fill_value):
+    def comp_jacobian_sparsity(self, time, tracer_vals, processes):
         """
-        return csr_matrix of fill_value with sparsity pattern of jacobian
-        assumes self.tracer_cnt = 1
-        tracer modules that have multiple tracers should override this method
-            to handle their own tracer couplings
+        return sparse matrix with sparsity pattern of jacobian from processes
         """
-        depth_n = len(self.depth)
-        ypos_n = len(self.ypos)
-        nnz = 5 * (depth_n - 2) * (ypos_n - 2)
-        nnz += 4 * 2 * (depth_n - 2) + 4 * 2 * (ypos_n - 2) + 3 * 4
-        data = np.full(nnz, fill_value)
-        row_ind = np.empty(nnz, int)
-        col_ind = np.empty(nnz, int)
-        mat_ind = 0
-        for depth_i in range(depth_n):
-            for ypos_i in range(ypos_n):
-                cell_ind = ypos_i + ypos_n * depth_i
-                # cell shallower
-                if depth_i > 0:
-                    row_ind[mat_ind] = cell_ind
-                    col_ind[mat_ind] = cell_ind - ypos_n
-                    mat_ind += 1
-                # cell to the south
-                if ypos_i > 0:
-                    row_ind[mat_ind] = cell_ind
-                    col_ind[mat_ind] = cell_ind - 1
-                    mat_ind += 1
-                # cell itself
-                row_ind[mat_ind] = cell_ind
-                col_ind[mat_ind] = cell_ind
-                mat_ind += 1
-                # cell to the north
-                if ypos_i < ypos_n - 1:
-                    row_ind[mat_ind] = cell_ind
-                    col_ind[mat_ind] = cell_ind + 1
-                    mat_ind += 1
-                # cell deeper
-                if depth_i < depth_n - 1:
-                    row_ind[mat_ind] = cell_ind
-                    col_ind[mat_ind] = cell_ind + ypos_n
-                    mat_ind += 1
-        if mat_ind != nnz:
-            msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
-            raise RuntimeError(msg)
-        dof = ypos_n * depth_n
-        return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))
+        jacobian = self.comp_jacobian(time, tracer_vals, processes)
+        (row_ind, col_ind, _) = sparse.find(jacobian)
+        data = np.ones(row_ind.shape)
+        return sparse.csr_matrix((data, (row_ind, col_ind)))
 
     @staticmethod
     def stats_dimensions(fptr):

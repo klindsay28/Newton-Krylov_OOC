@@ -7,6 +7,12 @@ tracer_module_defs:
                 attrs: {long_name: "ideal age", units: "years"}
                 init_iterate_val_depths: [55.0, 200.0]
                 init_iterate_vals: [0.0, 2.0]
+            iage_slow_rest:
+                attrs:
+                    long_name: "ideal age, slower surface restoring"
+                    units: "years"
+                init_iterate_val_depths: [55.0, 200.0]
+                init_iterate_vals: [0.0, 2.0]
 
 precond_matrix_defs:
     base:

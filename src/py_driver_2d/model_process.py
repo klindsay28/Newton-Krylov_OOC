@@ -25,6 +25,10 @@ class ModelProcess:
         empty stub provided to support subclasses that do not provide this method
         """
 
-    def comp_jacobian(self, time):
+    def comp_jacobian(self, time, tracer_cnt):
         """compute jacobian of tracer tendencies from process"""
+        raise NotImplementedError("Method must be implemented in derived class")
+
+    def comp_jac_sparsity(self, tracer_cnt):
+        """return sparse matrix with sparsity pattern of jacobian for process"""
         raise NotImplementedError("Method must be implemented in derived class")

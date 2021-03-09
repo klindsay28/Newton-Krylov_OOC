@@ -115,6 +115,10 @@ class ModelState(ModelStateBase):
         if ModelState.model_config_obj is None:
             raise RuntimeError("ModelState.model_config_obj is None")
 
+        # Call _set_class_vars before super().__init__ to ensure
+        # that the axis class variables are available in super().__init__.
+        # These are used when generating intial values from tracer module metadata,
+        # or (potentially) regridding from input datasets to the axes.
         self._set_class_vars(self.model_config_obj.modelinfo)
 
         super().__init__(fname)
@@ -202,10 +206,15 @@ class ModelState(ModelStateBase):
         for tracer_module in self.tracer_modules:
             self._hist_def_vars(tracer_module, fptr_hist)
             cnt = tracer_module.tracer_cnt
+            tracer_vals_init = res_vals[ind0 : ind0 + cnt, :].reshape(-1)
+            # assume sparsity pattern does not change in time
+            jac_sparsity = tracer_module.comp_jacobian_sparsity(
+                self.time_range[0], tracer_vals_init, self.processes
+            )
             sol = solve_ivp(
                 tracer_module.comp_tend,
                 self.time_range,
-                res_vals[ind0 : ind0 + cnt, :].reshape(-1),
+                tracer_vals_init,
                 "Radau",
                 t_eval,
                 max_step=(self.time_range[1] - self.time_range[0]) * 0.01,
@@ -213,7 +222,7 @@ class ModelState(ModelStateBase):
                 rtol=1.0e-6,
                 args=(self.processes,),
                 jac=tracer_module.comp_jacobian,
-                jac_sparsity=tracer_module.full_jacobian_sparsity(1.0),
+                jac_sparsity=jac_sparsity,
             )
             if ind0 == 0:
                 self._hist_write_tracer_module_independent(sol, fptr_hist)

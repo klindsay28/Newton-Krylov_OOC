@@ -1,7 +1,7 @@
 """functions related to vertical mixing"""
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy import sparse
 
 from ..spatial_axis import SpatialAxis
 from .advection import Advection
@@ -30,12 +30,19 @@ class VertMix(ModelProcess):
         single tracer tendency from vertical mixing
         assume zero flux surface and bottom boundary conditions
         """
-        self._tend_work[1:-1, :] = self.mixing_coeff(time) * (
-            tracer_vals[1:, :] - tracer_vals[:-1, :]
-        )
-        return (self._tend_work[1:, :] - self._tend_work[:-1, :]) * self.depth.delta_r[
-            :, np.newaxis
-        ]
+
+        shape = tracer_vals.shape
+        res = np.empty(shape)
+
+        for tracer_ind in range(shape[0]):
+            self._tend_work[1:-1, :] = self.mixing_coeff(time) * (
+                tracer_vals[tracer_ind, 1:, :] - tracer_vals[tracer_ind, :-1, :]
+            )
+            res[tracer_ind, :] = self.depth.delta_r[:, np.newaxis] * (
+                self._tend_work[1:, :] - self._tend_work[:-1, :]
+            )
+
+        return res
 
     def mixing_coeff(self, time):
         """
@@ -131,11 +138,13 @@ class VertMix(ModelProcess):
 
         fptr_hist.sync()
 
-    def comp_jacobian(self, time):
+    def comp_jacobian(self, time, tracer_cnt):
         """
         compute jacobian of tracer tendencies from vertical mixing
         jacobian units are 1 / s
         """
+        # First construct matrix with sparsity pattern for a single tracer.
+        # Then concatenate using sparse.block_diag.
         mixing_coeff_vals = self.mixing_coeff(time)
         depth_n = len(self.depth)
         ypos_n = len(self.ypos)
@@ -175,4 +184,7 @@ class VertMix(ModelProcess):
             msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
             raise RuntimeError(msg)
         dof = ypos_n * depth_n
-        return csr_matrix((data, (row_ind, col_ind)), shape=(dof, dof))
+        jacobian_single_tracer = sparse.csr_matrix(
+            (data, (row_ind, col_ind)), shape=(dof, dof)
+        )
+        return sparse.block_diag(tracer_cnt * [jacobian_single_tracer], "csr")

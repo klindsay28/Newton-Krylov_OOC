@@ -1,7 +1,7 @@
 """functions related to advection"""
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy import sparse
 
 from .model_process import ModelProcess
 
@@ -54,17 +54,28 @@ class Advection(ModelProcess):
 
     def comp_tend(self, time, tracer_vals):
         """single tracer tendency from advection"""
-        self._tend_work_y[:, 1:-1] = 0.5 * (tracer_vals[:, 1:] + tracer_vals[:, :-1])
-        self._tend_work_y *= self.vvel
 
-        res = (self._tend_work_y[:, :-1] - self._tend_work_y[:, 1:]) * self.ypos.delta_r
+        shape = tracer_vals.shape
+        res = np.empty(shape)
 
-        self._tend_work_z[1:-1, :] = 0.5 * (tracer_vals[1:, :] + tracer_vals[:-1, :])
-        self._tend_work_z *= self.wvel
+        for tracer_ind in range(shape[0]):
+            self._tend_work_y[:, 1:-1] = 0.5 * (
+                tracer_vals[tracer_ind, :, 1:] + tracer_vals[tracer_ind, :, :-1]
+            )
+            self._tend_work_y *= self.vvel
 
-        res += (
-            self._tend_work_z[1:, :] - self._tend_work_z[:-1, :]
-        ) * self.depth.delta_r[:, np.newaxis]
+            res[tracer_ind, :] = self.ypos.delta_r * (
+                self._tend_work_y[:, :-1] - self._tend_work_y[:, 1:]
+            )
+
+            self._tend_work_z[1:-1, :] = 0.5 * (
+                tracer_vals[tracer_ind, 1:, :] + tracer_vals[tracer_ind, :-1, :]
+            )
+            self._tend_work_z *= self.wvel
+
+            res[tracer_ind, :] += self.depth.delta_r[:, np.newaxis] * (
+                self._tend_work_z[1:, :] - self._tend_work_z[:-1, :]
+            )
 
         return res
 
@@ -101,12 +112,14 @@ class Advection(ModelProcess):
 
         fptr_hist.sync()
 
-    def comp_jacobian(self, time):
+    def comp_jacobian(self, time, tracer_cnt):
         """
         compute jacobian of tracer tendencies from advection
         jacobian units are 1 / s
         """
         if Advection.jacobian_cache is None:
+            # First construct matrix with sparsity pattern for a single tracer.
+            # Then concatenate using sparse.block_diag.
             depth_n = len(self.depth)
             ypos_n = len(self.ypos)
             nnz = 5 * (depth_n - 2) * (ypos_n - 2)
@@ -164,8 +177,8 @@ class Advection(ModelProcess):
                 msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
                 raise RuntimeError(msg)
             dof = ypos_n * depth_n
-            Advection.jacobian_cache = csr_matrix(
+            Advection.jacobian_cache = sparse.csr_matrix(
                 (data, (row_ind, col_ind)), shape=(dof, dof)
             )
 
-        return Advection.jacobian_cache
+        return sparse.block_diag(tracer_cnt * [Advection.jacobian_cache], "csr")

@@ -1,7 +1,7 @@
 """functions related to horizontal mixing"""
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy import sparse
 
 from .advection import Advection
 from .model_process import ModelProcess
@@ -48,12 +48,20 @@ class HorizMix(ModelProcess):
         assume zero flux lateral boundary conditions
         """
 
-        # compute horiz_mix fluxes
-        self._tend_work[:, 1:-1] = self._mixing_coeff * (
-            tracer_vals[:, 1:] - tracer_vals[:, :-1]
-        )
+        shape = tracer_vals.shape
+        res = np.empty(shape)
 
-        return (self._tend_work[:, 1:] - self._tend_work[:, :-1]) * self.ypos.delta_r
+        for tracer_ind in range(shape[0]):
+            # compute horiz_mix fluxes
+            self._tend_work[:, 1:-1] = self._mixing_coeff * (
+                tracer_vals[tracer_ind, :, 1:] - tracer_vals[tracer_ind, :, :-1]
+            )
+
+            res[tracer_ind, :] = self.ypos.delta_r * (
+                self._tend_work[:, 1:] - self._tend_work[:, :-1]
+            )
+
+        return res
 
     def get_hist_vars_metadata(self):
         """return dict of process-specific history variable metadata"""
@@ -86,12 +94,14 @@ class HorizMix(ModelProcess):
 
         fptr_hist.sync()
 
-    def comp_jacobian(self, time):
+    def comp_jacobian(self, time, tracer_cnt):
         """
         compute jacobian of tracer tendencies from horizontal mixing
         jacobian units are 1 / s
         """
         if HorizMix.jacobian_cache is None:
+            # First construct matrix with sparsity pattern for a single tracer.
+            # Then concatenate using sparse.block_diag.
             depth_n = len(self.depth)
             ypos_n = len(self.ypos)
             nnz = (3 * (ypos_n - 2) + 2 * 2) * depth_n
@@ -130,8 +140,8 @@ class HorizMix(ModelProcess):
                 msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
                 raise RuntimeError(msg)
             dof = ypos_n * depth_n
-            HorizMix.jacobian_cache = csr_matrix(
+            HorizMix.jacobian_cache = sparse.csr_matrix(
                 (data, (row_ind, col_ind)), shape=(dof, dof)
             )
 
-        return HorizMix.jacobian_cache
+        return sparse.block_diag(tracer_cnt * [HorizMix.jacobian_cache], "csr")
