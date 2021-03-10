@@ -64,16 +64,19 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         self_vals_3d = self.get_tracer_vals_all()
         shape = self_vals_3d.shape
         self_vals = self_vals_3d.reshape(-1)
-        rhs_vals = (1.0 / (time_range[1] - time_range[0])) * self_vals
 
-        time_n = 10
+        time_n = 3
         time_delta = (time_range[1] - time_range[0]) / time_n
-        jacobian_mean = sparse.csr_matrix((self_vals.size, self_vals.size))
-        for time_ind in range(time_n):
-            jacobian_mean += (1.0 / time_n) * self.comp_jacobian(
-                (time_ind + 0.5) * time_delta, self_vals_3d, processes
-            )
 
-        res_vals = sparse.linalg.spsolve(jacobian_mean, rhs_vals)
+        mat_id = sparse.identity(self_vals.size)
+        mat = sparse.identity(self_vals.size)
+        for time_ind in range(time_n):
+            time = time_range[0] + (time_ind + 0.5) * time_delta
+            mat *= mat_id - time_delta * self.comp_jacobian(
+                time, self_vals_3d, processes
+            )
+        mat = mat_id - mat
+
+        res_vals = sparse.linalg.spsolve(mat, self_vals)
 
         res_tms.set_tracer_vals_all((res_vals - self_vals).reshape(shape))
