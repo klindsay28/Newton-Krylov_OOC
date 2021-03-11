@@ -189,7 +189,7 @@ class ModelState(ModelStateBase):
 
         # get dense output, if requested
         if hist_fname is not None:
-            t_eval = np.linspace(self.time_range[0], self.time_range[1], 101)
+            t_eval = np.linspace(self.time_range[0], self.time_range[1], 61)
         else:
             t_eval = np.array(self.time_range)
 
@@ -375,7 +375,7 @@ class ModelState(ModelStateBase):
                 for arg in signature(tracer_module.apply_precond_jacobian).parameters:
                     if arg in pos_args:
                         continue
-                    hist_varname = arg_to_hist_dict[arg]
+                    hist_varname = arg_to_hist_dict.get(arg, arg)
                     hist_var = fptr.variables[hist_varname]
                     if "depth_edges" in hist_var.dimensions:
                         kwargs[arg] = hist_var[1:-1]

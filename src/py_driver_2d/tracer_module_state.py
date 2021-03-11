@@ -202,6 +202,28 @@ class TracerModuleState(TracerModuleStateBase):
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", ypos mean"
+
+            # depth-ypos integral
+            varname = tracer_like_name + "_depth_ypos_int"
+            res[varname] = {
+                "dimensions": ("time"),
+                "attrs": tracer_metadata["attrs"].copy(),
+            }
+            res[varname]["attrs"]["long_name"] += ", depth-ypos integral"
+            units_str = " ".join(
+                [
+                    "(",
+                    res[varname]["attrs"]["units"],
+                    ")",
+                    "(",
+                    self.depth.units,
+                    ")",
+                    "(",
+                    self.ypos.units,
+                    ")",
+                ]
+            )
+            res[varname]["attrs"]["units"] = units_str_format(units_str)
         return res
 
     def hist_vars_metadata_tracer_like(self):
@@ -260,6 +282,12 @@ class TracerModuleState(TracerModuleStateBase):
             varname = tracer_like_name + "_ypos_mean"
             fptr.variables[varname][:] = self.ypos.int_vals_mid(tracer_vals, axis=-1)
             fptr.variables[varname][:] /= self.ypos.edges.max() - self.ypos.edges.min()
+
+            # depth-ypos integral
+            varname = tracer_like_name + "_depth_ypos_int"
+            fptr.variables[varname][:] = self.depth.int_vals_mid(
+                self.ypos.int_vals_mid(tracer_vals, axis=-1), axis=-1
+            )
 
     def comp_jacobian(self, time, tracer_vals, processes):
         """
