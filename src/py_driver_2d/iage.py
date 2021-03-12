@@ -9,6 +9,16 @@ from .tracer_module_state import TracerModuleState
 class iage(TracerModuleState):  # pylint: disable=invalid-name
     """iage tracer module specifics for TracerModuleState"""
 
+    def __init__(self, tracer_module_name, fname, model_config_obj, depth, ypos):
+
+        super().__init__(tracer_module_name, fname, model_config_obj, depth, ypos)
+
+        # restore surface layer to zero at rate of 24 / day over 10 m
+        self.surf_restore_rate = 24.0 / 86400.0 * 10.0 / self.depth.delta[0]
+
+        # factor by which slow restoring is slower than default
+        self.surf_slow_factor = 0.01
+
     def comp_tend(self, time, tracer_vals, processes):
         """
         compute tendency of iage tracers
@@ -18,11 +28,12 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         tracer_tend_vals = super().comp_tend(time, tracer_vals, processes)
 
         # restore surface layer to zero at rate of 24 / day over 10 m
-        rate = 24.0 / 86400.0 * self.depth.delta[0] / 10.0
         tracer_vals_3d = tracer_vals.reshape(shape)
         tracer_tend_vals_3d = tracer_tend_vals.reshape(shape)
-        tracer_tend_vals_3d[0, 0, :] -= rate * tracer_vals_3d[0, 0, :]
-        tracer_tend_vals_3d[1, 0, :] -= 0.01 * rate * tracer_vals_3d[1, 0, :]
+        tracer_tend_vals_3d[0, 0, :] -= self.surf_restore_rate * tracer_vals_3d[0, 0, :]
+        tracer_tend_vals_3d[1, 0, :] -= (
+            self.surf_slow_factor * self.surf_restore_rate * tracer_vals_3d[1, 0, :]
+        )
 
         # age 1/year
         tracer_tend_vals[:] += 1.0 / (365.0 * 86400.0)
@@ -47,11 +58,10 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         jacobian units are 1 / s
         """
         row_ind = np.arange(len(self.ypos))
-        rate = 24.0 / 86400.0 * self.depth.delta[0] / 10.0
         dof = len(self.ypos) * len(self.depth)
-        data = np.full(len(row_ind), -rate)
+        data = np.full(len(row_ind), -self.surf_restore_rate)
         mat = sparse.csr_matrix((data, (row_ind, row_ind)), shape=(dof, dof))
-        return sparse.block_diag([mat, 0.01 * mat], "csr")
+        return sparse.block_diag([mat, self.surf_slow_factor * mat], "csr")
 
     def apply_precond_jacobian(self, time_range, res_tms, processes):
         """
