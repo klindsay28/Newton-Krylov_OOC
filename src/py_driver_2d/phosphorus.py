@@ -159,7 +159,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
         # append po4_uptake to tracer_vals_all and pass up the class chain
         super().write_hist_vars(
-            fptr, np.concatenate((tracer_vals_all, po4_uptake_vals)),
+            fptr, np.concatenate((tracer_vals_all, po4_uptake_vals))
         )
 
     def apply_precond_jacobian(self, time_range, res_tms, processes, time, po4):
