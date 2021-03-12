@@ -1,9 +1,11 @@
 """general purpose utility functions"""
 
+import ast
 import errno
 import importlib
 import inspect
 import logging
+import operator
 import os
 import subprocess
 from datetime import datetime
@@ -108,6 +110,39 @@ def fmt_vals(var, fmt):
     if isinstance(var, dict):
         return {fmt_vals(key, fmt): fmt_vals(val, fmt) for key, val in var.items()}
     return var
+
+
+################################################################################
+# utilities related to arithmetic expression parsing/evaluation
+
+
+def eval_expr(expr):
+    """evaluate an arithmetic expression"""
+    # based on https://stackoverflow.com/a/9558001/6298056
+    return _eval(ast.parse(expr, mode="eval").body)
+
+
+def _eval(node):
+    # supported operators
+    operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Pow: operator.pow,
+        ast.UAdd: operator.pos,
+        ast.USub: operator.neg,
+    }
+
+    if isinstance(node, ast.Num):  # <number>
+        return node.n
+    if isinstance(node, ast.Constant):  # <number>
+        return node.value
+    if isinstance(node, ast.BinOp):  # <left> <operator> <right>
+        return operators[type(node.op)](_eval(node.left), _eval(node.right))
+    if isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
+        return operators[type(node.op)](_eval(node.operand))
+    raise TypeError(node)
 
 
 ################################################################################

@@ -6,6 +6,7 @@ import logging
 import numpy as np
 from scipy import sparse
 
+from .. import utils
 from .tracer_module_state import TracerModuleState
 
 
@@ -26,14 +27,31 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         self.dop_ind = 1
         self.pop_ind = 2
 
-        self.po4_halfsat = 0.5
-        self.max_uptake_rate = 0.1 / 86400.0
-        self.sigma = 0.67
-        self.dop_remin_rate = 0.5 / (365.0 * 86400.0)
-        self.pop_remin_rate = 0.5 / (365.0 * 86400.0)
-        self.pop_sink_vel = 1.0 / 86400.0
+        self.params = self.gen_params(model_config_obj.modelinfo)
 
         self.pop_sink_work = np.zeros((len(self.depth) + 1, len(self.ypos)))
+
+    @staticmethod
+    def gen_params(modelinfo):
+        """generate dict of tracer module parameters"""
+        logger = logging.getLogger(__name__)
+
+        params = {}
+        params["po4_halfsat"] = 0.5
+        params["max_uptake_rate"] = 0.1 / 86400.0
+        params["sigma"] = 0.67
+        params["dop_remin_rate"] = 0.5 / (365.0 * 86400.0)
+        params["pop_remin_rate"] = 0.5 / (365.0 * 86400.0)
+        params["pop_sink_vel"] = 1.0 / 86400.0
+
+        for key in params:
+            if key in modelinfo:
+                value_str = modelinfo[key]
+                value = utils.eval_expr(value_str)
+                logger.info("using %s=%s (%e) from modelinfo", key, value_str, value)
+                params[key] = value
+
+        return params
 
     def comp_tend(self, time, tracer_vals, processes):
         """
@@ -48,16 +66,18 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
         po4_uptake = self.comp_po4_uptake(tracer_vals_3d[self.po4_ind, :])
         tracer_tend_vals_3d[self.po4_ind, :] -= po4_uptake
-        tracer_tend_vals_3d[self.dop_ind, :] += self.sigma * po4_uptake
-        tracer_tend_vals_3d[self.pop_ind, :] += (1.0 - self.sigma) * po4_uptake
+        tracer_tend_vals_3d[self.dop_ind, :] += self.params["sigma"] * po4_uptake
+        tracer_tend_vals_3d[self.pop_ind, :] += (
+            1.0 - self.params["sigma"]
+        ) * po4_uptake
 
-        dop_remin = self.dop_remin_rate * tracer_vals_3d[self.dop_ind, :]
-        pop_remin = self.pop_remin_rate * tracer_vals_3d[self.pop_ind, :]
+        dop_remin = self.params["dop_remin_rate"] * tracer_vals_3d[self.dop_ind, :]
+        pop_remin = self.params["pop_remin_rate"] * tracer_vals_3d[self.pop_ind, :]
         tracer_tend_vals_3d[self.po4_ind, :] += dop_remin + pop_remin
         tracer_tend_vals_3d[self.dop_ind, :] -= dop_remin
         tracer_tend_vals_3d[self.pop_ind, :] -= pop_remin
 
-        self.pop_sink_work[1:-1, :] = self.pop_sink_vel * (
+        self.pop_sink_work[1:-1, :] = self.params["pop_sink_vel"] * (
             tracer_vals_3d[self.pop_ind, :-1]
         )
         tracer_tend_vals_3d[self.pop_ind, :] += self.depth.delta_r[:, np.newaxis] * (
@@ -69,14 +89,16 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
     def comp_po4_uptake(self, po4):
         """return po4_uptake, [mmol/m^3/s]"""
 
-        po4_lim = po4 / (po4 + self.po4_halfsat)
-        return self.max_uptake_rate * self.light_lim * po4_lim
+        po4_lim = po4 / (po4 + self.params["po4_halfsat"])
+        return self.params["max_uptake_rate"] * self.light_lim * po4_lim
 
     def comp_po4_uptake_jacobian(self, po4):
         """return deriv of po4_uptake wrt po4, [1/s]"""
 
-        po4_lim_jacobian = self.po4_halfsat / (po4 + self.po4_halfsat) ** 2
-        return self.max_uptake_rate * self.light_lim * po4_lim_jacobian
+        po4_lim_jacobian = (
+            self.params["po4_halfsat"] / (po4 + self.params["po4_halfsat"]) ** 2
+        )
+        return self.params["max_uptake_rate"] * self.light_lim * po4_lim_jacobian
 
     def comp_jacobian(self, time, tracer_vals, processes):
         """
@@ -105,13 +127,17 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         jacobian += sparse.bmat(
             [
                 [-po4_uptake_block, zeros_block, zeros_block],
-                [self.sigma * po4_uptake_block, zeros_block, zeros_block],
-                [(1.0 - self.sigma) * po4_uptake_block, zeros_block, zeros_block],
+                [self.params["sigma"] * po4_uptake_block, zeros_block, zeros_block],
+                [
+                    (1.0 - self.params["sigma"]) * po4_uptake_block,
+                    zeros_block,
+                    zeros_block,
+                ],
             ]
         )
 
-        dop_remin_block = self.dop_remin_rate * id_block
-        pop_remin_block = self.pop_remin_rate * id_block
+        dop_remin_block = self.params["dop_remin_rate"] * id_block
+        pop_remin_block = self.params["pop_remin_rate"] * id_block
         jacobian += sparse.bmat(
             [
                 [zeros_block, dop_remin_block, pop_remin_block],
@@ -121,10 +147,14 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         )
 
         pop_sink_diag_0_2d = np.empty((len(self.depth), len(self.ypos)))
-        pop_sink_diag_0_2d[:] = -self.pop_sink_vel * self.depth.delta_r[:, np.newaxis]
+        pop_sink_diag_0_2d[:] = (
+            -self.params["pop_sink_vel"] * self.depth.delta_r[:, np.newaxis]
+        )
         pop_sink_diag_0_2d[-1, :] = 0.0
         pop_sink_diag_m1_2d = np.empty((len(self.depth) - 1, len(self.ypos)))
-        pop_sink_diag_m1_2d[:] = self.pop_sink_vel * self.depth.delta_r[1:, np.newaxis]
+        pop_sink_diag_m1_2d[:] = (
+            self.params["pop_sink_vel"] * self.depth.delta_r[1:, np.newaxis]
+        )
         pop_sink_block = sparse.diags(
             (pop_sink_diag_0_2d.reshape(-1), pop_sink_diag_m1_2d.reshape(-1)),
             (0, -len(self.ypos)),
