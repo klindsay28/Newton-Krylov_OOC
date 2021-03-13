@@ -1,9 +1,9 @@
 """preformed subclass of py_driver_2d's TracerModuleState"""
 
 import numpy as np
-from netCDF4 import Dataset
-from scipy import interpolate, sparse
+from scipy import sparse
 
+from .. import utils
 from .tracer_module_state import TracerModuleState
 
 
@@ -17,38 +17,11 @@ class preformed(TracerModuleState):  # pylint: disable=invalid-name
         # restore surface layer at rate of 24 / day over 10 m
         self.surf_restore_rate = 24.0 / 86400.0 * 10.0 / self.depth.delta[0]
 
-        self.surf_restore_fcn = self.gen_surf_restore_fcn(
-            model_config_obj.modelinfo, ypos
+        self.surf_restore_fcn = utils.gen_forcing_fcn(
+            model_config_obj.modelinfo["surf_restore_fname"],
+            model_config_obj.modelinfo["surf_restore_varname"],
+            [self.ypos.mid],
         )
-
-    def gen_surf_restore_fcn(self, modelinfo, ypos):
-        """
-        return function for interpolating restoring field in time
-        modelinfo: cfg object of modelinfo vars
-        ypos: ypos axis being run on, data is interpolated to this axis when read in
-        """
-        fname = modelinfo["surf_restore_fname"]
-        varname = modelinfo["surf_restore_varname"]
-        with Dataset(fname, mode="r") as fptr:
-            fptr.set_auto_mask(False)
-            var = fptr.variables[varname]
-            if var.ndim != 2:
-                msg = "unexpected ndim=%d for %s in %s" % (var.ndim, varname, fname)
-                raise ValueError(msg)
-            dimnames = var.dimensions
-            time = fptr.variables[dimnames[0]][:]
-            ypos_in = fptr.variables[dimnames[1]][:]
-            if len(ypos_in) == len(ypos) and (ypos_in == ypos.mid).all():
-                data = var[:]
-            else:
-                fcn = interpolate.interp1d(
-                    ypos_in, var[:], fill_value="extrapolate", assume_sorted=True
-                )
-                data = fcn(ypos.mid)
-            fcn = interpolate.interp1d(
-                time, data, axis=0, fill_value="extrapolate", assume_sorted=True
-            )
-        return fcn
 
     def comp_tend(self, time, tracer_vals, processes):
         """
