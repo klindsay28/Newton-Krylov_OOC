@@ -31,3 +31,4 @@ script:
   - ./scripts/travis_zero_iage.sh
   - ./scripts/travis_long_iage.sh
   - ./scripts/travis_long_dye_decay.sh
+  - ./scripts/travis_py_driver_2d_iage.sh
