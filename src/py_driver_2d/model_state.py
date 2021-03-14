@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""test_problem model specifics for ModelStateBase"""
+"""py_driver_2d model specifics for ModelStateBase"""
 
 import copy
 import logging
@@ -19,6 +19,8 @@ from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..spatial_axis import spatial_axis_from_file
 from ..utils import class_name, create_dimensions_verify, create_vars
+from .advection import Advection
+from .horiz_mix import HorizMix
 from .vert_mix import VertMix
 
 
@@ -27,8 +29,8 @@ def parse_args(args_list_in=None):
 
     args_list = [] if args_list_in is None else args_list_in
     parser, args_remaining = common_args(
-        "test_problem model standalone driver for Newton-Krylov solver",
-        "test_problem",
+        "py_driver_2d model standalone driver for Newton-Krylov solver",
+        "py_driver_2d",
         args_list,
     )
     parser.add_argument(
@@ -57,7 +59,7 @@ def _resolve_fname(fname_dir, fname):
 
 
 def main(args):
-    """test_problem for Newton-Krylov solver"""
+    """py_driver_2d for Newton-Krylov solver"""
 
     config = read_cfg_files(args)
     solverinfo = config["solverinfo"]
@@ -100,14 +102,12 @@ def main(args):
 
 
 class ModelState(ModelStateBase):
-    """test_problem model specifics for ModelStateBase"""
+    """py_driver_2d model specifics for ModelStateBase"""
 
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    time_range = (0.0, 365.0)
-    depth = None
-    vert_mix = None
+    class_vars_set = False
 
     def __init__(self, fname):
 
@@ -116,25 +116,37 @@ class ModelState(ModelStateBase):
             raise RuntimeError("ModelState.model_config_obj is None")
 
         # Call _set_class_vars before super().__init__ to ensure
-        # that the axis class variable is available in super().__init__.
-        # It is used when generating intial values from tracer module metadata,
-        # or (potentially) regridding from input datasets to the axis.
-        if ModelState.depth is None:
-            self._set_class_vars(self.model_config_obj.modelinfo)
+        # that the axis class variables are available in super().__init__.
+        # These are used when generating intial values from tracer module metadata,
+        # or (potentially) regridding from input datasets to the axes.
+        self._set_class_vars(self.model_config_obj.modelinfo)
 
         super().__init__(fname)
 
     @staticmethod
     def _set_class_vars(modelinfo):
         """set (time-invariant) class variables"""
+
+        if ModelState.class_vars_set:
+            return
+
+        ModelState.time_range = (0.0, 365.0 * 86400.0)
         ModelState.depth = spatial_axis_from_file(
             fname=modelinfo["grid_weight_fname"], axisname="depth"
         )
-        ModelState.vert_mix = VertMix(ModelState.depth)
+        ModelState.ypos = spatial_axis_from_file(
+            fname=modelinfo["grid_weight_fname"], axisname="ypos"
+        )
+        ModelState.processes = {}
+        ModelState.processes["advection"] = Advection(ModelState.depth, ModelState.ypos)
+        ModelState.processes["horiz_mix"] = HorizMix(ModelState.depth, ModelState.ypos)
+        ModelState.processes["vert_mix"] = VertMix(ModelState.depth, ModelState.ypos)
+
+        ModelState.class_vars_set = True
 
     def get_tracer_vals_all(self):
         """get all tracer values"""
-        res_vals = np.empty((self.tracer_cnt, len(self.depth)))
+        res_vals = np.empty((self.tracer_cnt, len(self.depth), len(self.ypos)))
         ind0 = 0
         for tracer_module in self.tracer_modules:
             cnt = tracer_module.tracer_cnt
@@ -177,7 +189,7 @@ class ModelState(ModelStateBase):
 
         # get dense output, if requested
         if hist_fname is not None:
-            t_eval = np.linspace(self.time_range[0], self.time_range[1], 101)
+            t_eval = np.linspace(self.time_range[0], self.time_range[1], 61)
         else:
             t_eval = np.array(self.time_range)
 
@@ -187,26 +199,36 @@ class ModelState(ModelStateBase):
         fptr_hist = self._hist_def_dimensions(hist_fname)
         self._hist_def_vars_tracer_module_independent(fptr_hist)
 
+        shape = (len(self.depth), len(self.ypos))
+
         # solve ODEs for each tracer module independently, using scipy.integrate
         ind0 = 0
         for tracer_module in self.tracer_modules:
             self._hist_def_vars(tracer_module, fptr_hist)
             cnt = tracer_module.tracer_cnt
+            tracer_vals_init = res_vals[ind0 : ind0 + cnt, :].reshape(-1)
+            # assume sparsity pattern does not change in time
+            jac_sparsity = tracer_module.comp_jacobian_sparsity(
+                self.time_range[0], tracer_vals_init, self.processes
+            )
             sol = solve_ivp(
                 tracer_module.comp_tend,
                 self.time_range,
-                res_vals[ind0 : ind0 + cnt, :].reshape(-1),
+                tracer_vals_init,
                 "Radau",
                 t_eval,
-                atol=1.0e-10,
-                rtol=1.0e-10,
-                args=(self.vert_mix,),
+                max_step=(self.time_range[1] - self.time_range[0]) * 0.01,
+                atol=1.0e-6,
+                rtol=1.0e-6,
+                args=(self.processes,),
+                jac=tracer_module.comp_jacobian,
+                jac_sparsity=jac_sparsity,
             )
             if ind0 == 0:
                 self._hist_write_tracer_module_independent(sol, fptr_hist)
             self._hist_write(tracer_module, sol, fptr_hist)
             res_vals[ind0 : ind0 + cnt, :] = (
-                sol.y[:, -1].reshape((cnt, -1)) - res_vals[ind0 : ind0 + cnt, :]
+                sol.y[:, -1].reshape((cnt,) + shape) - res_vals[ind0 : ind0 + cnt, :]
             )
             ind0 = ind0 + cnt
 
@@ -245,7 +267,8 @@ class ModelState(ModelStateBase):
 
         # define dimensions
         dimensions = {"time": None}
-        dimensions.update(self.depth.dump_dimensions())
+        for axis in [self.depth, self.ypos]:
+            dimensions.update(axis.dump_dimensions())
         create_dimensions_verify(fptr_hist, dimensions)
 
         return fptr_hist
@@ -262,21 +285,16 @@ class ModelState(ModelStateBase):
             "dimensions": ("time",),
             "attrs": {
                 "long_name": "time",
-                "units": "days since 0001-01-01",
+                "units": "seconds since 0001-01-01",
                 "calendar": "noleap",
             },
         }
 
-        hist_vars_metadata.update(self.depth.dump_vars_metadata())
+        for axis in [self.depth, self.ypos]:
+            hist_vars_metadata.update(axis.dump_vars_metadata())
 
-        hist_vars_metadata["bldepth"] = {
-            "dimensions": ("time"),
-            "attrs": {"long_name": "boundary layer depth", "units": "m"},
-        }
-        hist_vars_metadata["mixing_coeff"] = {
-            "dimensions": ("time", "depth_edges"),
-            "attrs": {"long_name": "vertical mixing coefficient", "units": "m^2 / d"},
-        }
+        for process in self.processes.values():
+            hist_vars_metadata.update(process.get_hist_vars_metadata())
 
         # set cell_methods attribute and define hist vars
         for varname, metadata in hist_vars_metadata.items():
@@ -311,23 +329,11 @@ class ModelState(ModelStateBase):
 
         fptr_hist.variables["time"][:] = sol.t
 
-        self.depth.dump_write(fptr_hist)
+        for axis in [self.depth, self.ypos]:
+            axis.dump_write(fptr_hist)
 
-        # (re-)compute and write tracer module independent vars
-        for time_ind, time in enumerate(sol.t):
-            fptr_hist.variables["bldepth"][time_ind] = self.vert_mix.bldepth(time)
-            fptr_hist.variables["mixing_coeff"][time_ind, 1:-1] = (
-                self.vert_mix.mixing_coeff(time) * self.depth.delta_mid
-            )
-            # kludge to avoid missing values
-            fptr_hist.variables["mixing_coeff"][time_ind, 0] = fptr_hist.variables[
-                "mixing_coeff"
-            ][time_ind, 1]
-            fptr_hist.variables["mixing_coeff"][time_ind, -1] = fptr_hist.variables[
-                "mixing_coeff"
-            ][time_ind, -2]
-
-        fptr_hist.sync()
+        for process in self.processes.values():
+            process.hist_write(sol, fptr_hist)
 
     def _hist_write(self, tracer_module, sol, fptr_hist):
         """write hist vars for tracer_module"""
@@ -335,7 +341,9 @@ class ModelState(ModelStateBase):
             return
 
         # write tracer module hist vars, providing appropriate segment of sol.y
-        tracer_vals_all = sol.y.reshape((tracer_module.tracer_cnt, len(self.depth), -1))
+        tracer_vals_all = sol.y.reshape(
+            (tracer_module.tracer_cnt, len(self.depth), len(self.ypos), -1)
+        )
         tracer_module.write_hist_vars(fptr_hist, tracer_vals_all)
 
         fptr_hist.sync()
@@ -355,11 +363,10 @@ class ModelState(ModelStateBase):
         # ModelState instance for result
         res_ms = copy.deepcopy(self)
 
-        pos_args = ["self", "time_range", "res_tms"]
+        pos_args = ["self", "time_range", "res_tms", "processes"]
 
         arg_to_hist_dict = {
-            "mca": "mixing_coeff_log_mean",
-            "po4_s_restore_tau_r": "po4_s_restore_tau_r_mean",
+            "mca": "vert_mixing_coeff_log_mean",
         }
 
         with Dataset(precond_fname, mode="r") as fptr:
@@ -368,7 +375,7 @@ class ModelState(ModelStateBase):
                 for arg in signature(tracer_module.apply_precond_jacobian).parameters:
                     if arg in pos_args:
                         continue
-                    hist_varname = arg_to_hist_dict[arg]
+                    hist_varname = arg_to_hist_dict.get(arg, arg)
                     hist_var = fptr.variables[hist_varname]
                     if "depth_edges" in hist_var.dimensions:
                         kwargs[arg] = hist_var[1:-1]
@@ -376,7 +383,10 @@ class ModelState(ModelStateBase):
                         kwargs[arg] = hist_var[:]
 
                 tracer_module.apply_precond_jacobian(
-                    self.time_range, res_ms.tracer_modules[tracer_module_ind], **kwargs
+                    self.time_range,
+                    res_ms.tracer_modules[tracer_module_ind],
+                    ModelState.processes,
+                    **kwargs
                 )
 
         if solver_state is not None:

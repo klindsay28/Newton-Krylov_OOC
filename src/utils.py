@@ -1,9 +1,11 @@
 """general purpose utility functions"""
 
+import ast
 import errno
 import importlib
 import inspect
 import logging
+import operator
 import os
 import subprocess
 from datetime import datetime
@@ -11,6 +13,7 @@ from datetime import datetime
 import numpy as np
 from netCDF4 import Dataset, default_fillvals
 from pint import UnitRegistry
+from scipy import interpolate
 
 ################################################################################
 # utilities related to python built-in types
@@ -111,6 +114,39 @@ def fmt_vals(var, fmt):
 
 
 ################################################################################
+# utilities related to arithmetic expression parsing/evaluation
+
+
+def eval_expr(expr):
+    """evaluate an arithmetic expression"""
+    # based on https://stackoverflow.com/a/9558001/6298056
+    return _eval(ast.parse(expr, mode="eval").body)
+
+
+def _eval(node):
+    # supported operators
+    operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Pow: operator.pow,
+        ast.UAdd: operator.pos,
+        ast.USub: operator.neg,
+    }
+
+    if isinstance(node, ast.Num):  # <number>
+        return node.n
+    if isinstance(node, ast.Constant):  # <number>
+        return node.value
+    if isinstance(node, ast.BinOp):  # <left> <operator> <right>
+        return operators[type(node.op)](_eval(node.left), _eval(node.right))
+    if isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
+        return operators[type(node.op)](_eval(node.operand))
+    raise TypeError(node)
+
+
+################################################################################
 # utilities related to generic file/path manipulations
 
 
@@ -172,7 +208,7 @@ def isclose_all_vars(fname1, fname2, rtol, atol):
 
 
 def _isclose_one_var(var1, var2, rtol, atol):
-    """Return true if netCDF4 vars var1 and var2 are close."""
+    """Return true if netCDF vars var1 and var2 are close."""
     logger = logging.getLogger(__name__)
 
     # further comparisons do not make sense if shapes differ
@@ -243,7 +279,7 @@ def extract_dimensions(fptr, names):
 
 def create_dimensions_verify(fptr, dimensions):
     """
-    Create dimensions in a netCDF4 file. If a dimension with dimname already exists,
+    Create dimensions in a netCDF file. If a dimension with dimname already exists,
     and dimlen differs from the existing dimension's length, raise a RuntimeError.
     """
     if not isinstance(dimensions, dict):
@@ -261,7 +297,7 @@ def create_dimensions_verify(fptr, dimensions):
 
 def datatype_sname(var):
     """
-    return shortname of datatype of netCDF4 variable var
+    return shortname of datatype of netCDF variable var
     useable in default_fillvals
     """
     datatype_replace = {"float64": "f8", "float32": "f4"}
@@ -277,7 +313,7 @@ def datatype_sname(var):
 
 
 def create_vars(fptr, vars_metadata):
-    """Create multiple netCDF4 variables, using metadata from vars_metadata."""
+    """Create multiple netCDF variables, using metadata from vars_metadata."""
     for varname, metadata in vars_metadata.items():
         datatype = metadata.get("datatype", "f8")
         attrs = metadata.get("attrs", {})
@@ -360,3 +396,56 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
         name = "src.utils.mon_files_to_mean_file"
         msg = datestamp + ": ncra called from " + name + " called from " + caller
         fptr.history = "\n".join([msg, fptr.history])
+
+
+def gen_forcing_fcn(fname, varname, additional_dims_out):
+    """
+    Return function for interpolating forcing field from a netCDF file.
+    The returned function will interpolate along the field's 1st dimension.
+    The typical use case is that this dimension is time.
+    Can handle forcing data with 0, 1, or 2 additional dimensions.
+    fname: name of file with forcing
+    varname: name of file variable with forcing
+    additional_dims_out: list of non-time axis values to interpolate data to.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("reading %s from %s", varname, fname)
+    with Dataset(fname, mode="r") as fptr:
+        fptr.set_auto_mask(False)
+        var = fptr.variables[varname]
+
+        # verify various assumptions of implementation
+        if var.ndim not in [1, 2, 3]:
+            msg = "unexpected ndim=%d" % var.ndim
+            raise ValueError(msg)
+        if len(additional_dims_out) != var.ndim - 1:
+            msg = "len(additional_dims_out) = %d must be %d" % (
+                len(additional_dims_out),
+                var.ndim - 1,
+            )
+            raise ValueError(msg)
+        dimnames = var.dimensions
+
+        dim0_in = fptr.variables[dimnames[0]][:]
+        data = var[:]
+
+        # interpolate along additional dimensions,
+        # if forcing axis differs from model axis
+        for axis in range(1, var.ndim):
+            dim_in = fptr.variables[dimnames[axis]][:]
+            dim_out = additional_dims_out[axis - 1]
+            if len(dim_in) != len(dim_out) or (dim_in != dim_out).any():
+                fcn = interpolate.interp1d(
+                    dim_in,
+                    data,
+                    axis=axis,
+                    fill_value="extrapolate",
+                    assume_sorted=True,
+                )
+                data = fcn(dim_out)
+
+    fcn = interpolate.interp1d(
+        dim0_in, data, axis=0, fill_value="extrapolate", assume_sorted=True
+    )
+
+    return fcn
