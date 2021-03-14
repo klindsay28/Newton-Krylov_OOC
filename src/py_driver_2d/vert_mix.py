@@ -59,15 +59,15 @@ class VertMix(ModelProcess):
         res_log_deep = np.log(5.0e-4)
 
         bldepth_cache = None
-        for j in range(len(self.ypos)):
-            if bldepth_vals[j] != bldepth_cache:
+        for j, bldepth_val in enumerate(bldepth_vals):
+            if bldepth_val != bldepth_cache:
                 self._mixing_coeff_vals[
                     :, j
                 ] = VertMix.depth_edges_axis.remap_linear_interpolant(
-                    [bldepth_vals[j] - 20.0, bldepth_vals[j] + 20.0],
+                    [bldepth_val - 20.0, bldepth_val + 20.0],
                     [res_log_shallow, res_log_deep],
                 )
-                bldepth_cache = bldepth_vals[j]
+                bldepth_cache = bldepth_val
                 j_cache = j
             else:
                 self._mixing_coeff_vals[:, j] = self._mixing_coeff_vals[:, j_cache]

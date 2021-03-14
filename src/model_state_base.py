@@ -497,8 +497,8 @@ class ModelStateBase:
         sigma = 1.0e-4 * self.norm()
 
         # set sigma to 1.0 where it is 0.0
-        for tracer_module_ind in range(len(self.tracer_modules)):
-            sigma_vals = sigma[tracer_module_ind].vals()
+        for sigma_tracer_module in sigma:
+            sigma_vals = sigma_tracer_module.vals()
             if any(sigma_vals == 0.0):
                 sigma_vals[:] = np.where(sigma_vals == 0.0, 1.0, sigma_vals)
 
