@@ -35,7 +35,7 @@ done
 for fname in fcn_0000.nc hist_0000.nc init_iterate.nc init_iterate_0000.nc; do
     echo comparing $fname
     python -m src.baseline_cmp --fname $fname \
-        --atol 1.0e-5 --rtol 1.0e-4 \
+        --atol 1.0e-6 --rtol 1.0e-5 \
         --expr_dir $workdir/gen_init_iterate \
         --baseline_dir baselines/travis_py_driver_2d_iage || err_cnt=$((err_cnt+1))
 done
