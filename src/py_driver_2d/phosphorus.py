@@ -38,11 +38,11 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
         params = {}
         params["po4_halfsat"] = 0.5
-        params["max_uptake_rate"] = 0.1 / 86400.0
+        params["max_uptake_rate"] = 1.0 / (3.0 * 86400.0)
         params["sigma"] = 0.67
-        params["dop_remin_rate"] = 0.5 / (365.0 * 86400.0)
-        params["pop_remin_rate"] = 0.5 / (365.0 * 86400.0)
-        params["pop_sink_vel"] = 1.0 / 86400.0
+        params["dop_remin_rate"] = 1.0 / (0.5 * 365.0 * 86400.0)
+        params["pop_remin_rate"] = 1.0 / (0.5 * 365.0 * 86400.0)
+        params["pop_sink_vel"] = 2.0 / 86400.0
 
         for key in params:
             if key in modelinfo:
