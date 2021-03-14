@@ -13,8 +13,7 @@ class VertMix(ModelProcess):
 
     def __init__(self, depth, ypos):
 
-        VertMix.depth = depth
-        VertMix.ypos = ypos
+        super().__init__(depth, ypos)
 
         VertMix.depth_edges_axis = SpatialAxis("depth_edges", depth.mid)
 
@@ -22,8 +21,6 @@ class VertMix(ModelProcess):
         self._mixing_coeff_vals = np.zeros((len(self.depth) - 1, len(self.ypos)))
 
         self._tend_work = np.zeros((len(self.depth) + 1, len(self.ypos)))
-
-        super().__init__(depth, ypos)
 
     def comp_tend(self, time, tracer_vals):
         """

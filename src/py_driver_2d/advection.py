@@ -11,8 +11,7 @@ class Advection(ModelProcess):
 
     def __init__(self, depth, ypos):
 
-        Advection.depth = depth
-        Advection.ypos = ypos
+        super().__init__(depth, ypos)
 
         self.gen_vel_field(depth, ypos)
 
@@ -20,8 +19,6 @@ class Advection(ModelProcess):
         self._tend_work_z = np.zeros((len(self.depth) + 1, len(self.ypos)))
 
         Advection.jacobian_cache = None
-
-        super().__init__(depth, ypos)
 
     @staticmethod
     def gen_vel_field(depth, ypos):

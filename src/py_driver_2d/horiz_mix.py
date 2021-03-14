@@ -12,8 +12,7 @@ class HorizMix(ModelProcess):
 
     def __init__(self, depth, ypos):
 
-        HorizMix.depth = depth
-        HorizMix.ypos = ypos
+        super().__init__(depth, ypos)
 
         self._tend_work = np.zeros((len(depth), len(ypos) + 1))
 
@@ -21,8 +20,6 @@ class HorizMix(ModelProcess):
         self._mixing_coeff = self._comp_mixing_coeff(mixing_coeff_const=1000.0)
 
         HorizMix.jacobian_cache = None
-
-        super().__init__(depth, ypos)
 
     def _comp_mixing_coeff(self, mixing_coeff_const):
         """

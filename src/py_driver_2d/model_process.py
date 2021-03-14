@@ -5,7 +5,9 @@ class ModelProcess:
     """generic model process class"""
 
     def __init__(self, depth, ypos):
-        pass
+
+        ModelProcess.depth = depth
+        ModelProcess.ypos = ypos
 
     def comp_tend(self, time, tracer_vals):
         """tracer tendency from process"""
