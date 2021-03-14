@@ -250,7 +250,15 @@ def _isclose_one_var_core(vals1, vals2, rtol, atol):
             val1 = vals1.reshape(-1)[ind]
             val2 = vals2.reshape(-1)[ind]
             if not np.isclose(val1, val2, rtol=rtol, atol=atol, equal_nan=True):
-                logger.info("    %.10e %.10e not close", val1, val2)
+                atol_adj = abs(val1 - val2) - rtol * abs(val2)
+                rtol_adj = (abs(val1 - val2) - atol) / abs(val2)
+                logger.info(
+                    "    %.10e %.10e not close, atol_adj=%e, rtol_adj=%e",
+                    val1,
+                    val2,
+                    atol_adj,
+                    rtol_adj,
+                )
     return res
 
 
