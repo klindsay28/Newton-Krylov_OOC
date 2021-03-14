@@ -27,7 +27,7 @@ class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
         dtracer_vals_dt_flat = vert_mix.tend(time, tracer_vals_flat[:], surf_flux)
         # decay (suff / 1000) / y
         suff = self.name[10:]
-        dtracer_vals_dt_flat[:] -= int(suff) * 0.001 / 365.0 * tracer_vals_flat[:]
+        dtracer_vals_dt_flat -= int(suff) * 0.001 / 365.0 * tracer_vals_flat
         return dtracer_vals_dt_flat
 
     def _dye_decay_surf_flux(self, time):

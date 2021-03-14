@@ -134,7 +134,7 @@ class TracerModuleState(TracerModuleStateBase):
         tracer_vals_3d = tracer_vals.reshape(shape)
         tracer_tend_vals_3d = np.zeros(shape)
         for process in processes.values():
-            tracer_tend_vals_3d[:] += process.comp_tend(time, tracer_vals_3d[:])
+            tracer_tend_vals_3d += process.comp_tend(time, tracer_vals_3d)
         return tracer_tend_vals_3d.reshape(-1)
 
     def hist_vars_metadata(self):

@@ -203,7 +203,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         dz3 = np.concatenate((self.depth.delta, self.depth.delta, self.depth.delta))
         numer = (res_vals * dz3).sum()
         denom = (r_sing_vects[min_ind, :] * dz3).sum()
-        res_vals[:] -= numer / denom * r_sing_vects[min_ind, :]
+        res_vals -= numer / denom * r_sing_vects[min_ind, :]
 
         res_vals[:] = res_vals - self_vals
         res_tms.set_tracer_vals("po4_s", res_vals[0:nlevs])

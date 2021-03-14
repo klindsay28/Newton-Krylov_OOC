@@ -81,11 +81,10 @@ class VertMix(ModelProcess):
             * abs(Advection.wvel[1:-1, :])
             / self._mixing_coeff_vals[:]
         )
-        self._mixing_coeff_vals[:] *= np.where(peclet_p5 > 1.0, peclet_p5, 1.0)
+        self._mixing_coeff_vals *= np.where(peclet_p5 > 1.0, peclet_p5, 1.0)
 
-        self._mixing_coeff_vals[:] = (
-            self._mixing_coeff_vals[:] * self.depth.delta_mid_r[:, np.newaxis]
-        )
+        self._mixing_coeff_vals *= self.depth.delta_mid_r[:, np.newaxis]
+
         return self._mixing_coeff_vals
 
     def bldepth(self, time):

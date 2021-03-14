@@ -36,7 +36,7 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         )
 
         # age 1/year
-        tracer_tend_vals[:] += 1.0 / (365.0 * 86400.0)
+        tracer_tend_vals += 1.0 / (365.0 * 86400.0)
 
         return tracer_tend_vals
 

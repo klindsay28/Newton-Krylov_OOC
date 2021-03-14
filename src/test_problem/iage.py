@@ -20,7 +20,7 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         surf_flux = -240.0 * tracer_vals_flat[0]
         dtracer_vals_dt_flat = vert_mix.tend(time, tracer_vals_flat[:], surf_flux)
         # age 1/year
-        dtracer_vals_dt_flat[:] += 1.0 / 365.0
+        dtracer_vals_dt_flat += 1.0 / 365.0
         return dtracer_vals_dt_flat
 
     def apply_precond_jacobian(self, time_range, res_tms, mca):
