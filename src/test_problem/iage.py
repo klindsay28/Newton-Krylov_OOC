@@ -1,7 +1,7 @@
 """iage subclass of test_problem's TracerModuleState"""
 
 import numpy as np
-from scipy.linalg import solve_banded
+from scipy import linalg
 
 from .tracer_module_state import TracerModuleState
 
@@ -42,6 +42,6 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         # d tend[k] / d tracer[k+1]
         matrix_diagonals[2, :-1] = mca * self.depth.delta_mid_r * self.depth.delta_r[1:]
 
-        res_vals = solve_banded(l_and_u, matrix_diagonals, rhs_vals)
+        res_vals = linalg.solve_banded(l_and_u, matrix_diagonals, rhs_vals)
 
         res_tms.set_tracer_vals_all(res_vals - self_vals)

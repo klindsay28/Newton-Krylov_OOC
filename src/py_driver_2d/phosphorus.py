@@ -5,6 +5,7 @@ import logging
 
 import numpy as np
 from scipy import sparse
+from scipy.sparse import linalg as sp_linalg
 
 from .. import utils
 from .tracer_module_state import TracerModuleState
@@ -224,12 +225,12 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         mat = mat_id - mat
 
         e_cnt = 5
-        e_vals, e_vects = sparse.linalg.eigs(mat, k=e_cnt)
+        e_vals, e_vects = sp_linalg.eigs(mat, k=e_cnt)
         for k in range(e_cnt):
             logger.info(
                 "large e_val[%d] = %e + %e j", k, e_vals[k].real, e_vals[k].imag
             )
-        e_vals, e_vects = sparse.linalg.eigs(mat, k=e_cnt, sigma=0.0)
+        e_vals, e_vects = sp_linalg.eigs(mat, k=e_cnt, sigma=0.0)
         for k in range(e_cnt):
             logger.info(
                 "small e_val[%d] = %e + %e j", k, e_vals[k].real, e_vals[k].imag
@@ -244,8 +245,8 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         # Regularize system of equations by shifting matrix.
         # Extrapolate to zero-shift to generate results.
         shift = 0.5 * e_vals[1].real
-        solve_vals_tmp = sparse.linalg.spsolve(mat - shift * mat_id, self_vals)
-        solve_vals = sparse.linalg.spsolve(mat - (0.5 * shift) * mat_id, self_vals)
+        solve_vals_tmp = sp_linalg.spsolve(mat - shift * mat_id, self_vals)
+        solve_vals = sp_linalg.spsolve(mat - (0.5 * shift) * mat_id, self_vals)
         solve_vals[:] = 2.0 * solve_vals[:] - solve_vals_tmp[:]
 
         # Subtract from solve_vals a multiple of e_vect corresponding to smallest e_val.

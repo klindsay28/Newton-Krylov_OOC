@@ -1,9 +1,8 @@
 """phosphorus subclass of test_problem's TracerModuleState"""
 
 import numpy as np
-from scipy.linalg import svd
-from scipy.sparse import diags, eye
-from scipy.sparse.linalg import spsolve
+from scipy import linalg, sparse
+from scipy.sparse import linalg as sp_linalg
 
 from .tracer_module_state import TracerModuleState
 
@@ -177,7 +176,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         self_vals = self.get_tracer_vals_all()[3:6, :].reshape(-1)
         rhs_vals = (1.0 / (time_range[1] - time_range[0])) * self_vals
 
-        matrix = diags(
+        matrix = sparse.diags(
             [
                 self._diag_0_phosphorus(mca, po4_s_restore_tau_r),
                 self._diag_p_1_phosphorus(mca),
@@ -192,13 +191,13 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         )
 
         # regularize system of equations and use Richardson extrapolation to results
-        matrix_adj = matrix - 1.0e-11 * eye(3 * nlevs)
-        res_vals_a = spsolve(matrix_adj, rhs_vals)
-        matrix_adj = matrix - 0.5e-11 * eye(3 * nlevs)
-        res_vals_b = spsolve(matrix_adj, rhs_vals)
+        matrix_adj = matrix - 1.0e-11 * sparse.eye(3 * nlevs)
+        res_vals_a = sp_linalg.spsolve(matrix_adj, rhs_vals)
+        matrix_adj = matrix - 0.5e-11 * sparse.eye(3 * nlevs)
+        res_vals_b = sp_linalg.spsolve(matrix_adj, rhs_vals)
         res_vals = 2.0 * res_vals_b - res_vals_a
 
-        _, sing_vals, r_sing_vects = svd(matrix.todense())
+        _, sing_vals, r_sing_vects = linalg.svd(matrix.todense())
         min_ind = sing_vals.argmin()
         dz3 = np.concatenate((self.depth.delta, self.depth.delta, self.depth.delta))
         numer = (res_vals * dz3).sum()

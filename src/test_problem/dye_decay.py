@@ -1,7 +1,7 @@
 """dye_decay subclass of test_problem's TracerModuleState"""
 
 import numpy as np
-from scipy.linalg import solve_banded
+from scipy import linalg
 
 from .tracer_module_state import TracerModuleState
 
@@ -61,6 +61,6 @@ class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
         suff = self.name[10:]
         matrix_diagonals[1, :] -= int(suff) * 0.001 / 365.0
 
-        res_vals = solve_banded(l_and_u, matrix_diagonals, rhs_vals)
+        res_vals = linalg.solve_banded(l_and_u, matrix_diagonals, rhs_vals)
 
         res_tms.set_tracer_vals_all(res_vals - self_vals)

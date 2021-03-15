@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy import sparse
+from scipy.sparse import linalg as sp_linalg
 
 from .. import utils
 from .tracer_module_state import TracerModuleState
@@ -86,6 +87,6 @@ class preformed(TracerModuleState):  # pylint: disable=invalid-name
             )
         mat = mat_id - mat
 
-        res_vals = sparse.linalg.spsolve(mat, self_vals)
+        res_vals = sp_linalg.spsolve(mat, self_vals)
 
         res_tms.set_tracer_vals_all((res_vals - self_vals).reshape(shape))

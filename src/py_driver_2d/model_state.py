@@ -12,7 +12,7 @@ from inspect import signature
 
 import numpy as np
 from netCDF4 import Dataset
-from scipy.integrate import solve_ivp
+from scipy import integrate
 
 from ..model_config import ModelConfig
 from ..model_state_base import ModelStateBase
@@ -211,7 +211,7 @@ class ModelState(ModelStateBase):
             jac_sparsity = tracer_module.comp_jacobian_sparsity(
                 self.time_range[0], tracer_vals_init, self.processes
             )
-            sol = solve_ivp(
+            sol = integrate.solve_ivp(
                 tracer_module.comp_tend,
                 self.time_range,
                 tracer_vals_init,
