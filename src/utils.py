@@ -234,6 +234,13 @@ def _isclose_one_var(var1, var2, rtol, atol):
 
     vals1 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals1)
     vals2 = np.where((vals1 == msv1) | (vals2 == msv2), np.nan, vals2)
+
+    # if units are present and differ, convert vals1 to units of var2
+    if hasattr(var1, "units") and hasattr(var2, "units"):
+        ureg = UnitRegistry()
+        if ureg(var1.units) != ureg(var2.units):
+            vals1 = ureg.Quantity(vals1, var1.units).to(var2.units).magnitude
+
     if not _isclose_one_var_core(vals1, vals2, rtol=rtol, atol=atol):
         logger.info("    %s vals not close", var1.name)
         res = False

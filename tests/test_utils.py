@@ -1,8 +1,28 @@
-"""test functions in spatial_axis.py"""
+"""test functions in utils.py"""
 
+import os
+
+import git
 import pytest
 
-from src.utils import units_str_format
+from src import utils
+
+
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        ("1.0 + 2.0", 3.0),
+        ("1.0 + 2.0 * 3.0", 7.0),
+        ("(1.0 + 2.0) * 3.0", 9.0),
+        ("(1.0 + 2.0) / 3.0", 1.0),
+        ("2.0 ** 3.0", 8.0),
+        ("10.0 + -2.0", 8.0),
+        ("10.0 - 2.0", 8.0),
+    ],
+)
+def test_eval_expr(expr, expected):
+    """test eval_expr"""
+    assert utils.eval_expr(expr) == expected
 
 
 @pytest.mark.parametrize(
@@ -27,4 +47,13 @@ from src.utils import units_str_format
 )
 def test_units_str_format(units_str, expected):
     """test units_str_format"""
-    assert units_str_format(units_str) == expected
+    assert utils.units_str_format(units_str) == expected
+
+
+def test_isclose_all_vars():
+    """test isclose_all_vars"""
+    repo_root = git.Repo(search_parent_directories=True).working_dir
+    input_dir = os.path.join(repo_root, "input", "tests")
+    fname_1 = os.path.join(input_dir, "isclose_1.nc")
+    fname_2 = os.path.join(input_dir, "isclose_2.nc")
+    assert utils.isclose_all_vars(fname_1, fname_2, rtol=1.0e-5, atol=1.0e-5)
