@@ -230,23 +230,16 @@ class TracerModuleState(TracerModuleStateBase):
             varname = tracer_like_name + "_depth_int"
             fptr.variables[varname][:] = self.depth.int_vals_mid(tracer_vals, axis=-1)
 
-    @staticmethod
-    def stats_dimensions(fptr):
+    def stats_dimensions(self, fptr):
         """return dimensions to be used in stats file for this tracer module"""
-        dimnames = ["depth"]
-        return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
+        return self.depth.dump_dimensions()
 
     def stats_vars_metadata(self, fptr_hist):
         """
         return dict of metadata for vars to appear in the stats file for this tracer
         module
         """
-        res = {}
-
-        for dimname in ["depth"]:
-            attrs = fptr_hist.variables[dimname].__dict__
-            attrs["_FillValue"] = None
-            res[dimname] = {"dimensions": (dimname,), "attrs": attrs}
+        res = self.depth.dump_vars_metadata()
 
         # add metadata for tracer-like variables
 
@@ -262,13 +255,9 @@ class TracerModuleState(TracerModuleStateBase):
             }
         return res
 
-    @staticmethod
-    def stats_vars_vals_iteration_invariant(fptr_hist):
+    def stats_vars_vals_iteration_invariant(self, fptr_hist):
         """return iteration-invariant tracer module specific stats variables"""
-        res = {}
-        for varname in ["depth"]:
-            res[varname] = fptr_hist.variables[varname][:]
-        return res
+        return self.depth.dump_vals_dict()
 
     def stats_vars_vals(self, fptr_hist):
         """return tracer module specific stats variables for the current iteration"""

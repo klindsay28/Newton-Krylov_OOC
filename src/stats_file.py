@@ -52,12 +52,15 @@ class StatsFile:
     def def_vars(self, vars_metadata, caller=None):
         """define vars in stats file"""
         with Dataset(self._fname, mode="a") as fptr:
-            # stats vars must have a _FillValue, for actively filling when iteration
-            # dimension grows
+            # Ensure that stats vars with the iteration dimension have a _FillValue,
+            # for actively filling when iteration dimension grows.
             for metadata in vars_metadata.values():
                 if "attrs" not in metadata:
                     metadata["attrs"] = {}
-                if "_FillValue" not in metadata["attrs"]:
+                if (
+                    "_FillValue" not in metadata["attrs"]
+                    and "iteration" in metadata["dimensions"]
+                ):
                     datatype = metadata.get("datatype", "f8")
                     metadata["attrs"]["_FillValue"] = default_fillvals[datatype]
             create_vars(fptr, vars_metadata)

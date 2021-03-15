@@ -102,15 +102,21 @@ class SpatialAxis:
         }
         return res
 
+    def dump_vals_dict(self):
+        """return dict of values for dump"""
+        res = {}
+        res[self.axisname] = self.mid
+        res[self.dump_names["bounds"]] = np.stack(
+            (self.edges[:-1], self.edges[1:]), axis=1
+        )
+        res[self.dump_names["edges"]] = self.edges
+        res[self.dump_names["delta"]] = self.delta
+        return res
+
     def dump_write(self, fptr):
         """write variables for dump"""
-
-        fptr.variables[self.axisname][:] = self.mid
-        fptr.variables[self.dump_names["bounds"]][:, 0] = self.edges[:-1]
-        fptr.variables[self.dump_names["bounds"]][:, 1] = self.edges[1:]
-        fptr.variables[self.dump_names["edges"]][:] = self.edges
-        fptr.variables[self.dump_names["delta"]][:] = self.delta
-
+        for name, vals in self.dump_vals_dict().items():
+            fptr.variables[name][:] = vals
         fptr.sync()
 
     def int_vals_mid(self, vals, axis):

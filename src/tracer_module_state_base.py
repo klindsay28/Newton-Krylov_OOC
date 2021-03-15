@@ -54,6 +54,21 @@ class TracerModuleStateBase:
         """
         raise NotImplementedError("Method must be implemented in derived class")
 
+    def stats_dimensions(self, fptr):
+        """return dimensions to be used in stats file for tracer module"""
+        raise NotImplementedError("Method must be implemented in derived class")
+
+    def stats_vars_metadata(self, fptr_hist):
+        """
+        return dict of metadata for vars to appear in the stats file for this tracer
+        module
+        """
+        raise NotImplementedError("Method must be implemented in derived class")
+
+    def stats_vars_vals_iteration_invariant(self, fptr_hist):
+        """return iteration-invariant tracer module specific stats variables"""
+        raise NotImplementedError("Method must be implemented in derived class")
+
     def tracer_names(self):
         """return list of tracer names"""
         return list(self._tracer_module_def["tracers"])

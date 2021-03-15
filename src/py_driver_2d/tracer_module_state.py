@@ -308,23 +308,19 @@ class TracerModuleState(TracerModuleStateBase):
         data = np.ones(row_ind.shape)
         return sparse.csr_matrix((data, (row_ind, col_ind)))
 
-    @staticmethod
-    def stats_dimensions(fptr):
+    def stats_dimensions(self, fptr):
         """return dimensions to be used in stats file for this tracer module"""
-        dimnames = ["depth", "ypos"]
-        return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
+        res = self.depth.dump_dimensions()
+        res.update(self.ypos.dump_dimensions())
+        return res
 
     def stats_vars_metadata(self, fptr_hist):
         """
         return dict of metadata for vars to appear in the stats file for this tracer
         module
         """
-        res = {}
-
-        for dimname in ["depth", "ypos"]:
-            attrs = fptr_hist.variables[dimname].__dict__
-            attrs["_FillValue"] = None
-            res[dimname] = {"dimensions": (dimname,), "attrs": attrs}
+        res = self.depth.dump_vars_metadata()
+        res.update(self.ypos.dump_vars_metadata())
 
         # add metadata for tracer-like variables
 
@@ -350,12 +346,10 @@ class TracerModuleState(TracerModuleStateBase):
             }
         return res
 
-    @staticmethod
-    def stats_vars_vals_iteration_invariant(fptr_hist):
+    def stats_vars_vals_iteration_invariant(self, fptr_hist):
         """return iteration-invariant tracer module specific stats variables"""
-        res = {}
-        for varname in ["depth", "ypos"]:
-            res[varname] = fptr_hist.variables[varname][:]
+        res = self.depth.dump_vals_dict()
+        res.update(self.ypos.dump_vals_dict())
         return res
 
     def stats_vars_vals(self, fptr_hist):

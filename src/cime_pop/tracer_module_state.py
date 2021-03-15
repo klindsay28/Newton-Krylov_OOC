@@ -78,8 +78,7 @@ class TracerModuleState(TracerModuleStateBase):
             raise ValueError(msg)
         return self
 
-    @staticmethod
-    def stats_dimensions(fptr):
+    def stats_dimensions(self, fptr):
         """return dimensions to be used in stats file for this tracer module"""
         dimnames = ["z_t", "nlat"]
         return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
@@ -123,8 +122,7 @@ class TracerModuleState(TracerModuleStateBase):
             }
         return res
 
-    @staticmethod
-    def stats_vars_vals_iteration_invariant(fptr_hist):
+    def stats_vars_vals_iteration_invariant(self, fptr_hist):
         """return iteration-invariant tracer module specific stats variables"""
         res = {}
         for varname in ["z_t"]:
