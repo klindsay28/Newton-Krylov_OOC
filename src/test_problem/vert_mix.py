@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from . import constants
+
 
 class VertMix:
     """class related to vertical mixing"""
@@ -26,7 +28,7 @@ class VertMix:
     def mixing_coeff(self, time):
         """
         vertical mixing coefficient at interior edges, divided by distance
-        between layer midpoints, m d-1
+        between layer midpoints, m s-1
         store computed vals, so their computation can be skipped on subsequent calls
         """
 
@@ -43,9 +45,7 @@ class VertMix:
             [res_log10_shallow, res_log10_deep],
         )
         self._mixing_coeff_time = time
-        self._mixing_coeff_vals[:] = (
-            86400.0 * 10.0 ** res_log10 * self._depth.delta_mid_r
-        )
+        self._mixing_coeff_vals[:] = 10.0 ** res_log10 * self._depth.delta_mid_r
         return self._mixing_coeff_vals
 
     @staticmethod
@@ -54,5 +54,5 @@ class VertMix:
 
         bldepth_min = 50.0
         bldepth_max = 150.0
-        frac = 0.5 + 0.5 * np.cos((2 * np.pi) * ((time / 365.0) - 0.25))
+        frac = 0.5 + 0.5 * np.cos((2 * np.pi) * (constants.year_per_sec * time - 0.25))
         return bldepth_min + (bldepth_max - bldepth_min) * frac

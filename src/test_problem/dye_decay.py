@@ -3,6 +3,7 @@
 import numpy as np
 from scipy import linalg
 
+from . import constants
 from .tracer_module_state import TracerModuleState
 
 
@@ -13,21 +14,27 @@ class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
         super().__init__(tracer_module_name, fname, model_config_obj, depth)
 
         # integral of surface flux over year is 1 mol m-2
-        self._dye_decay_surf_flux_times = 365.0 * np.array([0.1, 0.2, 0.6, 0.7])
-        self._dye_decay_surf_flux_vals = np.array([0.0, 2.0, 2.0, 0.0]) / 365.0
+        self._dye_decay_surf_flux_times = constants.sec_per_year * np.array(
+            [0.1, 0.2, 0.6, 0.7]
+        )
+        self._dye_decay_surf_flux_vals = constants.year_per_sec * np.array(
+            [0.0, 2.0, 2.0, 0.0]
+        )
         self._dye_decay_surf_flux_time = None
         self._dye_decay_surf_flux_val = 0.0
 
     def comp_tend(self, time, tracer_vals_flat, vert_mix):
         """
         compute tendency for dye_decay tracer
-        tendency units are tr_units / day
+        tendency units are tr_units / s
         """
         surf_flux = self._dye_decay_surf_flux(time)
         dtracer_vals_dt_flat = vert_mix.tend(time, tracer_vals_flat[:], surf_flux)
         # decay (suff / 1000) / y
         suff = self.name[10:]
-        dtracer_vals_dt_flat -= int(suff) * 0.001 / 365.0 * tracer_vals_flat
+        dtracer_vals_dt_flat -= (
+            int(suff) * 0.001 * constants.year_per_sec * tracer_vals_flat
+        )
         return dtracer_vals_dt_flat
 
     def _dye_decay_surf_flux(self, time):
@@ -59,7 +66,7 @@ class dye_decay(TracerModuleState):  # pylint: disable=invalid-name
 
         # decay (suff / 1000) / y
         suff = self.name[10:]
-        matrix_diagonals[1, :] -= int(suff) * 0.001 / 365.0
+        matrix_diagonals[1, :] -= int(suff) * 0.001 * constants.year_per_sec
 
         res_vals = linalg.solve_banded(l_and_u, matrix_diagonals, rhs_vals)
 

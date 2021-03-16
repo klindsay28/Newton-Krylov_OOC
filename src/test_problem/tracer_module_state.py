@@ -188,7 +188,7 @@ class TracerModuleState(TracerModuleStateBase):
     @staticmethod
     def hist_time_mean_weights(fptr):
         """return weights for computing time-mean in hist file"""
-        # downweight endpoints because test_problem writes t=0 and t=365 to hist
+        # downweight endpoints because test_problem writes t=0 and t=end to hist
         timelen = len(fptr.dimensions["time"])
         weights = np.full(timelen, 1.0 / (timelen - 1))
         weights[0] *= 0.5

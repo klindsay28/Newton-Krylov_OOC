@@ -19,6 +19,7 @@ from ..model_state_base import ModelStateBase
 from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..spatial_axis import spatial_axis_from_file
 from ..utils import class_name, create_dimensions_verify, create_vars
+from . import constants
 from .vert_mix import VertMix
 
 
@@ -105,7 +106,7 @@ class ModelState(ModelStateBase):
     # give ModelState operators higher priority than those of numpy
     __array_priority__ = 100
 
-    time_range = (0.0, 365.0)
+    time_range = (0.0, constants.sec_per_year)
     depth = None
     vert_mix = None
 
@@ -262,7 +263,7 @@ class ModelState(ModelStateBase):
             "dimensions": ("time",),
             "attrs": {
                 "long_name": "time",
-                "units": "days since 0001-01-01",
+                "units": "seconds since 0001-01-01",
                 "calendar": "noleap",
             },
         }
@@ -275,7 +276,7 @@ class ModelState(ModelStateBase):
         }
         hist_vars_metadata["mixing_coeff"] = {
             "dimensions": ("time", "depth_edges"),
-            "attrs": {"long_name": "vertical mixing coefficient", "units": "m^2 / d"},
+            "attrs": {"long_name": "vertical mixing coefficient", "units": "m^2 / s"},
         }
 
         # set cell_methods attribute and define hist vars

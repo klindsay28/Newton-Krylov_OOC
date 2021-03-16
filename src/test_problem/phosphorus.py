@@ -4,6 +4,7 @@ import numpy as np
 from scipy import linalg, sparse
 from scipy.sparse import linalg as sp_linalg
 
+from . import constants
 from .tracer_module_state import TracerModuleState
 
 
@@ -27,7 +28,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
     def comp_tend(self, time, tracer_vals_flat, vert_mix):
         """
         compute tendency for phosphorus tracers
-        tendency units are tr_units / day
+        tendency units are tr_units / s
         """
 
         tracer_vals = tracer_vals_flat.reshape((6, -1))
@@ -60,7 +61,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         if self.po4_s_restoring_opt == 0:
             # 1 / day in top layer
             res = np.zeros(po4.shape)
-            res[0] = 1.0
+            res[0] = constants.day_per_sec
         else:
             # finite-difference approximation to d po4_uptake / d po4
             po4_delta = 1.0e-3 * abs(po4)
@@ -70,19 +71,19 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         return res
 
     def po4_uptake(self, po4):
-        """return po4_uptake, [mmol m-3 d-1]"""
+        """return po4_uptake, [mmol m-3 s-1]"""
 
         # po4 half-saturation = 0.5
         # maximum uptake rate = 1 d-1
         po4_lim = po4 / (po4 + 0.5)
-        return self.light_lim * po4_lim
+        return constants.day_per_sec * self.light_lim * po4_lim
 
     def _comp_tend_phosphorus_core(
         self, time, po4_uptake, tracer_vals, dtracer_vals_dt, vert_mix
     ):
         """
         core fuction for computing tendency for phosphorus tracers
-        tendency units are tr_units / day
+        tendency units are tr_units / s
         """
 
         po4 = tracer_vals[0, :]
@@ -90,9 +91,9 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         pop = tracer_vals[2, :]
 
         # dop remin rate is 1% / day
-        dop_remin = 0.01 * dop
+        dop_remin = 0.01 * constants.day_per_sec * dop
         # pop remin rate is 1% / day
-        pop_remin = 0.01 * pop
+        pop_remin = 0.01 * constants.day_per_sec * pop
 
         sigma = 0.67
 
@@ -111,24 +112,24 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
 
     def _sinking_tend(self, tracer_vals):
         """tracer tendency from sinking"""
-        self._sinking_tend_work[1:-1] = -tracer_vals[
-            :-1
-        ]  # assume velocity is 1 m / day
-        return (
+        self._sinking_tend_work[1:-1] = (
+            -constants.day_per_sec * tracer_vals[:-1]
+        )  # assume velocity is 1 m / day
+        return self.depth.delta_r * (
             self._sinking_tend_work[1:] - self._sinking_tend_work[:-1]
-        ) * self.depth.delta_r
+        )
 
     def hist_vars_metadata_tracer_like(self):
         """return dict of metadata for tracer-like vars to appear in the hist file"""
         res = super().hist_vars_metadata_tracer_like()
         po4_units = res["po4"]["attrs"]["units"]
         res["po4_uptake"] = {
-            "attrs": {"long_name": "uptake of po4", "units": po4_units + " / d"}
+            "attrs": {"long_name": "uptake of po4", "units": po4_units + " / s"}
         }
         res["po4_s_restore_tau_r"] = {
             "attrs": {
                 "long_name": "inverse timescale for po4_s restoring",
-                "units": "1 / d",
+                "units": "1 / s",
             }
         }
         return res
@@ -137,7 +138,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         """write hist vars"""
 
         # compute po4_uptake, po4_s_restore_tau_r
-        po4_ind = 1
+        po4_ind = 0
         po4_uptake_vals = np.empty((1, len(self.depth), tracer_vals_all.shape[-1]))
         po4_s_restore_tau_r_vals = np.empty(
             (1, len(self.depth), tracer_vals_all.shape[-1])
@@ -221,11 +222,11 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         diag_0_po4_s = diag_0_single_tracer.copy()
         diag_0_po4_s -= po4_s_restore_tau_r  # po4_s restoring
         diag_0_dop_s = diag_0_single_tracer.copy()
-        diag_0_dop_s -= 0.01  # dop_s remin
+        diag_0_dop_s -= 0.01 * constants.day_per_sec  # dop_s remin
         diag_0_pop_s = diag_0_single_tracer.copy()
-        diag_0_pop_s -= 0.01  # pop_s remin
+        diag_0_pop_s -= 0.01 * constants.day_per_sec  # pop_s remin
         # pop_s sinking loss to layer below
-        diag_0_pop_s[:-1] -= 1.0 * self.depth.delta_r[:-1]
+        diag_0_pop_s[:-1] -= constants.day_per_sec * self.depth.delta_r[:-1]
         return np.concatenate((diag_0_po4_s, diag_0_dop_s, diag_0_pop_s))
 
     def _diag_p_1_phosphorus(self, mca):
@@ -247,7 +248,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         diag_m_1_dop_s = diag_m_1_single_tracer.copy()
         diag_m_1_pop_s = diag_m_1_single_tracer.copy()
         # pop_s sinking gain from layer above
-        diag_m_1_pop_s += 1.0 * self.depth.delta_r[1:]
+        diag_m_1_pop_s += constants.day_per_sec * self.depth.delta_r[1:]
         return np.concatenate(
             (diag_m_1_po4_s, zero, diag_m_1_dop_s, zero, diag_m_1_pop_s)
         )
@@ -256,7 +257,9 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         """
         return +nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        diag_p_1_dop_po4 = 0.01 * np.ones(len(self.depth))  # dop_s remin
+        diag_p_1_dop_po4 = (
+            0.01 * constants.day_per_sec * np.ones(len(self.depth))
+        )  # dop_s remin
         diag_p_1_pop_dop = np.zeros(len(self.depth))
         return np.concatenate((diag_p_1_dop_po4, diag_p_1_pop_dop))
 
@@ -274,7 +277,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         """
         return +2nlevs upper diagonal of preconditioner of jacobian of phosphorus fcn
         """
-        return 0.01 * np.ones(len(self.depth))  # pop_s remin
+        return 0.01 * constants.day_per_sec * np.ones(len(self.depth))  # pop_s remin
 
     @staticmethod
     def _diag_m_2nlevs_phosphorus(po4_s_restore_tau_r):
