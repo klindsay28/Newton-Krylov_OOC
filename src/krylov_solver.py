@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 
-from .model_state_base import lin_comb
+from . import model_state_base
 from .region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
 from .solver_state import SolverState, action_step_log_wrap
 from .utils import class_name, mkdir_exist_okay
@@ -26,22 +26,24 @@ class KrylovSolver:
     Assumes x0 = 0.
     """
 
-    def __init__(self, iterate, workdir, resume, rewind, hist_fname):
+    def __init__(self, iterate, solverinfo, resume, rewind, hist_fname):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
         logger.debug(
             'KrylovSolver, workdir="%s", resume="%r", rewind="%r", hist_fname="%s"',
-            workdir,
+            solverinfo["krylov_workdir"],
             resume,
             rewind,
             hist_fname,
         )
 
         # ensure workdir exists
+        workdir = solverinfo["krylov_workdir"]
         mkdir_exist_okay(workdir)
 
-        self._workdir = workdir
+        self._solverinfo = solverinfo
         self._solver_state = SolverState("Krylov", workdir, resume, rewind)
+        self._iterate = iterate
 
         iterate.gen_precond_jacobian(
             hist_fname,
@@ -49,15 +51,25 @@ class KrylovSolver:
             solver_state=self._solver_state,
         )
 
+    def get_iteration(self):
+        """get current iteration"""
+        return self._solver_state.get_iteration()
+
     def _fname(self, quantity, iteration=None):
         """construct fname corresponding to particular quantity"""
         if iteration is None:
-            iteration = self._solver_state.get_iteration()
-        return os.path.join(self._workdir, "%s_%02d.nc" % (quantity, iteration))
+            iteration = self.get_iteration()
+        return os.path.join(
+            self._solverinfo["krylov_workdir"], "%s_%02d.nc" % (quantity, iteration)
+        )
 
-    def converged(self):
-        """is solver converged"""
-        return self._solver_state.get_iteration() >= 3
+    def converged_flat(self, beta_ndarray, precond_resid_norm_ndarray):
+        """
+        is solver converged
+        precond_resid: preconditioned residuals
+        """
+        rel_tol = self._solverinfo.getfloat("krylov_rel_tol")
+        return precond_resid_norm_ndarray < rel_tol * beta_ndarray
 
     @action_step_log_wrap(step="KrylovSolver._solve0", per_iteration=False)
     # pylint: disable=unused-argument
@@ -71,11 +83,12 @@ class KrylovSolver:
             self._fname("precond", 0), self._fname("precond_fcn"), self._solver_state
         )
         beta = precond_fcn.norm()
+        fcn.log_vals("beta", beta)
         caller = class_name(self) + "._solve0"
         (-precond_fcn / beta).dump(self._fname("basis"), caller)
         self._solver_state.set_value_saved_state("beta_ndarray", to_ndarray(beta))
 
-    def solve(self, res_fname, iterate, fcn):
+    def solve(self, res_fname, fcn):
         """apply Krylov method"""
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s"', res_fname)
@@ -85,19 +98,17 @@ class KrylovSolver:
         caller = class_name(self) + ".solve"
 
         while True:
-            j_val = self._solver_state.get_iteration()
+            j_val = self.get_iteration()
             region_cnt = RegionScalars.region_cnt
             h_mat = to_region_scalar_ndarray(
-                np.zeros(
-                    (len(iterate.tracer_modules), j_val + 2, j_val + 1, region_cnt)
-                )
+                np.zeros((len(fcn.tracer_modules), j_val + 2, j_val + 1, region_cnt))
             )
             if j_val > 0:
                 h_mat[:, :-1, :-1] = to_region_scalar_ndarray(
                     self._solver_state.get_value_saved_state("h_mat_ndarray")
                 )
-            basis_j = type(iterate)(self._fname("basis"))
-            w_raw = iterate.comp_jacobian_fcn_state_prod(
+            basis_j = type(self._iterate)(self._fname("basis"))
+            w_raw = self._iterate.comp_jacobian_fcn_state_prod(
                 fcn, basis_j, self._fname("w_raw"), self._solver_state
             )
             w_j = w_raw.apply_precond_jacobian(
@@ -110,32 +121,44 @@ class KrylovSolver:
             self._solver_state.set_value_saved_state("h_mat_ndarray", h_mat_ndarray)
 
             # solve least-squares minimization problem for each tracer module
-            coeff_ndarray = self.comp_krylov_basis_coeffs(h_mat_ndarray)
-            iterate.log_vals("KrylovCoeff", coeff_ndarray)
+            beta_ndarray = self._solver_state.get_value_saved_state("beta_ndarray")
+            coeff_ndarray = self.comp_krylov_basis_coeffs(beta_ndarray, h_mat_ndarray)
+            self._iterate.log_vals("KrylovCoeff", coeff_ndarray)
 
             # construct approximate solution
-            res = lin_comb(
-                type(iterate),
+            res = model_state_base.lin_comb(
+                type(self._iterate),
                 to_region_scalar_ndarray(coeff_ndarray),
                 self._fname,
                 "basis",
             )
             res.dump(self._fname("krylov_res", j_val), caller)
 
-            if self.converged():
-                break
+            precond_resid = model_state_base.lin_comb(
+                type(self._iterate),
+                to_region_scalar_ndarray(coeff_ndarray),
+                self._fname,
+                "w",
+            )
+            precond_resid += type(self._iterate)(self._fname("precond_fcn", 0))
+            precond_resid_norm = precond_resid.norm()
+            self._iterate.log_vals("precond_resid", precond_resid_norm)
 
             self._solver_state.inc_iteration()
+
+            if self.converged_flat(beta_ndarray, to_ndarray(precond_resid_norm)).all():
+                logger.info("Krylov convergence criterion satisfied")
+                break
+
             w_j.dump(self._fname("basis"), caller)
 
         return res.dump(res_fname, caller)
 
-    def comp_krylov_basis_coeffs(self, h_mat_ndarray):
+    def comp_krylov_basis_coeffs(self, beta_ndarray, h_mat_ndarray):
         """solve least-squares minimization problem for each tracer module"""
         h_shape = h_mat_ndarray.shape
         coeff_ndarray = np.zeros((h_shape[0], h_shape[2], h_shape[3]))
         lstsq_rhs = np.zeros(h_shape[1])
-        beta_ndarray = self._solver_state.get_value_saved_state("beta_ndarray")
         for tracer_module_ind in range(h_shape[0]):
             for region_ind in range(h_shape[3]):
                 lstsq_rhs[0] = beta_ndarray[tracer_module_ind, region_ind]

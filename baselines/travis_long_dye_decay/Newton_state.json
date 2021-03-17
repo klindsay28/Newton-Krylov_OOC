@@ -1,5 +1,5 @@
 {
-  "iteration": 2,
+  "iteration": 3,
   "step_log": [
     "__init__",
     "_create_stats_file HOME/travis_long_dye_decay_workdir/Newton_stats.nc",
@@ -45,7 +45,23 @@
     "02:write iterate norm vals to stats file",
     "02:write fcn mean vals to stats file",
     "02:write fcn norm vals to stats file",
-    "02:ModelStateBase.put_stats_vars"
+    "02:ModelStateBase.put_stats_vars",
+    "02:KrylovSolver instantiated",
+    "02:write increment mean vals to stats file",
+    "02:write increment norm vals to stats file",
+    "02:_comp_increment complete",
+    "02:NewtonSolver._armijo_init",
+    "02:comp_fcn complete for HOME/travis_long_dye_decay_workdir/prov_fcn_Armijo_00_02.nc",
+    "02:_comp_next_iterate complete",
+    "02:fp iterations started",
+    "02:prov updated for fp iteration 00",
+    "03:inc_iteration",
+    "03:comp_fcn complete for HOME/travis_long_dye_decay_workdir/fcn_03.nc",
+    "03:write iterate mean vals to stats file",
+    "03:write iterate norm vals to stats file",
+    "03:write fcn mean vals to stats file",
+    "03:write fcn norm vals to stats file",
+    "03:ModelStateBase.put_stats_vars"
   ],
   "armijo_ind": 0,
   "armijo_factor_flat": {

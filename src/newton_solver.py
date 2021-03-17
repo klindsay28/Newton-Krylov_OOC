@@ -66,6 +66,10 @@ class NewtonSolver:
             self._stats_file, self._fname("hist"), solver_state=self._solver_state
         )
 
+    def get_iteration(self):
+        """get current iteration"""
+        return self._solver_state.get_iteration()
+
     @action_step_log_wrap(
         step="NewtonSolver._def_solver_stats_dimensions", per_iteration=False
     )
@@ -119,6 +123,15 @@ class NewtonSolver:
             repl_dict = {"tracer_module_name": tracer_module.name}
             var_metadata = fmt_vals(var_metadata_template, repl_dict)
             vars_metadata.update(var_metadata)
+        vars_metadata["Krylov_iterations"] = {
+            "category": "tracer_invariant_scalar",
+            "datatype": "i4",
+            "dimensions": ("iteration",),
+            "attrs": {
+                "long_name": "number of iterations in Krylov solver",
+                "units": "1",
+            },
+        }
         return vars_metadata
 
     @action_step_log_wrap(
@@ -160,11 +173,13 @@ class NewtonSolver:
                         vars_metadata, scalar_val, scalar_name=scalar_name
                     )
                     varname_vals_all.update(varname_vals_scalar)
+            elif category == "tracer_invariant_scalar":
+                varname_vals_all.update(vals_dict)
             else:
                 msg = "unknown category %s" % category
                 raise ValueError(msg)
 
-        self._stats_file.put_vars(self._solver_state.get_iteration(), varname_vals_all)
+        self._stats_file.put_vars(self.get_iteration(), varname_vals_all)
 
     def _gen_varname_vals_scalar(self, vars_metadata, scalar_var, **kwargs):
         """return varname_vals dict of scalar values for all tracer modules"""
@@ -180,18 +195,17 @@ class NewtonSolver:
     def _fname(self, quantity, iteration=None):
         """construct fname corresponding to particular quantity"""
         if iteration is None:
-            iteration = self._solver_state.get_iteration()
+            iteration = self.get_iteration()
         return os.path.join(
             self._solverinfo["workdir"], "%s_%02d.nc" % (quantity, iteration)
         )
 
     def log(self, iterate=None, fcn=None, msg=None):
         """write the state of the instance to the log"""
-        iteration = self._solver_state.get_iteration()
         if msg is None:
-            iteration_p_msg = "iteration=%02d" % iteration
+            iteration_p_msg = "iteration=%02d" % self.get_iteration()
         else:
-            iteration_p_msg = "iteration=%02d,%s" % (iteration, msg)
+            iteration_p_msg = "iteration=%02d,%s" % (self.get_iteration(), msg)
 
         log_obj = self._iterate if iterate is None else iterate
         log_obj.log("%s,iterate" % iteration_p_msg)
@@ -219,9 +233,8 @@ class NewtonSolver:
             return type(self._iterate)(self._fname("increment"))
         logger.debug('"%s" not logged, computing increment', fcn_complete_step)
 
-        krylov_dir = os.path.join(
-            self._solverinfo["workdir"],
-            "krylov_%02d" % self._solver_state.get_iteration(),
+        self._solverinfo["krylov_workdir"] = os.path.join(
+            self._solverinfo["workdir"], "krylov_%02d" % self.get_iteration(),
         )
         step = "KrylovSolver instantiated"
         rewind = self._solver_state.step_was_rewound(step)
@@ -229,16 +242,16 @@ class NewtonSolver:
         if not resume:
             self.log()
         krylov_solver = KrylovSolver(
-            self._iterate, krylov_dir, resume, rewind, self._fname("hist")
+            self._iterate, self._solverinfo, resume, rewind, self._fname("hist")
         )
         self._solver_state.log_step(step)
-        increment = krylov_solver.solve(
-            self._fname("increment"), self._iterate, self._fcn
+        increment = krylov_solver.solve(self._fname("increment"), self._fcn)
+        self._put_solver_stats_vars(
+            tracer_invariant_scalar={"Krylov_iterations": krylov_solver.get_iteration()}
         )
         self._put_solver_stats_vars(model_state={"increment": increment})
         self._solver_state.log_step(fcn_complete_step)
-        iteration = self._solver_state.get_iteration()
-        increment.log("Newton increment %02d" % iteration)
+        increment.log("Newton increment %02d" % self.get_iteration())
         return increment
 
     @action_step_log_wrap(step="NewtonSolver._armijo_init")
@@ -330,9 +343,7 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug("entering")
 
-        if self._solver_state.get_iteration() >= self._solverinfo.getint(
-            "newton_max_iter"
-        ):
+        if self.get_iteration() >= self._solverinfo.getint("newton_max_iter"):
             self.log()
             msg = "number of maximum Newton iterations exceeded"
             raise RuntimeError(msg)

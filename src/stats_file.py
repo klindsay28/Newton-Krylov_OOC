@@ -82,10 +82,11 @@ class StatsFile:
             return
         with Dataset(self._fname, mode="a") as fptr:
             for name, vals in name_vals_dict.items():
-                if "iteration" in fptr.variables[name].dimensions:
+                var = fptr.variables[name]
+                if "iteration" in var.dimensions:
                     msg = "iteration is a dimension for %s" % name
                     raise RuntimeError(msg)
-                fptr.variables[name][:] = vals
+                var[:] = vals
 
     def put_vars(self, iteration, name_vals_dict):
         """
@@ -100,10 +101,14 @@ class StatsFile:
             if iteration == len(fptr.variables["iteration"]):
                 _grow_iteration(fptr)
             for name, vals in name_vals_dict.items():
-                if "iteration" not in fptr.variables[name].dimensions:
+                var = fptr.variables[name]
+                if "iteration" not in var.dimensions:
                     msg = "iteration is not a dimension for %s" % name
                     raise RuntimeError(msg)
-                fptr.variables[name][iteration, :] = vals
+                if var.ndim == 1:
+                    var[iteration] = vals
+                else:
+                    var[iteration, :] = vals
 
 
 def _grow_iteration(fptr):
@@ -115,4 +120,7 @@ def _grow_iteration(fptr):
         if var.name == "iteration":
             var[iteration] = iteration
         elif var.dimensions[0] == "iteration":
-            var[iteration, :] = var._FillValue  # pylint: disable=protected-access
+            if var.ndim == 1:
+                var[iteration] = var._FillValue  # pylint: disable=protected-access
+            else:
+                var[iteration, :] = var._FillValue  # pylint: disable=protected-access

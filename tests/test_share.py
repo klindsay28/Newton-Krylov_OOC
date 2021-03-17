@@ -27,7 +27,7 @@ def test_read_cfg_files(args_list):
     config = read_cfg_files(args)
 
     assert config["DEFAULT"]["model_name"] == model_name
-    assert config["solverinfo"]["newton_max_iter"] == "3"
+    assert config["solverinfo"]["newton_max_iter"] == "5"
 
     expected = "False" if "--persist" in args_list else "True"
     assert config["modelinfo"]["reinvoke"] == expected

@@ -62,7 +62,7 @@ def main(args):
 
     while True:
         if newton_solver.converged_flat().all():
-            logger.info("convergence criterion satisfied")
+            logger.info("Newton convergence criterion satisfied")
             newton_solver.log()
             break
         newton_solver.step()
