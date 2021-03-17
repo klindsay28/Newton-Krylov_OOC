@@ -122,7 +122,7 @@ class KrylovSolver:
 
             # solve least-squares minimization problem for each tracer module
             beta_ndarray = self._solver_state.get_value_saved_state("beta_ndarray")
-            coeff_ndarray = self.comp_krylov_basis_coeffs(beta_ndarray, h_mat_ndarray)
+            coeff_ndarray = _comp_krylov_basis_coeffs(beta_ndarray, h_mat_ndarray)
             self._iterate.log_vals("KrylovCoeff", coeff_ndarray)
 
             # construct approximate solution
@@ -154,17 +154,18 @@ class KrylovSolver:
 
         return res.dump(res_fname, caller)
 
-    def comp_krylov_basis_coeffs(self, beta_ndarray, h_mat_ndarray):
-        """solve least-squares minimization problem for each tracer module"""
-        h_shape = h_mat_ndarray.shape
-        coeff_ndarray = np.zeros((h_shape[0], h_shape[2], h_shape[3]))
-        lstsq_rhs = np.zeros(h_shape[1])
-        for tracer_module_ind in range(h_shape[0]):
-            for region_ind in range(h_shape[3]):
-                lstsq_rhs[0] = beta_ndarray[tracer_module_ind, region_ind]
-                coeff_ndarray[tracer_module_ind, :, region_ind] = np.linalg.lstsq(
-                    h_mat_ndarray[tracer_module_ind, :, :, region_ind],
-                    lstsq_rhs,
-                    rcond=None,
-                )[0]
-        return coeff_ndarray
+
+def _comp_krylov_basis_coeffs(beta_ndarray, h_mat_ndarray):
+    """solve least-squares minimization problem for each tracer module"""
+    h_shape = h_mat_ndarray.shape
+    coeff_ndarray = np.zeros((h_shape[0], h_shape[2], h_shape[3]))
+    lstsq_rhs = np.zeros(h_shape[1])
+    for tracer_module_ind in range(h_shape[0]):
+        for region_ind in range(h_shape[3]):
+            lstsq_rhs[0] = beta_ndarray[tracer_module_ind, region_ind]
+            coeff_ndarray[tracer_module_ind, :, region_ind] = np.linalg.lstsq(
+                h_mat_ndarray[tracer_module_ind, :, :, region_ind],
+                lstsq_rhs,
+                rcond=None,
+            )[0]
+    return coeff_ndarray

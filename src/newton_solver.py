@@ -234,7 +234,7 @@ class NewtonSolver:
         logger.debug('"%s" not logged, computing increment', fcn_complete_step)
 
         self._solverinfo["krylov_workdir"] = os.path.join(
-            self._solverinfo["workdir"], "krylov_%02d" % self.get_iteration(),
+            self._solverinfo["workdir"], "krylov_%02d" % self.get_iteration()
         )
         step = "KrylovSolver instantiated"
         rewind = self._solver_state.step_was_rewound(step)
