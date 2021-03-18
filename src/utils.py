@@ -419,7 +419,7 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
         fptr.history = "\n".join([msg, fptr.history])
 
 
-def gen_forcing_fcn(fname, varname, additional_dims_out):
+def gen_forcing_fcn(fname, varname, additional_dims_out, scalef=1.0):
     """
     Return function for interpolating forcing field from a netCDF file.
     The returned function will interpolate along the field's 1st dimension.
@@ -428,6 +428,7 @@ def gen_forcing_fcn(fname, varname, additional_dims_out):
     fname: name of file with forcing
     varname: name of file variable with forcing
     additional_dims_out: list of non-time axis values to interpolate data to.
+    scalef: scaling factor that data is multiplied by
     """
     logger = logging.getLogger(__name__)
     logger.info("reading %s from %s", varname, fname)
@@ -448,7 +449,7 @@ def gen_forcing_fcn(fname, varname, additional_dims_out):
         dimnames = var.dimensions
 
         dim0_in = fptr.variables[dimnames[0]][:]
-        data = var[:]
+        data = scalef * var[:]
 
         # interpolate along additional dimensions,
         # if forcing axis differs from model axis
