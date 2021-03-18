@@ -42,22 +42,35 @@ This implementation effectively enables the solver to resume where it left off, 
 avoids the requirement for the solver to remain resident in memory.
 
 ## Directory Hierarchy Sketch
+<!--- based on output from the command
+tree -d -I "__pycache__"
+annotations added by hand
+-->
 ```
 .
 ├── baselines                   # directories containing baselines that travis tests
 │   ├── travis_long_dye_decay   # are compared to
 │   ├── travis_long_iage
+│   ├── travis_py_driver_2d_iage
 │   └── travis_short
 ├── docs                        # solver documentation
 │   └── source
-├── input
-│   ├── cime_pop                # cime_pop model specific input files
-│   └── test_problem            # test_problem model specific input files
+│       ├── description
+│       ├── dev-guide
+│       └── users-guide
+├── environments                # YAML definition files of conda environments
+├── input                       # directories of model specific input files
+│   ├── cime_pop
+│   ├── py_driver_2d
+│   ├── test_problem
+│   └── tests
 ├── notebooks                   # jupyter notebooks utilizing the solver
-├── scripts                     # non-python scripts, model independent
+├── scripts                     # non-python scripts
 ├── src                         # model independent python code
 │   ├── cime_pop                # cime_pop model specific python code
+│   ├── py_driver_2d            # py_driver_2d model specific python code
 │   └── test_problem            # test_problem model specific python code
 └── tests                       # pytest tests
+    └── workdir                 # work/scratch space for pytest invocations
 
 ```
