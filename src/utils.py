@@ -470,3 +470,29 @@ def gen_forcing_fcn(fname, varname, additional_dims_out):
     )
 
     return fcn
+
+
+################################################################################
+# utilities related to numpy arrays
+
+
+def comp_scalef_lob(base, increment, lob):
+    """compute largest 0<scalef<1 to ensure base + scalef * increment >= lob"""
+    if lob is None or (base + increment >= lob).all():
+        return 1.0
+    if (base < lob).any():
+        raise ValueError("base < lob")
+    scalef = np.ones(base.shape)
+    np.divide(lob - base, increment, out=scalef, where=(base + increment < lob))
+    return scalef.min()
+
+
+def comp_scalef_upb(base, increment, upb):
+    """compute smallest 0<scalef<1 to ensure base + scalef * increment <= upb"""
+    if upb is None or (base + increment <= upb).all():
+        return 1.0
+    if (base > upb).any():
+        raise ValueError("base > upb")
+    scalef = np.ones(base.shape)
+    np.divide(upb - base, increment, out=scalef, where=(base + increment > upb))
+    return scalef.min()

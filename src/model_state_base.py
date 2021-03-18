@@ -78,6 +78,13 @@ class ModelStateBase:
         """
         raise NotImplementedError("Method must be implemented in derived class")
 
+    def apply_limiter(self, base):
+        """
+        apply limiter scalef to self to ensure base + scalef * self is within bounds
+        """
+        for ind, tracer_module in enumerate(self.tracer_modules):
+            tracer_module.apply_limiter(base.tracer_modules[ind])
+
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):
         """
         apply preconditioner of jacobian of comp_fcn to model state object, self

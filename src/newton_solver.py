@@ -355,6 +355,8 @@ class NewtonSolver:
 
             increment = self._comp_increment()
 
+            increment.apply_limiter(self._iterate)
+
             prov, prov_fcn = self._comp_next_iterate(increment)
 
             fp_iter = 0

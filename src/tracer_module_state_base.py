@@ -5,8 +5,7 @@ import logging
 
 import numpy as np
 
-from .region_scalars import RegionScalars, to_ndarray
-from .utils import attr_common
+from . import region_scalars, utils
 
 
 class TracerModuleStateBase:
@@ -36,7 +35,7 @@ class TracerModuleStateBase:
         ]
         self.tracer_cnt = len(self._tracer_module_def["tracers"])
         # units common to all tracers
-        self.units = attr_common(self._tracer_module_def["tracers"], "units")
+        self.units = utils.attr_common(self._tracer_module_def["tracers"], "units")
         self._vals, self._dimensions = self._read_vals(fname)
 
     def _read_vals(self, fname):
@@ -83,6 +82,53 @@ class TracerModuleStateBase:
         """
         return self.tracer_names()
 
+    def apply_limiter(self, base):
+        """
+        apply limiter scalef to self to ensure base + scalef * self is within bounds
+        """
+        logger = logging.getLogger(__name__)
+        if not self.has_bounds():
+            return
+
+        scalef = 1.0
+        for tracer_name in self._tracer_module_def["tracers"]:
+            lob, upb = self.get_bounds(tracer_name)
+            if lob is None and upb is None:
+                continue
+            self_vals = self.get_tracer_vals(tracer_name)
+            base_vals = base.get_tracer_vals(tracer_name)
+            scalef = min(scalef, utils.comp_scalef_lob(base_vals, self_vals, lob))
+            scalef = min(scalef, utils.comp_scalef_upb(base_vals, self_vals, upb))
+
+        if scalef < 1.0:
+            logger.info("scalef[%s]=%e", self.name, scalef)
+            self *= scalef
+
+    def has_bounds(self):
+        """Return if bounds applied to this tracer module."""
+        if "bounds" in self._tracer_module_def:
+            return True
+        for tracer_metadata in self._tracer_module_def["tracers"].values():
+            if "bounds" in tracer_metadata:
+                return True
+        return False
+
+    def get_bounds(self, tracer_name):
+        """
+        Return tuple of lower and uppoer bounds for tracer_name.
+        Note that either, or both, of the the returned values can be None,
+        indicating that the corresponding bound is not specified.
+        """
+        lob, upb = None, None
+        for metadata in [
+            self._tracer_module_def,
+            self._tracer_module_def["tracers"][tracer_name],
+        ]:
+            if "bounds" in metadata:
+                lob = metadata["bounds"].get("lob", lob)
+                upb = metadata["bounds"].get("upb", upb)
+        return lob, upb
+
     def log_vals(self, msg, vals):
         """write per-tracer module values to the log"""
         logger = logging.getLogger(__name__)
@@ -90,11 +136,11 @@ class TracerModuleStateBase:
         # simplify subsequent logic by converting implicit RegionScalars dimension
         # to an additional ndarray dimension
         if (
-            isinstance(vals, RegionScalars)
+            isinstance(vals, region_scalars.RegionScalars)
             or isinstance(vals, np.ndarray)
-            and isinstance(vals.ravel()[0], RegionScalars)
+            and isinstance(vals.ravel()[0], region_scalars.RegionScalars)
         ):
-            self.log_vals(msg, to_ndarray(vals))
+            self.log_vals(msg, region_scalars.to_ndarray(vals))
             return
 
         # suppress printing of last index if its span is 1
@@ -178,7 +224,7 @@ class TracerModuleStateBase:
         res = copy.copy(self)
         if isinstance(other, float):
             res._vals = self._vals * other
-        elif isinstance(other, RegionScalars):
+        elif isinstance(other, region_scalars.RegionScalars):
             res._vals = self._vals * other.broadcast(self.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals * other._vals
@@ -200,7 +246,7 @@ class TracerModuleStateBase:
         """
         if isinstance(other, float):
             self._vals *= other
-        elif isinstance(other, RegionScalars):
+        elif isinstance(other, region_scalars.RegionScalars):
             self._vals *= other.broadcast(self.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
             self._vals *= other._vals
@@ -216,7 +262,7 @@ class TracerModuleStateBase:
         res = copy.copy(self)
         if isinstance(other, float):
             res._vals = self._vals * (1.0 / other)
-        elif isinstance(other, RegionScalars):
+        elif isinstance(other, region_scalars.RegionScalars):
             res._vals = self._vals * other.recip().broadcast(
                 self.model_config_obj.region_mask
             )
@@ -234,7 +280,7 @@ class TracerModuleStateBase:
         res = copy.copy(self)
         if isinstance(other, float):
             res._vals = other / self._vals
-        elif isinstance(other, RegionScalars):
+        elif isinstance(other, region_scalars.RegionScalars):
             res._vals = other.broadcast(self.model_config_obj.region_mask) / self._vals
         else:
             return NotImplemented
@@ -247,7 +293,7 @@ class TracerModuleStateBase:
         """
         if isinstance(other, float):
             self._vals *= 1.0 / other
-        elif isinstance(other, RegionScalars):
+        elif isinstance(other, region_scalars.RegionScalars):
             self._vals *= other.recip().broadcast(self.model_config_obj.region_mask)
         elif isinstance(other, TracerModuleStateBase):
             self._vals /= other._vals
@@ -269,7 +315,7 @@ class TracerModuleStateBase:
         else:
             tmp = np.einsum("iklm,jklm", self.model_config_obj.grid_weight, self._vals)
         # sum over tracer dimension, and return RegionScalars object
-        return RegionScalars(np.sum(tmp, axis=-1))
+        return region_scalars.RegionScalars(np.sum(tmp, axis=-1))
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
@@ -300,7 +346,7 @@ class TracerModuleStateBase:
                 other._vals,  # pylint: disable=protected-access
             )
         # return RegionScalars object
-        return RegionScalars(tmp)
+        return region_scalars.RegionScalars(tmp)
 
     def precond_matrix_list(self):
         """Return list of precond matrices being used"""
