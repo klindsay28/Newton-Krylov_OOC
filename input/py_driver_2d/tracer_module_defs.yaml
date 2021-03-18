@@ -34,14 +34,6 @@ tracer_module_defs:
                     units: "mmol / m^3"
                 init_iterate_val_depths: [1.7e2, 2.5e2]
                 init_iterate_vals: [1.8e-2, 7.9e-4]
-    preformed:  # module name
-        tracers:
-            po4_pf:
-                attrs:
-                    long_name: "preformed phosphate"
-                    units: "mmol / m^3"
-                init_iterate_val_depths: [0.0]
-                init_iterate_vals: [0.0]
     forced:  # module name
         tracers:
             forced_tracer:

@@ -99,10 +99,12 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
             return params
 
         if params["sms_opt"] == "const":
-            params["sms_const"] = modelinfo["forced_sms_const"]
+            params["sms_const"] = utils.eval_expr(modelinfo["forced_sms_const"])
 
         if params["sms_opt"] == "decay":
-            params["sms_decay_rate"] = modelinfo["forced_sms_decay_rate"]
+            params["sms_decay_rate"] = utils.eval_expr(
+                modelinfo["forced_sms_decay_rate"]
+            )
 
         if params["sms_opt"] == "file":
             params["sms_scalef"] = 1.0
