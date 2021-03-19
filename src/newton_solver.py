@@ -215,7 +215,7 @@ class NewtonSolver:
 
     def converged_flat(self):
         """is residual small"""
-        rel_tol = self._solverinfo.getfloat("newton_rel_tol")
+        rel_tol = float(self._solverinfo["newton_rel_tol"])
         return to_ndarray(self._fcn.norm()) < rel_tol * to_ndarray(self._iterate.norm())
 
     def _comp_increment(self):
@@ -343,7 +343,7 @@ class NewtonSolver:
         logger = logging.getLogger(__name__)
         logger.debug("entering")
 
-        if self.get_iteration() >= self._solverinfo.getint("newton_max_iter"):
+        if self.get_iteration() >= int(self._solverinfo["newton_max_iter"]):
             self.log()
             msg = "number of maximum Newton iterations exceeded"
             raise RuntimeError(msg)
@@ -389,7 +389,7 @@ class NewtonSolver:
             prov = type(self._iterate)(self._fname("prov_fp_%02d" % fp_iter))
             prov_fcn = type(self._iterate)(self._fname("prov_fcn_fp_%02d" % fp_iter))
 
-        while fp_iter < self._solverinfo.getint("post_newton_fp_iter"):
+        while fp_iter < int(self._solverinfo["post_newton_fp_iter"]):
             step = "prov updated for fp iteration %02d" % fp_iter
             if not self._solver_state.step_logged(step):
                 if fp_iter == 0:
@@ -400,7 +400,7 @@ class NewtonSolver:
                 self._solver_state.log_step(step)
             else:
                 prov = type(self._iterate)(self._fname("prov_fp_%02d" % (fp_iter + 1)))
-            if fp_iter + 1 < self._solverinfo.getint("post_newton_fp_iter"):
+            if fp_iter + 1 < int(self._solverinfo["post_newton_fp_iter"]):
                 res_fname = self._fname("prov_fcn_fp_%02d" % (fp_iter + 1))
                 hist_fname = self._fname("prov_hist_fp_%02d" % (fp_iter + 1))
             else:

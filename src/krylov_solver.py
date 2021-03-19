@@ -68,7 +68,7 @@ class KrylovSolver:
         is solver converged
         precond_resid: preconditioned residuals
         """
-        rel_tol = self._solverinfo.getfloat("krylov_rel_tol")
+        rel_tol = float(self._solverinfo["krylov_rel_tol"])
         return precond_resid_norm_ndarray < rel_tol * beta_ndarray
 
     @action_step_log_wrap(step="KrylovSolver._solve0", per_iteration=False)
