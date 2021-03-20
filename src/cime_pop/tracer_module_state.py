@@ -78,10 +78,36 @@ class TracerModuleState(TracerModuleStateBase):
             raise ValueError(msg)
         return self
 
+    def stats_dimnames(self, fptr):
+        """return dimnames to be used in stats file for this tracer module"""
+        # base result on first tracer, assume they are the same for all tracers
+        tracer_name = self.tracer_names()[0]
+        # omit dimension[-1], which is reduced over in stats file
+        dimnames = fptr.variables[tracer_name].dimensions[:-1]
+        # drop dimension[0] if it is time
+        if dimnames[0] == "time":
+            dimnames = dimnames[1:]
+        return dimnames
+
+    def stats_dimension_varnames(self, fptr):
+        """
+        return varnames associated with dimensions to be used in stats file
+        include associated bounds variables
+        """
+        varnames = []
+        for dimname in self.stats_dimnames(fptr):
+            if dimname in fptr.variables:
+                varnames.append(dimname)
+                if hasattr(fptr.variables[dimname], "bounds"):
+                    varnames.append(fptr.variables[dimname].bounds)
+        return varnames
+
     def stats_dimensions(self, fptr):
         """return dimensions to be used in stats file for this tracer module"""
-        dimnames = ["z_t", "nlat"]
-        return {dimname: len(fptr.dimensions[dimname]) for dimname in dimnames}
+        dimensions = extract_dimensions(fptr, self.stats_dimnames(fptr))
+        # include dimensions from associated variables
+        dimensions.update(extract_dimensions(fptr, self.stats_dimension_varnames(fptr)))
+        return dimensions
 
     def stats_vars_metadata(self, fptr_hist):
         """
@@ -90,42 +116,54 @@ class TracerModuleState(TracerModuleStateBase):
         """
         res = {}
 
-        for dimname in ["z_t"]:
-            attrs = fptr_hist.variables[dimname].__dict__
+        # add metadata for coordinate and associated variables
+        for varname in self.stats_dimension_varnames(fptr_hist):
+            var = fptr_hist.variables[varname]
+            attrs = var.__dict__
             attrs["_FillValue"] = None
-            res[dimname] = {"dimensions": (dimname,), "attrs": attrs}
+            res[varname] = {"dimensions": var.dimensions, "attrs": attrs}
 
         # add metadata for tracer-like variables
 
         for tracer_name in self.stats_vars_tracer_like():
-            datatype = datatype_sname(fptr_hist.variables[tracer_name])
+            tracer = fptr_hist.variables[tracer_name]
+            datatype = datatype_sname(tracer)
 
-            attrs = fptr_hist.variables[tracer_name].__dict__
-            del attrs["cell_methods"]
-            del attrs["coordinates"]
-            del attrs["grid_loc"]
+            attrs = tracer.__dict__
+            for attr_name in ["cell_methods", "coordinates", "grid_loc"]:
+                if attr_name in attrs:
+                    del attrs[attr_name]
+
+            dimensions = tracer.dimensions
+            # drop dimensions[0] if it is time
+            if dimensions[0] == "time":
+                dimensions = dimensions[1:]
 
             # grid-i average
-            varname_stats = "_".join([tracer_name, "mean", "nlon"])
-            res[varname_stats] = {
-                "datatype": datatype,
-                "dimensions": ("iteration", "region", "z_t", "nlat"),
-                "attrs": attrs,
-            }
+            if len(dimensions) >= 1:
+                varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
+                res[varname_stats] = {
+                    "datatype": datatype,
+                    "dimensions": ("iteration", "region") + dimensions[:-1],
+                    "attrs": attrs,
+                }
 
             # grid-ij average
-            varname_stats = "_".join([tracer_name, "mean", "nlat", "nlon"])
-            res[varname_stats] = {
-                "datatype": datatype,
-                "dimensions": ("iteration", "region", "z_t"),
-                "attrs": attrs,
-            }
+            if len(dimensions) >= 2:
+                varname_stats = "_".join(
+                    [tracer_name, "mean", dimensions[-2], dimensions[-1]]
+                )
+                res[varname_stats] = {
+                    "datatype": datatype,
+                    "dimensions": ("iteration", "region") + dimensions[:-2],
+                    "attrs": attrs,
+                }
         return res
 
     def stats_vars_vals_iteration_invariant(self, fptr_hist):
         """return iteration-invariant tracer module specific stats variables"""
         res = {}
-        for varname in ["z_t"]:
+        for varname in self.stats_dimension_varnames(fptr_hist):
             res[varname] = fptr_hist.variables[varname][:]
         return res
 
@@ -136,11 +174,16 @@ class TracerModuleState(TracerModuleStateBase):
 
         grid_weight = self.model_config_obj.grid_weight
 
-        denom_nlon = grid_weight.sum(axis=-1)
-        numer_nlon = np.empty(denom_nlon.shape)
+        if grid_weight.ndim < 2:  # includes region dim, so like tracer.ndim < 1
+            return {}
 
-        denom_nlat_nlon = grid_weight.sum(axis=(-2, -1))
-        numer_nlat_nlon = np.empty(denom_nlat_nlon.shape)
+        if grid_weight.ndim >= 2:  # includes region dim, so like tracer.ndim >= 1
+            denom_isum = grid_weight.sum(axis=-1)
+            numer_isum = np.empty(denom_isum.shape)
+
+        if grid_weight.ndim >= 3:  # includes region dim, so like tracer.ndim >= 2
+            denom_ijsum = grid_weight.sum(axis=(-2, -1))
+            numer_ijsum = np.empty(denom_ijsum.shape)
 
         res = {}
         for tracer_name in self.stats_vars_tracer_like():
@@ -148,22 +191,33 @@ class TracerModuleState(TracerModuleStateBase):
             fill_value = tracer._FillValue  # pylint: disable=protected-access
             tracer_vals = tracer[:]
 
+            dimensions = tracer.dimensions
+            # drop dimensions[0] if it is time
+            if dimensions[0] == "time":
+                dimensions = dimensions[1:]
+
             # grid-i average
-            varname_stats = "_".join([tracer_name, "mean", "nlon"])
-            numer_nlon[:] = (grid_weight * tracer_vals).sum(axis=-1)
-            vals_nlon = np.full(numer_nlon.shape, fill_value)
-            np.divide(numer_nlon, denom_nlon, out=vals_nlon, where=(denom_nlon != 0.0))
-            res[varname_stats] = vals_nlon
+            if len(dimensions) >= 1:
+                varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
+                numer_isum[:] = (grid_weight * tracer_vals).sum(axis=-1)
+                vals_isum = np.full(numer_isum.shape, fill_value)
+                np.divide(
+                    numer_isum, denom_isum, out=vals_isum, where=(denom_isum != 0.0)
+                )
+                res[varname_stats] = vals_isum
 
             # grid-ij average
-            varname_stats = "_".join([tracer_name, "mean", "nlat", "nlon"])
-            numer_nlat_nlon[:] = (grid_weight * tracer_vals).sum(axis=(-2, -1))
-            vals_nlat_nlon = np.full(numer_nlat_nlon.shape, fill_value)
-            np.divide(
-                numer_nlat_nlon,
-                denom_nlat_nlon,
-                out=vals_nlat_nlon,
-                where=(denom_nlat_nlon != 0.0),
-            )
-            res[varname_stats] = vals_nlat_nlon
+            if len(dimensions) >= 2:
+                varname_stats = "_".join(
+                    [tracer_name, "mean", dimensions[-2], dimensions[-1]]
+                )
+                numer_ijsum[:] = (grid_weight * tracer_vals).sum(axis=(-2, -1))
+                vals_ijsum = np.full(numer_ijsum.shape, fill_value)
+                np.divide(
+                    numer_ijsum,
+                    denom_ijsum,
+                    out=vals_ijsum,
+                    where=(denom_ijsum != 0.0),
+                )
+                res[varname_stats] = vals_ijsum
         return res
