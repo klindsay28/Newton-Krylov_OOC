@@ -188,7 +188,7 @@ class TracerModuleState(TracerModuleStateBase):
         res = {}
         for tracer_name in self.stats_vars_tracer_like():
             tracer = fptr_hist.variables[tracer_name]
-            fill_value = tracer._FillValue  # pylint: disable=protected-access
+            fill_value = getattr(tracer, "_FillValue")
             tracer_vals = tracer[:]
 
             dimensions = tracer.dimensions
