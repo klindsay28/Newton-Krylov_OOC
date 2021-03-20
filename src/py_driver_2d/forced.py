@@ -205,11 +205,9 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
         )
         return sparse.diags(d_sms_d_tracer.reshape(-1))
 
-    def apply_precond_jacobian(
-        self, time_range, res_tms, processes, time, forced_tracer
-    ):
+    def apply_precond_jacobian(self, time_range, res_tms, processes, precond_fptr):
         """
-        apply preconditioner of jacobian of forced_tracer fcn
+        apply preconditioner of jacobian of comp_fcn
 
         time_range: length-2 sequence with start and end times of model
         res_tms: TracerModuleState object where results are stored
@@ -226,11 +224,15 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
         tracer_vals_3d = np.zeros(self_vals_3d.shape)
         tracer_vals = tracer_vals_3d.reshape(-1)
 
+        precond_time_vals = precond_fptr.variables["time"][:]
+        precond_tracer = precond_fptr.variables[self.tracer_names()[0]]
+
         mat_id = sparse.identity(self_vals.size)
         mat = sparse.identity(self_vals.size)
         for time_ind in range(time_n):
             time_end = time_range[0] + (time_ind + 1.0) * time_delta
-            tracer_vals_3d[0, :] = forced_tracer[np.argmin(abs(time_end - time)), :]
+            precond_time_ind = np.argmin(abs(time_end - precond_time_vals))
+            tracer_vals_3d[0, :] = precond_tracer[precond_time_ind, :]
             time_mid = time_range[0] + (time_ind + 0.5) * time_delta
             mat_tmp = time_delta * self.comp_jacobian(time_mid, tracer_vals, processes)
             mat *= mat_id - mat_tmp

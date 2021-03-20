@@ -83,9 +83,10 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
         mat = sparse.identity(self_vals.size)
         for time_ind in range(time_n):
             time = time_range[0] + (time_ind + 0.5) * time_delta
-            mat *= mat_id - time_delta * self.comp_jacobian(
-                time, self_vals_3d, processes
-            )
+            # comp_jacobian for iage doesn't depend on tracers, so anything can
+            # be passed. Passing self_vals_3d is convenient.
+            mat_tmp = time_delta * self.comp_jacobian(time, self_vals_3d, processes)
+            mat *= mat_id - mat_tmp
         mat = mat_id - mat
 
         res_vals = sp_linalg.spsolve(mat, self_vals)

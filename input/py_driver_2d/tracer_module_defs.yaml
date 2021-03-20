@@ -34,15 +34,16 @@ tracer_module_defs:
                     units: "mmol / m^3"
                 init_iterate_val_depths: [1.7e2, 2.5e2]
                 init_iterate_vals: [1.8e-2, 7.9e-4]
-    forced:  # module name
+    forced_{suff}:  # root module name
+        py_mod_name: "forced"
         tracers:
-            forced_tracer:
+            "{suff}":
                 attrs:
-                    long_name: "forced tracer"
+                    long_name: "{suff} tracer"
                     units: "mmol / m^3"
                 init_iterate_val_depths: [0.0]
                 init_iterate_vals: [1.0]
-                precond_matrix: forced
+                precond_matrix: forced_{suff}
                 bounds:
                     lob: 0.0
 
@@ -53,6 +54,6 @@ precond_matrix_defs:
     phosphorus:
         hist_to_precond_varnames:
             - "po4"
-    forced:
+    forced_{suff}:
         hist_to_precond_varnames:
-            - "forced_tracer"
+            - "{suff}"

@@ -193,7 +193,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
             fptr, np.concatenate((tracer_vals_all, po4_uptake_vals))
         )
 
-    def apply_precond_jacobian(self, time_range, res_tms, processes, time, po4):
+    def apply_precond_jacobian(self, time_range, res_tms, processes, precond_fptr):
         """
         apply preconditioner of jacobian of phosphorus fcn
 
@@ -214,11 +214,15 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         tracer_vals_3d = np.zeros(self_vals_3d.shape)
         tracer_vals = tracer_vals_3d.reshape(-1)
 
+        precond_time_vals = precond_fptr.variables["time"][:]
+        precond_po4 = precond_fptr.variables["po4"]
+
         mat_id = sparse.identity(self_vals.size)
         mat = sparse.identity(self_vals.size)
         for time_ind in range(time_n):
             time_end = time_range[0] + (time_ind + 1.0) * time_delta
-            tracer_vals_3d[self.po4_ind, :] = po4[np.argmin(abs(time_end - time)), :]
+            precond_time_ind = np.argmin(abs(time_end - precond_time_vals))
+            tracer_vals_3d[self.po4_ind, :] = precond_po4[precond_time_ind, :]
             time_mid = time_range[0] + (time_ind + 0.5) * time_delta
             mat_tmp = time_delta * self.comp_jacobian(time_mid, tracer_vals, processes)
             mat *= mat_id - mat_tmp

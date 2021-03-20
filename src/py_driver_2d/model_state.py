@@ -363,25 +363,15 @@ class ModelState(ModelStateBase):
         # ModelState instance for result
         res_ms = copy.deepcopy(self)
 
-        pos_args = ["self", "time_range", "res_tms", "processes"]
-
-        arg_to_hist_dict = {
-            "mca": "vert_mixing_coeff_log_mean",
-        }
-
         with Dataset(precond_fname, mode="r") as fptr:
             for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
+                # pass precond_fptr, if it is present as an argument
                 kwargs = {}
-                for arg in signature(tracer_module.apply_precond_jacobian).parameters:
-                    if arg in pos_args:
-                        continue
-                    hist_varname = arg_to_hist_dict.get(arg, arg)
-                    hist_var = fptr.variables[hist_varname]
-                    if "depth_edges" in hist_var.dimensions:
-                        kwargs[arg] = hist_var[1:-1]
-                    else:
-                        kwargs[arg] = hist_var[:]
-
+                if (
+                    "precond_fptr"
+                    in signature(tracer_module.apply_precond_jacobian).parameters
+                ):
+                    kwargs["precond_fptr"] = fptr
                 tracer_module.apply_precond_jacobian(
                     self.time_range,
                     res_ms.tracer_modules[tracer_module_ind],

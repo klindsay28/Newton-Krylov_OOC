@@ -26,7 +26,8 @@ cfg_fnames=$input_dir/newton_krylov.cfg,$input_dir/model_params.cfg,$workdir/ove
 # setup solver
 echo running setup_solver.sh
 ./scripts/setup_solver.sh --model_name py_driver_2d --cfg_fnames $cfg_fnames \
-    --workdir $workdir --newton_max_iter 10 --tracer_module_names forced --persist --fp_cnt 1
+    --workdir $workdir --newton_max_iter 10 --persist --fp_cnt 1 \
+    --tracer_module_names forced_{suff}:iage $@
 
 # run solver
 echo running nk_driver.sh
