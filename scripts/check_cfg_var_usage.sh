@@ -2,11 +2,11 @@
 
 model_name=$1
 
+not_used_cnt=0
+
 for cfg_fname in `ls input/$model_name/*.cfg`; do
 
     echo cfg_fname=$cfg_fname
-
-    not_used_cnt=0
 
     varnames=`cut -f1 -d'#' $cfg_fname | grep -i '^[a-z].*=' | cut -f1 -d=`
     for varname in $varnames; do
@@ -25,4 +25,6 @@ for cfg_fname in `ls input/$model_name/*.cfg`; do
 
 done
 
-exit $not_used_cnt
+echo not_used_cnt = $not_used_cnt
+
+exit 0
