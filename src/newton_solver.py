@@ -1,4 +1,4 @@
-"""Newton's method iterator solver"""
+"""Newton's method iterative solver"""
 
 import logging
 import os
@@ -7,12 +7,12 @@ import numpy as np
 
 from .krylov_solver import KrylovSolver
 from .region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
-from .solver_state import SolverState, action_step_log_wrap
-from .stats_file import StatsFile
-from .utils import class_name, dict_sel, fmt_vals, mkdir_exist_okay
+from .solver_base import SolverBase
+from .solver_state import action_step_log_wrap
+from .utils import class_name, dict_sel, fmt_vals
 
 
-class NewtonSolver:
+class NewtonSolver(SolverBase):
     """
     class for applying Newton's method to approximate the solution of a system of
     equations
@@ -20,16 +20,8 @@ class NewtonSolver:
 
     def __init__(self, model_state_class, solverinfo, resume, rewind):
         """initialize Newton solver"""
-        logger = logging.getLogger(__name__)
-        logger.debug('NewtonSolver, resume="%r", rewind="%r"', resume, rewind)
 
-        # ensure workdir exists
-        workdir = solverinfo["workdir"]
-        mkdir_exist_okay(workdir)
-
-        self._solverinfo = solverinfo
-        self._solver_state = SolverState("Newton", workdir, resume, rewind)
-        self._stats_file = StatsFile("Newton", workdir, self._solver_state)
+        super().__init__("Newton", solverinfo, resume, rewind)
 
         step = "Newton iterate 0 written"
         if self._solver_state.step_logged(step, per_iteration=False):
@@ -65,10 +57,6 @@ class NewtonSolver:
         self._iterate.put_stats_vars(
             self._stats_file, self._fname("hist"), solver_state=self._solver_state
         )
-
-    def get_iteration(self):
-        """get current iteration"""
-        return self._solver_state.get_iteration()
 
     @action_step_log_wrap(
         step="NewtonSolver._def_solver_stats_dimensions", per_iteration=False
@@ -192,14 +180,6 @@ class NewtonSolver:
                 varname_vals[varname] = scalar_var[ind].vals()
         return varname_vals
 
-    def _fname(self, quantity, iteration=None):
-        """construct fname corresponding to particular quantity"""
-        if iteration is None:
-            iteration = self.get_iteration()
-        return os.path.join(
-            self._solverinfo["workdir"], "%s_%02d.nc" % (quantity, iteration)
-        )
-
     def log(self, iterate=None, fcn=None, msg=None):
         """write the state of the instance to the log"""
         if msg is None:
@@ -215,7 +195,7 @@ class NewtonSolver:
 
     def converged_flat(self):
         """is residual small"""
-        rel_tol = float(self._solverinfo["newton_rel_tol"])
+        rel_tol = self._get_rel_tol()
         return to_ndarray(self._fcn.norm()) < rel_tol * to_ndarray(self._iterate.norm())
 
     def _comp_increment(self):
@@ -234,7 +214,7 @@ class NewtonSolver:
         logger.debug('"%s" not logged, computing increment', fcn_complete_step)
 
         self._solverinfo["krylov_workdir"] = os.path.join(
-            self._solverinfo["workdir"], "krylov_%02d" % self.get_iteration()
+            self._get_workdir(), "krylov_%02d" % self.get_iteration()
         )
         step = "KrylovSolver instantiated"
         rewind = self._solver_state.step_was_rewound(step)

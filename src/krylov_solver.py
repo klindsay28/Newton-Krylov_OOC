@@ -1,17 +1,17 @@
-"""Krylov iterator solver"""
+"""Krylov iterative solver"""
 
 import logging
-import os
 
 import numpy as np
 
 from . import model_state_base
 from .region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
-from .solver_state import SolverState, action_step_log_wrap
-from .utils import class_name, mkdir_exist_okay
+from .solver_base import SolverBase
+from .solver_state import action_step_log_wrap
+from .utils import class_name
 
 
-class KrylovSolver:
+class KrylovSolver(SolverBase):
     """
     class for applying a Krylov method to approximate the solution of a system of linear
     equations
@@ -29,20 +29,11 @@ class KrylovSolver:
     def __init__(self, iterate, solverinfo, resume, rewind, hist_fname):
         """initialize Krylov solver"""
         logger = logging.getLogger(__name__)
-        logger.debug(
-            'KrylovSolver, workdir="%s", resume="%r", rewind="%r", hist_fname="%s"',
-            solverinfo["krylov_workdir"],
-            resume,
-            rewind,
-            hist_fname,
-        )
 
-        # ensure workdir exists
-        workdir = solverinfo["krylov_workdir"]
-        mkdir_exist_okay(workdir)
+        super().__init__("Krylov", solverinfo, resume, rewind)
 
-        self._solverinfo = solverinfo
-        self._solver_state = SolverState("Krylov", workdir, resume, rewind)
+        logger.debug('hist_fname="%s"', hist_fname)
+
         self._iterate = iterate
 
         iterate.gen_precond_jacobian(
@@ -51,25 +42,15 @@ class KrylovSolver:
             solver_state=self._solver_state,
         )
 
-    def get_iteration(self):
-        """get current iteration"""
-        return self._solver_state.get_iteration()
-
-    def _fname(self, quantity, iteration=None):
-        """construct fname corresponding to particular quantity"""
-        if iteration is None:
-            iteration = self.get_iteration()
-        return os.path.join(
-            self._solverinfo["krylov_workdir"], "%s_%02d.nc" % (quantity, iteration)
-        )
-
     def converged_flat(self, beta_ndarray, precond_resid_norm_ndarray):
         """
         is solver converged
         precond_resid: preconditioned residuals
         """
-        rel_tol = float(self._solverinfo["krylov_rel_tol"])
-        return precond_resid_norm_ndarray < rel_tol * beta_ndarray
+        rel_tol = self._get_rel_tol()
+        return (self.get_iteration() >= 2) & (
+            precond_resid_norm_ndarray < rel_tol * beta_ndarray
+        )
 
     @action_step_log_wrap(step="KrylovSolver._solve0", per_iteration=False)
     # pylint: disable=unused-argument
