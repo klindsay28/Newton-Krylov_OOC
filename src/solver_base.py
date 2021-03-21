@@ -54,3 +54,13 @@ class SolverBase:
         """get solver's relative tolerance from solverinfo"""
         key = "_".join([self._solver_name, "rel_tol"])
         return float(self._solverinfo[key])
+
+    def _get_min_iter(self):
+        """
+        get minimum number iterations from solverinfo, if present
+        return 0 otherwise
+        """
+        key = "_".join([self._solver_name, "min_iter"])
+        if key not in self._solverinfo:
+            return 0
+        return self._solverinfo[key]

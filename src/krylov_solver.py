@@ -48,7 +48,7 @@ class KrylovSolver(SolverBase):
         precond_resid: preconditioned residuals
         """
         rel_tol = self._get_rel_tol()
-        return (self.get_iteration() >= 2) & (
+        return (self.get_iteration() >= self._get_min_iter()) & (
             precond_resid_norm_ndarray < rel_tol * beta_ndarray
         )
 

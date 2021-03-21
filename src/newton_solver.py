@@ -196,7 +196,9 @@ class NewtonSolver(SolverBase):
     def converged_flat(self):
         """is residual small"""
         rel_tol = self._get_rel_tol()
-        return to_ndarray(self._fcn.norm()) < rel_tol * to_ndarray(self._iterate.norm())
+        return (self.get_iteration() >= self._get_min_iter()) & (
+            to_ndarray(self._fcn.norm()) < rel_tol * to_ndarray(self._iterate.norm())
+        )
 
     def _comp_increment(self):
         """
