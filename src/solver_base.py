@@ -65,7 +65,7 @@ class SolverBase:
         key = "_".join([self._solver_name, "min_iter"])
         if key not in self._solverinfo:
             return 0
-        return self._solverinfo[key]
+        return int(self._solverinfo[key])
 
     def _def_solver_stats_vars(self, stats_vars_dict, tracer_modules):
         """
