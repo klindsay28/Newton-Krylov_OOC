@@ -6,10 +6,10 @@ import os
 import numpy as np
 
 from .krylov_solver import KrylovSolver
-from .region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
+from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver_base import SolverBase
 from .solver_state import action_step_log_wrap
-from .utils import class_name, dict_sel, fmt_vals
+from .utils import class_name, fmt_vals
 
 
 class NewtonSolver(SolverBase):
@@ -36,17 +36,15 @@ class NewtonSolver(SolverBase):
             )
             self._solver_state.log_step(step, per_iteration=False)
 
-        self._def_solver_stats_dimensions(solver_state=self._solver_state)
-        self._stats_vars_metadata = self.gen_stats_vars_metadata()
-        self._def_solver_stats_vars(solver_state=self._solver_state)
+        self._def_solver_stats_vars(
+            self.gen_stats_vars_metadata(), self._iterate.tracer_modules
+        )
 
         self._fcn = self._iterate.comp_fcn(
             self._fname("fcn"), self._solver_state, self._fname("hist")
         )
 
-        self._put_solver_stats_vars(
-            model_state={"iterate": self._iterate, "fcn": self._fcn}
-        )
+        self._put_solver_stats_vars(iterate=self._iterate, fcn=self._fcn)
 
         self._iterate.def_stats_vars(
             self._stats_file, self._fname("hist"), solver_state=self._solver_state
@@ -58,61 +56,41 @@ class NewtonSolver(SolverBase):
             self._stats_file, self._fname("hist"), solver_state=self._solver_state
         )
 
-    @action_step_log_wrap(
-        step="NewtonSolver._def_solver_stats_dimensions", per_iteration=False
-    )
-    # pylint: disable=unused-argument
-    def _def_solver_stats_dimensions(self, solver_state):
-        """define stats dimensions from Newton solver"""
-        self._stats_file.def_dimensions({"region": RegionScalars.region_cnt})
-
-    def gen_stats_vars_metadata(self):
+    @staticmethod
+    def gen_stats_vars_metadata():
         """generate metadata for stats vars from Newton solver"""
         vars_metadata = {}
+
         var_metadata_template = {
-            "{state_name}_{method}_{tracer_module_name}": {
-                "category": "model_state",
-                "state_name": "{state_name}",
-                "tracer_module_name": "{tracer_module_name}",
+            "category": "model_state",
+            "dimensions": ("iteration", "region"),
+            "attrs": {
+                "long_name": "{method} of {tracer_module_name} Newton {state_name}",
+                "units": "{tracer_module_units}",
+            },
+        }
+        for state_name in ["iterate", "fcn", "increment"]:
+            repl_dict = {
+                "state_name": state_name,
                 "method": "{method}",
-                "dimensions": ("iteration", "region"),
-                "attrs": {
-                    "long_name": "{method} of {tracer_module_name} Newton {state_name}"
-                },
-            }
-        }
-        state_names = ["iterate", "fcn", "increment"]
-        methods = ["mean", "norm"]
-        for tracer_module in self._iterate.tracer_modules:
-            repl_dict = {"tracer_module_name": tracer_module.name}
-            for metadata in var_metadata_template.values():
-                metadata["attrs"]["units"] = tracer_module.units
-            for state_name in state_names:
-                repl_dict.update({"state_name": state_name})
-                for method in methods:
-                    repl_dict.update({"method": method})
-                    var_metadata = fmt_vals(var_metadata_template, repl_dict)
-                    vars_metadata.update(var_metadata)
-        var_metadata_template = {
-            "Armijo_factor_{tracer_module_name}": {
-                "category": "scalar",
-                "scalar_name": "Armijo_factor",
                 "tracer_module_name": "{tracer_module_name}",
-                "dimensions": ("iteration", "region"),
-                "attrs": {
-                    "long_name": (
-                        "Armijo factor applied to {tracer_module_name} Newton increment"
-                    ),
-                    "units": "1",
-                },
+                "tracer_module_units": "{tracer_module_units}",
             }
+            vars_metadata[state_name] = fmt_vals(var_metadata_template, repl_dict)
+
+        vars_metadata["Armijo_factor"] = {
+            "category": "per_tracer_module",
+            "dimensions": ("iteration", "region"),
+            "attrs": {
+                "long_name": (
+                    "Armijo factor applied to {tracer_module_name} Newton increment"
+                ),
+                "units": "1",
+            },
         }
-        for tracer_module in self._iterate.tracer_modules:
-            repl_dict = {"tracer_module_name": tracer_module.name}
-            var_metadata = fmt_vals(var_metadata_template, repl_dict)
-            vars_metadata.update(var_metadata)
+
         vars_metadata["Krylov_iterations"] = {
-            "category": "tracer_invariant_scalar",
+            "category": "tracer_module_independent",
             "datatype": "i4",
             "dimensions": ("iteration",),
             "attrs": {
@@ -120,65 +98,8 @@ class NewtonSolver(SolverBase):
                 "units": "1",
             },
         }
+
         return vars_metadata
-
-    @action_step_log_wrap(
-        step="NewtonSolver._def_solver_stats_vars", per_iteration=False
-    )
-    # pylint: disable=unused-argument
-    def _def_solver_stats_vars(self, solver_state):
-        """define stats vars from Newton solver"""
-        self._stats_file.def_vars(self._stats_vars_metadata)
-
-    def _put_solver_stats_vars(self, **kwargs):
-        """write vals corresponding to kwargs for all tracer modules to stats file"""
-
-        # dict of varname and values to be written
-        # collect together before opening file and writing
-        varname_vals_all = {}
-
-        for category, vals_dict in kwargs.items():
-            vars_metadata = dict_sel(self._stats_vars_metadata, category=category)
-            if category == "model_state":
-                for state_name, model_state in vals_dict.items():
-                    vars_metadata_sub = dict_sel(vars_metadata, state_name=state_name)
-                    for method in ["mean", "norm"]:
-                        step = "write %s %s vals to stats file" % (state_name, method)
-                        if self._solver_state.step_logged(step):
-                            continue
-                        if method == "mean":
-                            vals_reduced = model_state.mean()
-                        else:
-                            vals_reduced = model_state.norm()
-                        varname_vals_scalar = self._gen_varname_vals_scalar(
-                            vars_metadata_sub, vals_reduced, method=method
-                        )
-                        varname_vals_all.update(varname_vals_scalar)
-                        self._solver_state.log_step(step)
-            elif category == "scalar":
-                for scalar_name, scalar_val in vals_dict.items():
-                    varname_vals_scalar = self._gen_varname_vals_scalar(
-                        vars_metadata, scalar_val, scalar_name=scalar_name
-                    )
-                    varname_vals_all.update(varname_vals_scalar)
-            elif category == "tracer_invariant_scalar":
-                varname_vals_all.update(vals_dict)
-            else:
-                msg = "unknown category %s" % category
-                raise ValueError(msg)
-
-        self._stats_file.put_vars(self.get_iteration(), varname_vals_all)
-
-    def _gen_varname_vals_scalar(self, vars_metadata, scalar_var, **kwargs):
-        """return varname_vals dict of scalar values for all tracer modules"""
-        varname_vals = {}
-        for ind, tracer_module in enumerate(self._iterate.tracer_modules):
-            vars_metadata_sub = dict_sel(
-                vars_metadata, tracer_module_name=tracer_module.name, **kwargs
-            )
-            for varname in vars_metadata_sub:
-                varname_vals[varname] = scalar_var[ind].vals()
-        return varname_vals
 
     def log(self, iterate=None, fcn=None, msg=None):
         """write the state of the instance to the log"""
@@ -229,9 +150,8 @@ class NewtonSolver(SolverBase):
         self._solver_state.log_step(step)
         increment = krylov_solver.solve(self._fname("increment"), self._fcn)
         self._put_solver_stats_vars(
-            tracer_invariant_scalar={"Krylov_iterations": krylov_solver.get_iteration()}
+            Krylov_iterations=krylov_solver.get_iteration(), increment=increment
         )
-        self._put_solver_stats_vars(model_state={"increment": increment})
         self._solver_state.log_step(fcn_complete_step)
         increment.log("Newton increment %02d" % self.get_iteration())
         return increment
@@ -302,7 +222,7 @@ class NewtonSolver(SolverBase):
                 logger.info("Armijo condition satisfied")
                 self._solver_state.log_step(fcn_complete_step)
 
-                self._put_solver_stats_vars(scalar={"Armijo_factor": armijo_factor})
+                self._put_solver_stats_vars(Armijo_factor=armijo_factor)
 
                 return prov, prov_fcn
 
@@ -398,9 +318,7 @@ class NewtonSolver(SolverBase):
         self._iterate = prov
         self._fcn = prov_fcn
 
-        self._put_solver_stats_vars(
-            model_state={"iterate": self._iterate, "fcn": self._fcn}
-        )
+        self._put_solver_stats_vars(iterate=self._iterate, fcn=self._fcn)
         self._iterate.put_stats_vars(
             self._stats_file,
             hist_fname=self._fname("hist"),

@@ -5,6 +5,7 @@ from datetime import datetime
 
 from netCDF4 import Dataset, default_fillvals
 
+from .region_scalars import RegionScalars
 from .solver_state import action_step_log_wrap
 from .utils import class_name, create_dimensions_verify, create_vars
 
@@ -28,8 +29,10 @@ class StatsFile:
             msg = datestamp + ": created by " + fcn_name + " for " + name + " solver"
             fptr.history = msg
 
-            # define dimensions
-            create_dimensions_verify(fptr, {"iteration": None})
+            # define dimensions common to all solver stats files
+            create_dimensions_verify(
+                fptr, {"iteration": None, "region": RegionScalars.region_cnt}
+            )
 
             # define coordinate variables
             vars_metadata = {

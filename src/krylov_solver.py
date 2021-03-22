@@ -36,11 +36,40 @@ class KrylovSolver(SolverBase):
 
         self._iterate = iterate
 
+        self._def_solver_stats_vars(
+            self.gen_stats_vars_metadata(), self._iterate.tracer_modules
+        )
+
         iterate.gen_precond_jacobian(
             hist_fname,
             precond_fname=self._fname("precond", iteration=0),
             solver_state=self._solver_state,
         )
+
+    @staticmethod
+    def gen_stats_vars_metadata():
+        """generate metadata for stats vars from Krylov solver"""
+        vars_metadata = {}
+
+        vars_metadata["precond_rhs_norm"] = {
+            "category": "per_tracer_module",
+            "dimensions": ("region",),
+            "attrs": {
+                "long_name": ("norm of {tracer_module_name} preconditioned rhs"),
+                "units": "{tracer_module_units}",
+            },
+        }
+
+        vars_metadata["precond_resid_norm"] = {
+            "category": "per_tracer_module",
+            "dimensions": ("iteration", "region"),
+            "attrs": {
+                "long_name": ("norm of {tracer_module_name} preconditioned residual"),
+                "units": "{tracer_module_units}",
+            },
+        }
+
+        return vars_metadata
 
     def converged_flat(self, beta_ndarray, precond_resid_norm_ndarray):
         """
@@ -65,6 +94,7 @@ class KrylovSolver(SolverBase):
         )
         beta = precond_fcn.norm()
         fcn.log_vals("beta", beta)
+        self._put_solver_stats_vars_iteration_independent(precond_rhs_norm=beta)
         caller = class_name(self) + "._solve0"
         (-precond_fcn / beta).dump(self._fname("basis"), caller)
         self._solver_state.set_value_saved_state("beta_ndarray", to_ndarray(beta))
@@ -124,6 +154,7 @@ class KrylovSolver(SolverBase):
             precond_resid += type(self._iterate)(self._fname("precond_fcn", 0))
             precond_resid_norm = precond_resid.norm()
             self._iterate.log_vals("precond_resid", precond_resid_norm)
+            self._put_solver_stats_vars(precond_resid_norm=precond_resid_norm)
 
             self._solver_state.inc_iteration()
 
