@@ -85,10 +85,12 @@ class TracerModuleStateBase:
     def apply_limiter(self, base):
         """
         apply limiter scalef to self to ensure base + scalef * self is within bounds
+        return scalef value
         """
         logger = logging.getLogger(__name__)
+
         if not self.has_bounds():
-            return
+            return 1.0
 
         scalef = 1.0
         for tracer_name in self._tracer_module_def["tracers"]:
@@ -101,8 +103,10 @@ class TracerModuleStateBase:
             scalef = min(scalef, utils.comp_scalef_upb(base_vals, self_vals, upb))
 
         if scalef < 1.0:
-            logger.info("scalef[%s]=%e", self.name, scalef)
+            logger.info("applying scalef[%s]=%e", self.name, scalef)
             self *= scalef
+
+        return scalef
 
     def has_bounds(self):
         """Return if bounds applied to this tracer module."""

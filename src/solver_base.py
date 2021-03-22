@@ -131,22 +131,25 @@ class SolverBase:
         vals_dict = {}
 
         for key, vals in kwargs.items():
+            var_put_metadata = self._stats_vars_put_metadata[key]
             # verify iteration dimension not present
-            if "iteration" in self._stats_vars_put_metadata[key]["dimensions"]:
+            if "iteration" in var_put_metadata["dimensions"]:
                 msg = (
-                    "_put_solver_stats_vars "
-                    "should be used for vars with the iteration dimension"
+                    "_put_solver_stats_vars should be used "
+                    "for vars with the iteration dimension"
                 )
                 raise ValueError(msg)
             # use step-log to avoid rewriting vals to the stats file
             step = "write %s vals to stats file" % key
             if self._solver_state.step_logged(step, per_iteration=False):
                 continue
-            var_put_metadata = self._stats_vars_put_metadata[key]
             category = var_put_metadata["category"]
             if category == "per_tracer_module":
                 for ind, stats_varname in enumerate(var_put_metadata["stats_varnames"]):
-                    vals_dict[stats_varname] = to_ndarray(vals[ind])
+                    if "region" in var_put_metadata["dimensions"]:
+                        vals_dict[stats_varname] = to_ndarray(vals[ind])
+                    else:
+                        vals_dict[stats_varname] = vals[ind]
             elif category == "tracer_module_independent":
                 vals_dict[key] = vals
             else:
@@ -164,18 +167,18 @@ class SolverBase:
         vals_dict = {}
 
         for key, vals in kwargs.items():
+            var_put_metadata = self._stats_vars_put_metadata[key]
             # verify iteration dimension present
-            if "iteration" not in self._stats_vars_put_metadata[key]["dimensions"]:
+            if "iteration" not in var_put_metadata["dimensions"]:
                 msg = (
-                    "_put_solver_stats_vars_iteration_independent "
-                    "should be used for vars lacking the iteration dimension"
+                    "_put_solver_stats_vars_iteration_independent should be used "
+                    "for vars lacking the iteration dimension"
                 )
                 raise ValueError(msg)
             # use step-log to avoid rewriting vals to the stats file
             step = "write %s vals to stats file" % key
             if self._solver_state.step_logged(step):
                 continue
-            var_put_metadata = self._stats_vars_put_metadata[key]
             category = var_put_metadata["category"]
             if category == "model_state":
                 for method in ["mean", "norm"]:
@@ -186,7 +189,10 @@ class SolverBase:
                         vals_dict[stats_varname] = to_ndarray(vals_reduced[ind])
             elif category == "per_tracer_module":
                 for ind, stats_varname in enumerate(var_put_metadata["stats_varnames"]):
-                    vals_dict[stats_varname] = to_ndarray(vals[ind])
+                    if "region" in var_put_metadata["dimensions"]:
+                        vals_dict[stats_varname] = to_ndarray(vals[ind])
+                    else:
+                        vals_dict[stats_varname] = vals[ind]
             elif category == "tracer_module_independent":
                 vals_dict[key] = vals
             else:

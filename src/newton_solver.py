@@ -78,12 +78,25 @@ class NewtonSolver(SolverBase):
             }
             vars_metadata[state_name] = fmt_vals(var_metadata_template, repl_dict)
 
+        vars_metadata["increment_scalef"] = {
+            "category": "per_tracer_module",
+            "dimensions": ("iteration",),
+            "attrs": {
+                "long_name": (
+                    "factor applied to {tracer_module_name} Newton increment to "
+                    "satisfy bounds"
+                ),
+                "units": "1",
+            },
+        }
+
         vars_metadata["Armijo_factor"] = {
             "category": "per_tracer_module",
             "dimensions": ("iteration", "region"),
             "attrs": {
                 "long_name": (
-                    "Armijo factor applied to {tracer_module_name} Newton increment"
+                    "factor applied to {tracer_module_name} Newton increment to "
+                    "satisfy Armijo condition"
                 ),
                 "units": "1",
             },
@@ -257,7 +270,8 @@ class NewtonSolver(SolverBase):
 
             increment = self._comp_increment()
 
-            increment.apply_limiter(self._iterate)
+            scalef = increment.apply_limiter(self._iterate)
+            self._put_solver_stats_vars(increment_scalef=scalef)
 
             prov, prov_fcn = self._comp_next_iterate(increment)
 
