@@ -112,7 +112,7 @@ def main(args):
 
     # perform fixed point iteration(s) on init_iterate
     if args.fp_cnt > 0:
-        workdir = config["solverinfo"]["workdir"]
+        workdir = solverinfo["workdir"]
         gen_init_iterate_workdir = os.path.join(workdir, "gen_init_iterate")
         mkdir_exist_okay(gen_init_iterate_workdir)
 
@@ -133,8 +133,8 @@ def main(args):
             init_iterate.copy_shadow_tracers_to_real_tracers()
 
     # write generated init_iterate to where solver expects it to be
-    init_iterate_fname = modelinfo["init_iterate_fname"]
-    logger.info('init_iterate_fname="%s"', repro_fname(modelinfo, init_iterate_fname))
+    init_iterate_fname = solverinfo["init_iterate_fname"]
+    logger.info('init_iterate_fname="%s"', repro_fname(solverinfo, init_iterate_fname))
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
     init_iterate.dump(init_iterate_fname, caller)
 

@@ -23,8 +23,8 @@ cfg_override_args = {
     "logging_level": {"section": "solverinfo"},
     "newton_max_iter": {"section": "solverinfo"},
     "newton_rel_tol": {"section": "solverinfo"},
+    "init_iterate_fname": {"section": "solverinfo"},
     "tracer_module_names": {"section": "modelinfo"},
-    "init_iterate_fname": {"section": "modelinfo"},
     "persist": {
         "model_names": ["test_problem", "py_driver_2d"],
         "override_var": "reinvoke",

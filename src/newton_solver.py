@@ -27,9 +27,7 @@ class NewtonSolver(SolverBase):
         if self._solver_state.step_logged(step, per_iteration=False):
             self._iterate = model_state_class(self._fname("iterate"))
         else:
-            self._iterate = model_state_class(
-                model_state_class.model_config_obj.modelinfo["init_iterate_fname"]
-            )
+            self._iterate = model_state_class(solverinfo["init_iterate_fname"])
             caller = class_name(self) + ".__init__"
             self._iterate.copy_real_tracers_to_shadow_tracers().dump(
                 self._fname("iterate"), caller
