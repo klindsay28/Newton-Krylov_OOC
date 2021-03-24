@@ -3,6 +3,7 @@
 import os
 from datetime import datetime
 
+import numpy as np
 from netCDF4 import Dataset, default_fillvals
 
 from .region_scalars import RegionScalars
@@ -43,9 +44,24 @@ class StatsFile:
                         "_FillValue": None,
                         "long_name": "%s solver iteration" % name,
                     },
-                }
+                },
+                "region": {  # work-around for pyferret-related issue #65
+                    "datatype": "i4",
+                    "dimensions": ("region",),
+                    "attrs": {
+                        "_FillValue": None,
+                        "long_name": "region index (0-based)",
+                        "comment": (
+                            "axis attribute is a work-around to enable pyferret to "
+                            "read stats files"
+                        ),
+                        "axis": "T",
+                    },
+                },
             }
             create_vars(fptr, vars_metadata)
+
+            fptr.variables["region"][:] = np.arange(RegionScalars.region_cnt)
 
     def def_dimensions(self, dimensions):
         """define dimensions in stats file"""
