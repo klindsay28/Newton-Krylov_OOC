@@ -2,13 +2,10 @@
 
 import argparse
 import configparser
+import distutils
 import logging
+import os
 import sys
-from distutils.util import strtobool
-from os import environ, path
-from os.path import dirname, realpath
-
-import git
 
 from .utils import mkdir_exist_okay
 
@@ -53,13 +50,14 @@ def common_args(description, model_name, args_list):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[parent_parser],
     )
-    repo_root = dirname(dirname(realpath(__file__)))
-    cfg_fname = path.join(repo_root, "input", args.model_name, "newton_krylov.cfg")
-    params_fname = path.join(repo_root, "input", args.model_name, "model_params.cfg")
+    repo_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    input_dir = os.path.join(repo_root, "input", args.model_name)
+    defaults = [os.path.join(input_dir, "newton_krylov.cfg")]
+    params_fname = os.path.join(input_dir, "model_params.cfg")
+    if os.path.exists(params_fname):
+        defaults.append(params_fname)
     parser.add_argument(
-        "--cfg_fnames",
-        help="names of configuration files",
-        default=",".join([cfg_fname, params_fname]),
+        "--cfg_fnames", help="names of configuration files", default=",".join(defaults)
     )
 
     # add arguments that override cfg file
@@ -105,8 +103,8 @@ def read_cfg_files(args):
     """
     cfg_fnames = args.cfg_fnames
 
-    defaults = {key: environ[key] for key in ["HOME", "USER"]}
-    defaults["repo_root"] = git.Repo(search_parent_directories=True).working_dir
+    defaults = {key: os.environ[key] for key in ["HOME", "USER"]}
+    defaults["repo_root"] = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     config = configparser.ConfigParser(defaults, allow_no_value=True)
     files_read = config.read(cfg_fnames.split(","))
     if len(files_read) == 0:
@@ -120,7 +118,7 @@ def read_cfg_files(args):
     # write cfg contents to a file, if requested
     cfg_out_fname = config["solverinfo"]["cfg_out_fname"]
     if cfg_out_fname is not None:
-        mkdir_exist_okay(dirname(cfg_out_fname))
+        mkdir_exist_okay(os.path.dirname(cfg_out_fname))
         with open(cfg_out_fname, "w") as fptr:
             config.write(fptr)
 
@@ -181,7 +179,7 @@ def logging_config(args, solverinfo, filemode):
 def repro_fname(cfg_section, fname):
     """return version of fname appropriate for reproducible logging, if specified"""
     ret = fname
-    if strtobool(cfg_section["logging_reproducible"]):
+    if distutils.util.strtobool(cfg_section["logging_reproducible"]):
         ret = ret.replace(cfg_section["workdir"], "$workdir")
         ret = ret.replace(cfg_section["repo_root"], "$repo_root")
     return ret

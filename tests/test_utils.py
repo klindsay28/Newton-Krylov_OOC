@@ -2,7 +2,6 @@
 
 import os
 
-import git
 import pytest
 
 from src import utils
@@ -52,7 +51,7 @@ def test_units_str_format(units_str, expected):
 
 def test_isclose_all_vars():
     """test isclose_all_vars"""
-    repo_root = git.Repo(search_parent_directories=True).working_dir
+    repo_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     input_dir = os.path.join(repo_root, "input", "tests")
     fname_1 = os.path.join(input_dir, "isclose_1.nc")
     fname_2 = os.path.join(input_dir, "isclose_2.nc")

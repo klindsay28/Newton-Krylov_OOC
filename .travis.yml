@@ -24,7 +24,7 @@ install:
 
   - >
     conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC python=$TRAVIS_PYTHON_VERSION
-    black flake8 gitpython isort netCDF4 numpy pint pytest pyyaml scipy
+    black flake8 isort netCDF4 numpy pint pytest pyyaml scipy
 
 script:
   - ./scripts/travis_short.sh

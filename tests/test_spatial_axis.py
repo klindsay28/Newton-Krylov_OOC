@@ -2,7 +2,6 @@
 
 import os
 
-import git
 import numpy as np
 
 from src.spatial_axis import (
@@ -47,7 +46,7 @@ def test_roundtrip():
     axis = gen_test_axis()
     verify_test_axis(axis)
 
-    repo_root = git.Repo(search_parent_directories=True).working_dir
+    repo_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     workdir = os.path.join(repo_root, "tests", "workdir")
     mkdir_exist_okay(workdir)
     fname = os.path.join(workdir, "test_axis.nc")

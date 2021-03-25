@@ -1,6 +1,7 @@
 #!/bin/bash -i
 
 source scripts/newton_krylov_env_cmds
+conda env export --no-builds
 
 err_cnt=0
 

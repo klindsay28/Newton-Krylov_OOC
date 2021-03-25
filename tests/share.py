@@ -2,8 +2,6 @@
 
 import os
 
-import git
-
 from src.model_config import ModelConfig
 from src.share import common_args, read_cfg_files
 from src.spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
@@ -14,7 +12,7 @@ def config_test_problem():
     """read cfg for test_problem"""
 
     # workdir for tests
-    repo_root = git.Repo(search_parent_directories=True).working_dir
+    repo_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     workdir = os.path.join(repo_root, "tests", "workdir")
     mkdir_exist_okay(workdir)
 

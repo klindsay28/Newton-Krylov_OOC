@@ -22,7 +22,6 @@ dependencies:
 - netCDF4
 - numpy
 - pyyaml
-- gitpython
 
 # test_problem requirements
 - scipy
