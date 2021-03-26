@@ -2,8 +2,10 @@
 
 import copy
 import logging
+import os
 
 import numpy as np
+from netCDF4 import Dataset
 from scipy import sparse
 from scipy.sparse import linalg as sp_linalg
 
@@ -193,7 +195,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
             fptr, np.concatenate((tracer_vals_all, po4_uptake_vals))
         )
 
-    def apply_precond_jacobian(self, time_range, res_tms, processes, precond_fptr):
+    def apply_precond_jacobian(self, time_range, res_tms, processes, fptr_precond):
         """
         apply preconditioner of jacobian of phosphorus fcn
 
@@ -214,8 +216,8 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         tracer_vals_3d = np.zeros(self_vals_3d.shape)
         tracer_vals = tracer_vals_3d.reshape(-1)
 
-        precond_time_vals = precond_fptr.variables["time"][:]
-        precond_po4 = precond_fptr.variables["po4"]
+        precond_time_vals = fptr_precond.variables["time"][:]
+        precond_po4 = fptr_precond.variables["po4"]
 
         mat_id = sparse.identity(self_vals.size)
         mat = sparse.identity(self_vals.size)
@@ -259,6 +261,13 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         e_vect_tms = copy.copy(self)
         e_vect_tms.set_tracer_vals_all(null_vect.reshape(shape), reseat_vals=True)
         e_vect_tms /= e_vect_tms.mean()
+
+        precond_dir = os.path.dirname(fptr_precond.filepath())
+        null_space_fname = os.path.join(precond_dir, "precond_null_space.nc")
+        with Dataset(null_space_fname, mode="w") as fptr_null_space:
+            e_vect_tms.dump(fptr_null_space, "define")
+            e_vect_tms.dump(fptr_null_space, "write")
+
         solve_vals_tms = copy.copy(self)
         solve_vals_tms.set_tracer_vals_all(solve_vals.reshape(shape), reseat_vals=True)
         solve_vals_tms -= solve_vals_tms.mean() * e_vect_tms

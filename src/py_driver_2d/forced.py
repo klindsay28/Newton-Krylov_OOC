@@ -205,7 +205,7 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
         )
         return sparse.diags(d_sms_d_tracer.reshape(-1))
 
-    def apply_precond_jacobian(self, time_range, res_tms, processes, precond_fptr):
+    def apply_precond_jacobian(self, time_range, res_tms, processes, fptr_precond):
         """
         apply preconditioner of jacobian of comp_fcn
 
@@ -224,8 +224,8 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
         tracer_vals_3d = np.zeros(self_vals_3d.shape)
         tracer_vals = tracer_vals_3d.reshape(-1)
 
-        precond_time_vals = precond_fptr.variables["time"][:]
-        precond_tracer = precond_fptr.variables[self.tracer_names()[0]]
+        precond_time_vals = fptr_precond.variables["time"][:]
+        precond_tracer = fptr_precond.variables[self.tracer_names()[0]]
 
         mat_id = sparse.identity(self_vals.size)
         mat = sparse.identity(self_vals.size)

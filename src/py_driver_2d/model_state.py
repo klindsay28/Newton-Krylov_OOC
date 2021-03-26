@@ -365,13 +365,13 @@ class ModelState(ModelStateBase):
 
         with Dataset(precond_fname, mode="r") as fptr:
             for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
-                # pass precond_fptr, if it is present as an argument
+                # pass fptr_precond, if it is present as an argument
                 kwargs = {}
                 if (
-                    "precond_fptr"
+                    "fptr_precond"
                     in signature(tracer_module.apply_precond_jacobian).parameters
                 ):
-                    kwargs["precond_fptr"] = fptr
+                    kwargs["fptr_precond"] = fptr
                 tracer_module.apply_precond_jacobian(
                     self.time_range,
                     res_ms.tracer_modules[tracer_module_ind],
