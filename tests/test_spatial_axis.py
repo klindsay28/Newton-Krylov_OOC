@@ -3,6 +3,7 @@
 import os
 
 import numpy as np
+import pytest
 
 from src.spatial_axis import (
     SpatialAxis,
@@ -55,9 +56,69 @@ def test_roundtrip():
 
     axisname = axis.axisname
     edges_varname = axis.dump_names["edges"]
-    axis_new = spatial_axis_from_file(fname, axisname, edges_varname)
 
-    verify_test_axis(axis_new)
+    # verify spatial_axis_from_file with or without edges_varname specified
+    verify_test_axis(spatial_axis_from_file(fname, axisname, edges_varname))
+    verify_test_axis(spatial_axis_from_file(fname, axisname))
+
+
+def test_int_vals_mid_1d():
+    """verify values returned by int_vals_mid for 1d vals"""
+
+    axis = gen_test_axis()
+
+    vals_ones = np.ones(len(axis))
+
+    # verify that length mismatch raises exception
+    with pytest.raises(ValueError):
+        axis.int_vals_mid(vals_ones[1:], 0)
+
+    # verify integral of ones
+    expected = axis.edges[-1] - axis.edges[0]
+    assert axis.int_vals_mid(vals_ones, 0) == expected
+    assert axis.int_vals_mid(vals_ones, -1) == expected
+
+    # verify integral of midpoints, that midpoint rule for linear functions is exact
+    vals = axis.mid
+    expected = 0.5 * (axis.edges[-1] ** 2 - axis.edges[0] ** 2)
+    assert axis.int_vals_mid(vals, 0) == expected
+    assert axis.int_vals_mid(vals, -1) == expected
+
+
+def test_int_vals_mid_2d():
+    """verify values returned by int_vals_mid for 2d vals"""
+
+    axis1 = gen_test_axis()
+
+    # axis2 has delta==1 and length one less than axis1's length
+    # this ensures expected length mismatches actually differ
+    axis2 = SpatialAxis("ypos", np.arange(len(axis1)))
+    assert len(axis2) == len(axis1) - 1
+    assert (axis2.delta == 1.0).all()
+
+    vals_ones = np.ones((len(axis1), len(axis2)))
+
+    # verify that length mismatch with 'correct' axis ind raises exception
+    with pytest.raises(ValueError):
+        axis1.int_vals_mid(vals_ones[1:, :], 0)
+    with pytest.raises(ValueError):
+        axis2.int_vals_mid(vals_ones[:, 1:], 1)
+
+    # verify that specifying wrong axis ind raises exception
+    with pytest.raises(ValueError):
+        axis1.int_vals_mid(vals_ones, 1)
+    with pytest.raises(ValueError):
+        axis2.int_vals_mid(vals_ones, 0)
+
+    # verify integral of ones along axis1
+    expected = axis1.edges[-1] - axis1.edges[0]
+    assert (axis1.int_vals_mid(vals_ones, 0) == expected).all()
+    assert (axis1.int_vals_mid(vals_ones, -2) == expected).all()
+
+    # verify integral of ones along axis2
+    expected = axis2.edges[-1] - axis2.edges[0]
+    assert (axis2.int_vals_mid(vals_ones, 1) == expected).all()
+    assert (axis2.int_vals_mid(vals_ones, -1) == expected).all()
 
 
 def test_spatial_axis_defn_dict():
