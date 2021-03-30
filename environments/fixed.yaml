@@ -24,8 +24,12 @@ dependencies:
 - pyyaml=5.3.1
 
 # test_problem requirements
-- scipy=1.4.1
+- scipy=1.5.3
 - pint=0.11
+
+# py_driver_2d requirements
+- petsc4py=3.14.1
+- slepc4py=3.14.0
 
 # cime_pop requirements
 - nco=4.9.7

@@ -27,6 +27,10 @@ dependencies:
 - scipy
 - pint
 
+# py_driver_2d requirements
+- petsc4py
+- slepc4py
+
 # cime_pop requirements
 - nco
 
