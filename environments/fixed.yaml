@@ -35,3 +35,4 @@ dependencies:
 - matplotlib=3.2.1
 - xarray=0.15.1
 - nc-time-axis=1.2.0
+- cftime=1.4.1

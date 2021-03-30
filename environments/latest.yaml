@@ -35,3 +35,4 @@ dependencies:
 - matplotlib
 - xarray
 - nc-time-axis
+- cftime
