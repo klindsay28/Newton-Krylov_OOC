@@ -53,6 +53,22 @@ def test_isclose_all_vars():
     """test isclose_all_vars"""
     repo_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     input_dir = os.path.join(repo_root, "input", "tests")
-    fname_1 = os.path.join(input_dir, "isclose_1.nc")
-    fname_2 = os.path.join(input_dir, "isclose_2.nc")
+    fname_1 = os.path.join(input_dir, "isclose_base.nc")
+
+    # vars are identical to themselves
+    assert utils.isclose_all_vars(fname_1, fname_1, rtol=0.0, atol=0.0)
+    assert utils.isclose_all_vars(fname_1, fname_1, rtol=1.0e-5, atol=1.0e-5)
+
+    # Values in isclose_same.nc on disk differ from those in isclose_base.nc, but they
+    # are the same when units are taken into account. The values, before and after the
+    # change of units, are exactly representable in floating point arithmetic.
+    fname_2 = os.path.join(input_dir, "isclose_same.nc")
+    assert utils.isclose_all_vars(fname_1, fname_2, rtol=0.0, atol=0.0)
+    assert utils.isclose_all_vars(fname_1, fname_2, rtol=1.0e-5, atol=1.0e-5)
+
+    # Values in isclose_diff.nc differ from those in isclose_base.nc, unless the
+    # tolerances are loose enough.
+    fname_2 = os.path.join(input_dir, "isclose_diff.nc")
+    assert not utils.isclose_all_vars(fname_1, fname_2, rtol=0.0, atol=0.0)
+    assert not utils.isclose_all_vars(fname_1, fname_2, rtol=1.0e-8, atol=1.0e-8)
     assert utils.isclose_all_vars(fname_1, fname_2, rtol=1.0e-5, atol=1.0e-5)
