@@ -481,10 +481,8 @@ def _apply_tracers_sflux_term(
     delta_time = 365.0 * 86400.0 * cime_yr_cnt(model_state.model_config_obj.modelinfo)
     with Dataset(precond_fname, mode="r") as fptr:
         for tracer_name_src in tracer_names_subset:
-            for tracer_name_dst_ind in range(
-                tracer_names_all.index(tracer_name_src) + 1, len(tracer_names_all)
-            ):
-                tracer_name_dst = tracer_names_all[tracer_name_dst_ind]
+            tracer_name_src_ind = tracer_names_all.index(tracer_name_src)
+            for tracer_name_dst in tracer_names_all[tracer_name_src_ind + 1 :]:
                 partial_deriv_varname = (
                     "d_SF_" + tracer_name_dst + "_d_" + tracer_name_src
                 )
