@@ -56,7 +56,7 @@ def main(args):
     solverinfo = config["solverinfo"]
     modelinfo = config["modelinfo"]
 
-    logging_config(args, solverinfo, filemode="w")
+    logging_config(solverinfo, filemode="w")
     logger = logging.getLogger(__name__)
 
     logger.info('args.cfg_fnames="%s"', repro_fname(solverinfo, args.cfg_fnames))

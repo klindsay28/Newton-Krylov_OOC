@@ -2,7 +2,7 @@
 
 import argparse
 import configparser
-import distutils
+import distutils.util
 import logging
 import os
 import sys
@@ -160,10 +160,10 @@ def _apply_cfg_override_args(args, config):
                 config[metadata["section"]][override_var] = metadata["override_val"]
 
 
-def logging_config(args, solverinfo, filemode):
+def logging_config(solverinfo, filemode):
     """configure logging"""
     logging_format_list = []
-    if not args.logging_reproducible:
+    if not distutils.util.strtobool(solverinfo["logging_reproducible"]):
         logging_format_list.extend(["%(asctime)s", "%(process)s"])
     logging_format_list.extend(["%(filename)s", "%(funcName)s", "%(message)s"])
     logging_format = ":".join(logging_format_list)
