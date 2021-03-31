@@ -1,11 +1,8 @@
-#!/usr/bin/env python
 """py_driver_2d model specifics for ModelStateBase"""
 
 import copy
 import logging
-import os
 import subprocess
-import sys
 from datetime import datetime
 from distutils.util import strtobool
 from inspect import signature
@@ -14,91 +11,12 @@ import numpy as np
 from netCDF4 import Dataset
 from scipy import integrate
 
-from ..model_config import ModelConfig
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..spatial_axis import spatial_axis_from_file
 from ..utils import class_name, create_dimensions_verify, create_vars
 from .advection import Advection
 from .horiz_mix import HorizMix
 from .vert_mix import VertMix
-
-
-def parse_args(args_list_in=None):
-    """parse command line arguments"""
-
-    args_list = [] if args_list_in is None else args_list_in
-    parser, args_remaining = common_args(
-        "py_driver_2d model standalone driver for Newton-Krylov solver",
-        "py_driver_2d",
-        args_list,
-    )
-    parser.add_argument(
-        "cmd",
-        choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian"],
-        help="command to run",
-    )
-    parser.add_argument(
-        "--fname_dir",
-        help="directory that relative fname arguments are relative to",
-        default=".",
-    )
-    parser.add_argument("--hist_fname", help="name of history file", default=None)
-    parser.add_argument("--precond_fname", help="name of precond file", default=None)
-    parser.add_argument("--in_fname", help="name of file with input")
-    parser.add_argument("--res_fname", help="name of file for result")
-
-    return args_replace(parser.parse_args(args_remaining))
-
-
-def _resolve_fname(fname_dir, fname):
-    """prepend fname_dir to fname, if fname is a relative path"""
-    if fname is None or os.path.isabs(fname):
-        return fname
-    return os.path.join(fname_dir, fname)
-
-
-def main(args):
-    """py_driver_2d for Newton-Krylov solver"""
-
-    config = read_cfg_files(args)
-    solverinfo = config["solverinfo"]
-
-    logging_config(args, solverinfo, filemode="a")
-    logger = logging.getLogger(__name__)
-
-    logger.info('args.cmd="%s"', args.cmd)
-
-    ModelState.model_config_obj = ModelConfig(config["modelinfo"])
-
-    ms_in = ModelState(_resolve_fname(args.fname_dir, args.in_fname))
-    if args.cmd == "comp_fcn":
-        ms_in.log("state_in")
-        ms_in.comp_fcn(
-            _resolve_fname(args.fname_dir, args.res_fname),
-            solver_state=None,
-            hist_fname=_resolve_fname(args.fname_dir, args.hist_fname),
-        )
-        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("fcn")
-    elif args.cmd == "gen_precond_jacobian":
-        ms_in.gen_precond_jacobian(
-            _resolve_fname(args.fname_dir, args.hist_fname),
-            _resolve_fname(args.fname_dir, args.precond_fname),
-            solver_state=None,
-        )
-    elif args.cmd == "apply_precond_jacobian":
-        ms_in.log("state_in")
-        ms_in.apply_precond_jacobian(
-            _resolve_fname(args.fname_dir, args.precond_fname),
-            _resolve_fname(args.fname_dir, args.res_fname),
-            solver_state=None,
-        )
-        ModelState(_resolve_fname(args.fname_dir, args.res_fname)).log("precond_res")
-    else:
-        msg = "unknown cmd=%s" % args.cmd
-        raise ValueError(msg)
-
-    logger.info("done")
 
 
 class ModelState(ModelStateBase):
@@ -384,7 +302,3 @@ class ModelState(ModelStateBase):
 
         caller = class_name(self) + ".apply_precond_jacobian"
         return res_ms.dump(res_fname, caller)
-
-
-if __name__ == "__main__":
-    main(parse_args(sys.argv[1:]))

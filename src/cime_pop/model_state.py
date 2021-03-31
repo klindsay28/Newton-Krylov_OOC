@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """cime_pop model specifics for ModelStateBase"""
 
 from __future__ import division
@@ -10,63 +9,14 @@ import os
 import shutil
 import stat
 import subprocess
-import sys
 from datetime import datetime
 
 from netCDF4 import Dataset
 
 from ..cime import cime_case_submit, cime_xmlchange, cime_xmlquery, cime_yr_cnt
-from ..model_config import ModelConfig
 from ..model_state_base import ModelStateBase
-from ..share import args_replace, common_args, logging_config, read_cfg_files
 from ..solver_state import action_step_log_wrap
 from ..utils import ann_files_to_mean_file, class_name, mon_files_to_mean_file
-
-
-def parse_args(args_list_in=None):
-    """parse command line arguments"""
-
-    args_list = [] if args_list_in is None else args_list_in
-    parser, args_remaining = common_args(
-        "cime_pop model standalone driver for Newton-Krylov solver",
-        "cime_pop",
-        args_list,
-    )
-    parser.add_argument(
-        "cmd",
-        choices=["comp_fcn", "gen_precond_jacobian", "apply_precond_jacobian"],
-        help="command to run",
-    )
-
-    parser.add_argument("--hist_fname", help="name of history file", default=None)
-    parser.add_argument("--in_fname", help="name of file with input")
-    parser.add_argument("--res_fname", help="name of file for result")
-
-    return args_replace(parser.parse_args(args_remaining))
-
-
-def main(args):
-    """cime_pop hooks for Newton-Krylov solver"""
-
-    config = read_cfg_files(args)
-    solverinfo = config["solverinfo"]
-
-    logging_config(args, solverinfo, filemode="a")
-    logger = logging.getLogger(__name__)
-
-    logger.info('args.cmd="%s"', args.cmd)
-
-    ModelConfig(config["modelinfo"])
-
-    msg = "%s not implemented for command line execution in %s " % (args.cmd, __file__)
-    if args.cmd == "comp_fcn":
-        raise NotImplementedError(msg)
-    if args.cmd == "gen_precond_jacobian":
-        raise NotImplementedError(msg)
-    if args.cmd == "apply_precond_jacobian":
-        raise NotImplementedError(msg)
-    msg = "unknown cmd=%s" % args.cmd
-    raise ValueError(msg)
 
 
 class ModelState(ModelStateBase):
@@ -579,7 +529,3 @@ def _get_pop_nl_var(caseroot, varname):
     cmd = ["grep", "^ *" + varname + " *=", nl_fname]
     line = subprocess.check_output(cmd).decode()
     return line.split("=")[1].strip().replace(",", " ")
-
-
-if __name__ == "__main__":
-    main(parse_args(sys.argv[1:]))
