@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from src.share import common_args, read_cfg_files
+from nk_ooc.share import common_args, read_cfg_files
 
 
 def test_parse_args():

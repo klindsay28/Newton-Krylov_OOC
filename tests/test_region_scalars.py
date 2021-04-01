@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from src.region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
+from nk_ooc.region_scalars import RegionScalars, to_ndarray, to_region_scalar_ndarray
 
 from .share import config_test_problem
 

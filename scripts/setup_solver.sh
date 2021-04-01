@@ -10,7 +10,7 @@ source scripts/newton_krylov_env_cmds
 model_name="test_problem"
 
 # change model_name if it is specified with arguments
-# do not pass model_name along to src.$model_name.setup_solver
+# do not pass model_name along to nk_ooc.$model_name.setup_solver
 
 args=()
 while [[ $# -gt 0 ]]; do
@@ -23,4 +23,4 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-python -m src.$model_name.setup_solver "${args[@]}"
+python -m nk_ooc.$model_name.setup_solver "${args[@]}"

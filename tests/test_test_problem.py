@@ -2,7 +2,7 @@
 
 import copy
 
-from src.test_problem.model_state import ModelState
+from nk_ooc.test_problem.model_state import ModelState
 
 from .share import config_test_problem
 

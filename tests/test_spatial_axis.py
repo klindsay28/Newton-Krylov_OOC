@@ -5,13 +5,13 @@ import os
 import numpy as np
 import pytest
 
-from src.spatial_axis import (
+from nk_ooc.spatial_axis import (
     SpatialAxis,
     spatial_axis_defn_dict,
     spatial_axis_from_defn_dict,
     spatial_axis_from_file,
 )
-from src.utils import mkdir_exist_okay
+from nk_ooc.utils import mkdir_exist_okay
 
 
 def gen_test_axis():

@@ -56,7 +56,7 @@ This argument was introduced in python 3.2 (and 2.7).
 
 The use of multiple context expressions, e.g., in ``gen_precond_jacobian`` in ``newton_fcn_base.py``, requires a minimal version of 3.1 (or 2.7).
 
-Usage of ``.format()`` for formatting strings in ``ann_files_to_mean_file`` and ``mon_files_to_mean_file`` in ``src/utils.py`` requires a minimal version of 3.0 (or 2.6).
+Usage of ``.format()`` for formatting strings in ``ann_files_to_mean_file`` and ``mon_files_to_mean_file`` in ``nk_ooc/utils.py`` requires a minimal version of 3.0 (or 2.6).
 
 The usage of f-strings is under consideration, which would require the minimal version of python to be 3.6.
 Support for 2.7 could be maintained by using `future-fstrings <https://github.com/asottile/future-fstrings>`_.

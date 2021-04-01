@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from src import utils
+from nk_ooc import utils
 
 
 @pytest.mark.parametrize(

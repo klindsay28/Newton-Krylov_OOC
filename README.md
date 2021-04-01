@@ -66,7 +66,7 @@ annotations added by hand
 │   └── tests
 ├── notebooks                   # jupyter notebooks utilizing the solver
 ├── scripts                     # non-python scripts
-├── src                         # model independent python code
+├── nk_ooc                      # model independent python code
 │   ├── cime_pop                # cime_pop model specific python code
 │   ├── py_driver_2d            # py_driver_2d model specific python code
 │   └── test_problem            # test_problem model specific python code

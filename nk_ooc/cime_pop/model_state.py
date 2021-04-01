@@ -423,7 +423,7 @@ def _gen_hist(modelinfo, hist_fname):
     # location of history files
     hist_dir = cime_xmlquery(caseroot, "RUNDIR")
 
-    caller = "src.cime_pop.model_state._gen_hist"
+    caller = "nk_ooc.cime_pop.model_state._gen_hist"
     if tavg_freq_opt_0 == "nyear":
         fname_fmt = cime_xmlquery(caseroot, "CASE") + ".pop.h.{year:04d}.nc"
         ann_files_to_mean_file(

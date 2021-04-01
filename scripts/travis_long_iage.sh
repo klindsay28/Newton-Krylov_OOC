@@ -22,14 +22,14 @@ $HOME/travis_long_iage_workdir/nk_driver.sh || err_cnt=$((err_cnt+1))
 
 for fname in precond_00.nc precond_fcn_00.nc basis_00.nc perturb_fcn_w_raw_00.nc ; do
     echo comparing $fname
-    python -m src.baseline_cmp --fname $fname \
+    python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $HOME/travis_long_iage_workdir/krylov_00 \
         --baseline_dir baselines/travis_long_iage || err_cnt=$((err_cnt+1))
 done
 
 for fname in w_raw_00.nc w_00.nc krylov_res_00.nc ; do
     echo comparing $fname
-    python -m src.baseline_cmp --fname $fname \
+    python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $HOME/travis_long_iage_workdir/krylov_00 \
         --baseline_dir baselines/travis_long_iage \
         --rtol 2.0e-4 || err_cnt=$((err_cnt+1))
@@ -37,7 +37,7 @@ done
 
 for fname in increment_00.nc iterate_01.nc ; do
     echo comparing $fname
-    python -m src.baseline_cmp --fname $fname \
+    python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $HOME/travis_long_iage_workdir \
         --baseline_dir baselines/travis_long_iage \
         --rtol 2.0e-4 || err_cnt=$((err_cnt+1))

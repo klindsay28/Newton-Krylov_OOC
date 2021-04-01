@@ -630,14 +630,14 @@ def _get_tracer_module_state_class(model_name, tracer_module_name, tracer_module
     tracer_module_state_class = TracerModuleStateBase
 
     # look for model specific derived class
-    mod_name = ".".join(["src", model_name, "tracer_module_state"])
+    mod_name = ".".join(["nk_ooc", model_name, "tracer_module_state"])
     subclasses = get_subclasses(mod_name, tracer_module_state_class)
     if len(subclasses) > 0:
         tracer_module_state_class = subclasses[0]
 
     # look for tracer module specific derived class
     py_mod_name = tracer_module_def.get("py_mod_name", tracer_module_name)
-    mod_name = ".".join(["src", model_name, py_mod_name])
+    mod_name = ".".join(["nk_ooc", model_name, py_mod_name])
     subclasses = get_subclasses(mod_name, tracer_module_state_class)
     if len(subclasses) > 0:
         tracer_module_state_class = subclasses[0]

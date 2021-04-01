@@ -6,7 +6,7 @@ conda env export --no-builds
 err_cnt=0
 
 echo running isort
-isort --check-only --recursive src tests || err_cnt=$((err_cnt+1))
+isort --check-only --recursive nk_ooc tests || err_cnt=$((err_cnt+1))
 
 echo running black
 black --check . || err_cnt=$((err_cnt+1))
@@ -34,14 +34,14 @@ echo running setup_solver.sh
 
 for fname in depth_axis.nc; do
     echo comparing $fname
-    python -m src.baseline_cmp --fname $fname \
+    python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $HOME/travis_short_workdir \
         --baseline_dir baselines/travis_short || err_cnt=$((err_cnt+1))
 done
 
 for fname in fcn_00.nc hist_00.nc init_iterate.nc init_iterate_00.nc; do
     echo comparing $fname
-    python -m src.baseline_cmp --fname $fname \
+    python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $HOME/travis_short_workdir/gen_init_iterate \
         --baseline_dir baselines/travis_short || err_cnt=$((err_cnt+1))
 done

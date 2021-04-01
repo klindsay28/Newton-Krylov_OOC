@@ -145,7 +145,7 @@ def gen_irf_file(modelinfo):
     else:
         irf_hist_yr_cnt = modelinfo["irf_hist_yr_cnt"]
 
-    caller = "src.cime_pop.setup_solver.gen_irf_file"
+    caller = "nk_ooc.cime_pop.setup_solver.gen_irf_file"
 
     if irf_hist_freq_opt == "nyear":
         fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}.nc"
@@ -195,7 +195,7 @@ def gen_grid_weight_file(modelinfo):
         modelinfo["grid_weight_fname"], mode="w", format="NETCDF3_64BIT_OFFSET"
     ) as fptr_out:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = "src.cime_pop.setup_solver.gen_grid_weight_file"
+        name = "nk_ooc.cime_pop.setup_solver.gen_grid_weight_file"
         msg = datestamp + ": created by " + name + " from " + modelinfo["irf_fname"]
         fptr_out.history = msg if history_in is None else "\n".join([msg, history_in])
 
@@ -239,7 +239,7 @@ def gen_region_mask_file(modelinfo):
         modelinfo["region_mask_fname"], mode=mode_out, format="NETCDF3_64BIT_OFFSET"
     ) as fptr_out:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = "src.cime_pop.setup_solver.gen_region_mask_file"
+        name = "nk_ooc.cime_pop.setup_solver.gen_region_mask_file"
         msg = datestamp + ": "
         if mode_out == "a":
             history_in = getattr(fptr_out, "history", None)

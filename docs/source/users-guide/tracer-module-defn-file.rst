@@ -34,7 +34,7 @@ The test_problem model also recognizes the keys ``init_iterate_val_depths`` and 
 The corresponding values are lists of floats specifying depths and values respectively that are used when the ``setup_solver.sh`` script is run to generate tracer initial conditions.
 
 The value corresponding to the ``py_mod_name`` key is the name of the module containing the python source code for the tracer module.
-If this key-value pair is not specified, the solver searches for the tracer module's python source code in ``src.model_name.tracer_module_name``.
+If this key-value pair is not specified, the solver searches for the tracer module's python source code in ``nk_ooc.model_name.tracer_module_name``.
 This feature is particularly useful for parameterized tracer modules, see below, whose implementation requires tracer module specific code, but the code is independent of ``{suff}``.
 
 .. _parameterized-tracer-module:

@@ -10,8 +10,8 @@ for cfg_fname in `ls input/$model_name/*.cfg`; do
 
     varnames=`cut -f1 -d'#' $cfg_fname | grep -i '^[a-z].*=' | cut -f1 -d=`
     for varname in $varnames; do
-        # check for usage outside of comments in src
-        for fname in `ls src/*.py src/$model_name/*.py`; do
+        # check for usage outside of comments in nk_ooc
+        for fname in `ls nk_ooc/*.py nk_ooc/$model_name/*.py`; do
             python -m tokenize $fname | awk '{print $2,$3}' | grep -E '^NAME|^STRING' \
                 | awk '{print $2}' | cut -f2 -d\' | cut -f2 -d\"  | grep -q "^$varname$"
             if [ $? -eq 0 ]; then continue 2; fi

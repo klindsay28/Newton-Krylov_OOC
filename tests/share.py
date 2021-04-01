@@ -2,10 +2,10 @@
 
 import os
 
-from src.model_config import ModelConfig
-from src.share import common_args, read_cfg_files
-from src.spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
-from src.utils import mkdir_exist_okay
+from nk_ooc.model_config import ModelConfig
+from nk_ooc.share import common_args, read_cfg_files
+from nk_ooc.spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
+from nk_ooc.utils import mkdir_exist_okay
 
 
 def config_test_problem():

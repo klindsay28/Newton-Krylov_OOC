@@ -27,14 +27,14 @@ echo running setup_solver.sh
 
 for fname in grid_vars.nc; do
     echo comparing $fname
-    python -m src.baseline_cmp --fname $fname \
+    python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $workdir \
         --baseline_dir baselines/travis_py_driver_2d_iage || err_cnt=$((err_cnt+1))
 done
 
 for fname in fcn_0000.nc hist_0000.nc init_iterate.nc init_iterate_0000.nc; do
     echo comparing $fname
-    python -m src.baseline_cmp --fname $fname --atol 4.0e-7 --rtol 1.0e-3 \
+    python -m nk_ooc.baseline_cmp --fname $fname --atol 4.0e-7 --rtol 1.0e-3 \
         --expr_dir $workdir/gen_init_iterate \
         --baseline_dir baselines/travis_py_driver_2d_iage || err_cnt=$((err_cnt+1))
 done

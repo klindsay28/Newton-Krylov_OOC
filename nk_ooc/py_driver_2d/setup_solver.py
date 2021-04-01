@@ -1,11 +1,15 @@
 #!/usr/bin/env python
-"""set up files needed to run NK solver for test_problem"""
+"""set up files needed to run NK solver for py_driver_2d"""
 
 import cProfile
 import logging
 import os
 import pstats
 import sys
+from datetime import datetime
+
+import numpy as np
+from netCDF4 import Dataset
 
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
@@ -17,7 +21,7 @@ from ..share import (
     repro_fname,
 )
 from ..spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
-from ..utils import mkdir_exist_okay
+from ..utils import create_dimensions_verify, create_vars, mkdir_exist_okay
 from .model_state import ModelState
 
 
@@ -26,14 +30,9 @@ def parse_args(args_list_in=None):
 
     args_list = [] if args_list_in is None else args_list_in
     parser, args_remaining = common_args(
-        "setup solver for test_problem model", "test_problem", args_list
+        "setup solver for py_driver_2d model", "py_driver_2d", args_list
     )
 
-    # axis related arguments
-    defn = spatial_axis_defn_dict(axisname="depth")["nlevs"]
-    parser.add_argument(
-        "--depth_nlevs", type=defn["type"], help=defn["help"], default=defn["value"]
-    )
     parser.add_argument(
         "--init_iterate_opt",
         help="option for specifying initial iterate",
@@ -55,7 +54,7 @@ def parse_args(args_list_in=None):
 
 
 def main(args):
-    """set up files needed to run NK solver for test_problem"""
+    """set up files needed to run NK solver for py_driver_2d"""
 
     config = read_cfg_files(args)
     solverinfo = config["solverinfo"]
@@ -69,28 +68,18 @@ def main(args):
     mkdir_exist_okay(solverinfo["workdir"])
 
     # generate invoker script
-    args.model_name = "test_problem"
+    args.model_name = "py_driver_2d"
     gen_invoker_script.main(args)
 
     modelinfo = config["modelinfo"]
 
-    # generate depth axis from args and modelinfo
-    defn_dict = {}
-    for key, defn in spatial_axis_defn_dict(axisname="depth").items():
-        depth_key = "depth_" + key
-        if depth_key in modelinfo:
-            defn_dict[key] = (defn["type"])(modelinfo[depth_key])
-        if hasattr(args, depth_key):
-            defn_dict[key] = getattr(args, depth_key)
-    depth = spatial_axis_from_defn_dict(defn_dict=spatial_axis_defn_dict(**defn_dict))
+    caller = "nk_ooc.py_driver_2d.setup_solver.main"
 
-    caller = "src.test_problem.setup_solver.main"
-
-    # write depth axis
+    # generate and write grid_weight
     grid_weight_fname = modelinfo["grid_weight_fname"]
     logger.info('grid_weight_fname="%s"', repro_fname(modelinfo, grid_weight_fname))
     mkdir_exist_okay(os.path.dirname(grid_weight_fname))
-    depth.dump(grid_weight_fname, caller)
+    gen_grid_weight_file(args, modelinfo)
 
     # confirm that model configuration works with generated file
     # ModelState relies on model being configured
@@ -120,14 +109,14 @@ def main(args):
             logger.info("fp_iter=%d", fp_iter)
             init_iterate.dump(
                 os.path.join(
-                    gen_init_iterate_workdir, "init_iterate_%02d.nc" % fp_iter
+                    gen_init_iterate_workdir, "init_iterate_%04d.nc" % fp_iter
                 ),
                 caller,
             )
             init_iterate_fcn = init_iterate.comp_fcn(
-                os.path.join(gen_init_iterate_workdir, "fcn_%02d.nc" % fp_iter),
+                os.path.join(gen_init_iterate_workdir, "fcn_%04d.nc" % fp_iter),
                 None,
-                os.path.join(gen_init_iterate_workdir, "hist_%02d.nc" % fp_iter),
+                os.path.join(gen_init_iterate_workdir, "hist_%04d.nc" % fp_iter),
             )
             init_iterate += init_iterate_fcn
             init_iterate.copy_shadow_tracers_to_real_tracers()
@@ -137,6 +126,54 @@ def main(args):
     logger.info('init_iterate_fname="%s"', repro_fname(solverinfo, init_iterate_fname))
     mkdir_exist_okay(os.path.dirname(init_iterate_fname))
     init_iterate.dump(init_iterate_fname, caller)
+
+
+def gen_grid_weight_file(args, modelinfo):
+    """generate grid weight file based on args and modelinfo"""
+
+    # generate axes from args and modelinfo
+    axisnames = ["depth", "ypos"]
+    axes = {axisname: gen_axis(axisname, args, modelinfo) for axisname in axisnames}
+
+    with Dataset(
+        modelinfo["grid_weight_fname"], mode="w", format="NETCDF3_64BIT_OFFSET"
+    ) as fptr:
+        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = "nk_ooc.py_driver_2d.setup_solver.gen_grid_weight_file"
+        fptr.history = datestamp + ": created by " + name
+
+        for axis in axes.values():
+            create_dimensions_verify(fptr, axis.dump_dimensions())
+            create_vars(fptr, axis.dump_vars_metadata())
+
+        vars_metadata = {}
+        vars_metadata[modelinfo["grid_weight_varname"]] = {
+            "dimensions": tuple(axisnames),
+            "attrs": {"long_name": "grid-cell area", "units": "m^2"},
+        }
+        create_vars(fptr, vars_metadata)
+
+        for axis in axes.values():
+            axis.dump_write(fptr)
+
+        weight = np.outer(axes["depth"].delta, axes["ypos"].delta)
+        fptr.variables[modelinfo["grid_weight_varname"]][:] = weight
+
+
+def gen_axis(axisname, args, modelinfo):
+    """
+    generate axis object based on args and modelinfo
+    """
+
+    defn_dict = {}
+    for key, defn in spatial_axis_defn_dict(axisname=axisname).items():
+        axis_key = "_".join([axisname, key])
+        if axis_key in modelinfo:
+            defn_dict[key] = (defn["type"])(modelinfo[axis_key])
+        if hasattr(args, axis_key):
+            defn_dict[key] = getattr(args, axis_key)
+
+    return spatial_axis_from_defn_dict(defn_dict=spatial_axis_defn_dict(**defn_dict))
 
 
 if __name__ == "__main__":

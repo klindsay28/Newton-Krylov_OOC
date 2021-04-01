@@ -1,6 +1,6 @@
 """test functions in model_config.py"""
 
-from src.model_config import propagate_base_matrix_defs_to_all
+from nk_ooc.model_config import propagate_base_matrix_defs_to_all
 
 from .share import config_test_problem
 

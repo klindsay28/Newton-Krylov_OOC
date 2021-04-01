@@ -372,7 +372,7 @@ def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
 
     with Dataset(os.path.join(dir_in, fname_out), mode="a") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = "src.utils.ann_files_to_mean_file"
+        name = "nk_ooc.utils.ann_files_to_mean_file"
         msg = datestamp + ": ncra called from " + name + " called from " + caller
         fptr.history = "\n".join([msg, fptr.history])
 
@@ -414,7 +414,7 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
 
     with Dataset(os.path.join(dir_in, fname_out), mode="a") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = "src.utils.mon_files_to_mean_file"
+        name = "nk_ooc.utils.mon_files_to_mean_file"
         msg = datestamp + ": ncra called from " + name + " called from " + caller
         fptr.history = "\n".join([msg, fptr.history])
 
