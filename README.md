@@ -1,6 +1,6 @@
 # Out-of-Core Newton-Krylov Solver
 
-[![Build Status](https://travis-ci.com/klindsay28/Newton-Krylov_OOC.svg?branch=master)](https://travis-ci.com/klindsay28/Newton-Krylov_OOC)
+[![Build Status](https://travis-ci.com/klindsay28/Newton-Krylov_OOC.svg?branch=development)](https://travis-ci.com/klindsay28/Newton-Krylov_OOC)
 [![Documentation Status](https://readthedocs.org/projects/newton-krylov-ooc/badge/?version=latest)](https://newton-krylov-ooc.readthedocs.io/en/latest/?badge=latest)
 
 ## Documentation
