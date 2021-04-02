@@ -113,6 +113,27 @@ def fmt_vals(var, fmt):
     return var
 
 
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
+
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+
+    copied from distutils/util.py in python 3.6 and run through black
+    (code for strtobool in python 3.9 is the same)
+    distutils is deprecated in python 3.10 and will be removed in 3.12
+    https://www.python.org/dev/peps/pep-0632/
+    """
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return 1
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
+
+
 ################################################################################
 # utilities related to arithmetic expression parsing/evaluation
 

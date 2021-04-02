@@ -7,7 +7,6 @@ import os
 import shutil
 import sys
 from datetime import datetime
-from distutils.util import strtobool
 
 import numpy as np
 from netCDF4 import Dataset
@@ -29,6 +28,7 @@ from ..utils import (
     extract_dimensions,
     mkdir_exist_okay,
     mon_files_to_mean_file,
+    strtobool,
 )
 
 

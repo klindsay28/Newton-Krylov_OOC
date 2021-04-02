@@ -4,7 +4,6 @@ import copy
 import logging
 import subprocess
 from datetime import datetime
-from distutils.util import strtobool
 from inspect import signature
 
 import numpy as np
@@ -13,7 +12,7 @@ from scipy import integrate
 
 from ..model_state_base import ModelStateBase
 from ..spatial_axis import spatial_axis_from_file
-from ..utils import class_name, create_dimensions_verify, create_vars
+from ..utils import class_name, create_dimensions_verify, create_vars, strtobool
 from . import constants
 from .vert_mix import VertMix
 

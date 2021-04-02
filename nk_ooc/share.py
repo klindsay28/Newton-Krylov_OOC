@@ -2,13 +2,12 @@
 
 import argparse
 import configparser
-import distutils.util
 import logging
 import os
 import sys
 
 from .model_state_base import ModelStateBase
-from .utils import get_subclasses, mkdir_exist_okay
+from .utils import get_subclasses, mkdir_exist_okay, strtobool
 
 cfg_override_args = {
     "workdir": {"section": "DEFAULT"},
@@ -163,7 +162,7 @@ def _apply_cfg_override_args(args, config):
 def logging_config(solverinfo, filemode):
     """configure logging"""
     logging_format_list = []
-    if not distutils.util.strtobool(solverinfo["logging_reproducible"]):
+    if not strtobool(solverinfo["logging_reproducible"]):
         logging_format_list.extend(["%(asctime)s", "%(process)s"])
     logging_format_list.extend(["%(filename)s", "%(funcName)s", "%(message)s"])
     logging_format = ":".join(logging_format_list)
@@ -180,7 +179,7 @@ def logging_config(solverinfo, filemode):
 def repro_fname(cfg_section, fname):
     """return version of fname appropriate for reproducible logging, if specified"""
     ret = fname
-    if distutils.util.strtobool(cfg_section["logging_reproducible"]):
+    if strtobool(cfg_section["logging_reproducible"]):
         ret = ret.replace(cfg_section["workdir"], "$workdir")
         ret = ret.replace(cfg_section["repo_root"], "$repo_root")
     return ret
