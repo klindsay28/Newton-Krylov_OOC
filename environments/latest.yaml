@@ -29,6 +29,7 @@ dependencies:
 
 # py_driver_2d requirements
 - petsc4py
+- superlu_dist
 - slepc4py
 
 # cime_pop requirements
