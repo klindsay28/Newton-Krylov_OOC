@@ -624,6 +624,28 @@ def lin_comb(res_type, coeff, fname_fcn, quantity):
     return res
 
 
+def get_model_state_class(model_name, lvl):
+    """return tracer module state class for tracer_module_name"""
+    logger = logging.getLogger(__name__)
+
+    model_state_class = ModelStateBase
+
+    # look for model specific derived class
+    mod_name = ".".join(["nk_ooc", model_name, "model_state"])
+    subclasses = get_subclasses(mod_name, model_state_class)
+    if len(subclasses) > 0:
+        model_state_class = subclasses[0]
+
+    logger.log(
+        lvl,
+        "using class %s from %s for model state",
+        model_state_class.__name__,
+        model_state_class.__module__,
+    )
+
+    return model_state_class
+
+
 def _get_tracer_module_state_class(model_name, tracer_module_name, tracer_module_def):
     """return tracer module state class for tracer_module_name"""
 

@@ -6,13 +6,8 @@ import os
 import sys
 
 from .model_config import ModelConfig
-from .share import (
-    args_replace,
-    common_args,
-    get_model_state_class,
-    logging_config,
-    read_cfg_files,
-)
+from .model_state_base import get_model_state_class
+from .share import args_replace, common_args, logging_config, read_cfg_files
 
 
 def parse_args(args_list_in=None):
