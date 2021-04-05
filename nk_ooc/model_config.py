@@ -252,8 +252,8 @@ def propagate_base_matrix_defs_to_one(base_def, matrix_def):
                     if key not in matrix_def_value:
                         matrix_def_value[key] = base_def_value[key]
             else:
-                msg = "base defn type %s not implemented" % type(base_def_value)
-                raise NotImplementedError(msg)
+                msg = "base defn type %s not supported" % type(base_def_value)
+                raise TypeError(msg)
 
 
 def check_precond_matrix_defs(precond_matrix_defs):

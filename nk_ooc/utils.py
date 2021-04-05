@@ -300,7 +300,7 @@ def extract_dimensions(fptr, names):
     Return a dict of dimensions that names are defined on.
     names is a string containing a dimension or variable name, or a tuple or list of
     dimension or variable names.
-    Raise a ValueError is a name from names is unknown.
+    Raise a ValueError if a name from names is unknown.
     """
     if isinstance(names, str):
         return extract_dimensions(fptr, [names])
