@@ -11,6 +11,7 @@ import subprocess
 from datetime import datetime
 
 import numpy as np
+
 from netCDF4 import Dataset, default_fillvals
 from pint import UnitRegistry
 from scipy import interpolate
@@ -362,9 +363,8 @@ def create_vars(fptr, vars_metadata):
         var = fptr.createVariable(
             varname, datatype, metadata["dimensions"], fill_value=fill_value
         )
-        for attr_name, attr_value in attrs.items():
-            if attr_name != "_FillValue":
-                setattr(var, attr_name, attr_value)
+        attrs_nofill = {key: attrs[key] for key in attrs if key != "_FillValue"}
+        var.setncatts(attrs_nofill)
         fptr.sync()
 
 
