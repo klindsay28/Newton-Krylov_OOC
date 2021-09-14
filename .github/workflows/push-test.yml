@@ -2,9 +2,15 @@ name: push-test
 on: [push]
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest"]
+        python-version: ["3.6", "3.7", "3.8", "3.9"]
     steps:
-      - run: conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC black flake8 isort netCDF4 numpy pint pytest pyyaml scipy
+      - run: conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC
+          python=${{ matrix.python-version }}
+          black flake8 isort netCDF4 numpy pint pytest pyyaml scipy
       - uses: actions/checkout@v2
       - run: ./scripts/travis_short.sh
       - run: ./scripts/travis_zero_iage.sh
