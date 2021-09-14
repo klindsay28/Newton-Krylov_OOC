@@ -20,7 +20,7 @@ def test_parse_args():
 def test_read_cfg_files(args_list):
     """run read_cfg_files function and confirm a setting from each section"""
     model_name = "test_problem"
-    workdir = os.path.join(os.getenv("HOME"), "travis_short_workdir")
+    workdir = os.path.join(os.getenv("HOME"), "ci_short_workdir")
     args_list.extend(["--workdir", workdir])
     parser, args_remaining = common_args("test_share", model_name, args_list)
     args = parser.parse_args(args_remaining)
