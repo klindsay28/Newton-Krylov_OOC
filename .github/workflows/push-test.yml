@@ -6,5 +6,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: conda install mamba -n base -c conda-forge
+      - run: conda activate base
       - run: mamba create -q -c conda-forge -c defaults -n Newton-Krylov_OOC black flake8 isort netCDF4 numpy pint pytest pyyaml scipy
       - run: ./scripts/travis_short.sh
