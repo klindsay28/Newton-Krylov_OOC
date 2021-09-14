@@ -10,3 +10,7 @@ jobs:
       - run: conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC black flake8 isort netCDF4 numpy pint pytest pyyaml scipy
       - uses: actions/checkout@v2
       - run: ./scripts/travis_short.sh
+      - run: ./scripts/travis_zero_iage.sh
+      - run: ./scripts/travis_long_iage.sh
+      - run: ./scripts/travis_long_dye_decay.sh
+      - run: ./scripts/travis_py_driver_2d_iage.sh
