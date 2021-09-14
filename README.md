@@ -1,6 +1,6 @@
 # Out-of-Core Newton-Krylov Solver
 
-[![Build Status](https://travis-ci.com/klindsay28/Newton-Krylov_OOC.svg?branch=development)](https://travis-ci.com/klindsay28/Newton-Krylov_OOC)
+[![push-test](https://github.com/klindsay28/Newton-Krylov_OOC/actions/workflows/push-test.yml/badge.svg)](https://github.com/klindsay28/Newton-Krylov_OOC/actions/workflows/push-test.yml)
 [![Documentation Status](https://readthedocs.org/projects/newton-krylov-ooc/badge/?version=latest)](https://newton-krylov-ooc.readthedocs.io/en/latest/?badge=latest)
 
 ## Documentation
@@ -48,29 +48,29 @@ annotations added by hand
 -->
 ```
 .
-├── baselines                   # directories containing baselines that travis tests
-│   ├── travis_long_dye_decay   # are compared to
-│   ├── travis_long_iage
-│   ├── travis_py_driver_2d_iage
-│   └── travis_short
-├── docs                        # solver documentation
+├── baselines                 # directories containing baselines that ci tests
+│   ├── ci_long_dye_decay     # are compared to
+│   ├── ci_long_iage
+│   ├── ci_py_driver_2d_iage  #
+│   └── ci_short
+├── docs                      # solver documentation
 │   └── source
 │       ├── description
 │       ├── dev-guide
 │       └── users-guide
-├── environments                # YAML definition files of conda environments
-├── input                       # directories of model specific input files
+├── environments              # YAML definition files of conda environments
+├── input                     # directories of model specific input files
 │   ├── cime_pop
 │   ├── py_driver_2d
 │   ├── test_problem
 │   └── tests
-├── notebooks                   # jupyter notebooks utilizing the solver
-├── scripts                     # non-python scripts
-├── nk_ooc                      # model independent python code
-│   ├── cime_pop                # cime_pop model specific python code
-│   ├── py_driver_2d            # py_driver_2d model specific python code
-│   └── test_problem            # test_problem model specific python code
-└── tests                       # pytest tests
-    └── workdir                 # work/scratch space for pytest invocations
+├── notebooks                 # jupyter notebooks utilizing the solver
+├── scripts                   # non-python scripts
+├── nk_ooc                    # model independent python code
+│   ├── cime_pop              # cime_pop model specific python code
+│   ├── py_driver_2d          # py_driver_2d model specific python code
+│   └── test_problem          # test_problem model specific python code
+└── tests                     # pytest tests
+    └── workdir               # work/scratch space for pytest invocations
 
 ```

@@ -1,0 +1,18 @@
+name: push-test
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.7", "3.8", "3.9"]
+    steps:
+      - run: conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC
+          python=${{ matrix.python-version }}
+          black flake8 isort netCDF4 numpy pint pytest pyyaml scipy
+      - uses: actions/checkout@v2
+      - run: ./scripts/ci_short.sh
+      - run: ./scripts/ci_zero_iage.sh
+      - run: ./scripts/ci_long_iage.sh
+      - run: ./scripts/ci_long_dye_decay.sh
+      - run: ./scripts/ci_py_driver_2d_iage.sh

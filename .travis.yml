@@ -27,8 +27,8 @@ install:
     black flake8 isort netCDF4 numpy pint pytest pyyaml scipy petsc4py slepc4py
 
 script:
-  - ./scripts/travis_short.sh
-  - ./scripts/travis_zero_iage.sh
-  - ./scripts/travis_long_iage.sh
-  - ./scripts/travis_long_dye_decay.sh
-  - ./scripts/travis_py_driver_2d_iage.sh
+  - ./scripts/ci_short.sh
+  - ./scripts/ci_zero_iage.sh
+  - ./scripts/ci_long_iage.sh
+  - ./scripts/ci_long_dye_decay.sh
+  - ./scripts/ci_py_driver_2d_iage.sh

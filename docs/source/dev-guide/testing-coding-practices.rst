@@ -8,8 +8,8 @@ Testing and Coding Practices
 Testing
 -------
 
-A small amount of Continuous Integration (ci) testing is performed on the solver using `travis-ci <https://travis-ci.com/>`_.
-Testing on travis-ci currently does the following:
+A small amount of Continuous Integration (ci) testing is performed on the solver using `github actions <https://docs.github.com/en/actions>`_.
+Testing with github actions currently does the following:
 
 #. Run the source code through `isort <https://pycqa.github.io/isort/>`_ to ensure consistent order of python import statements.
 #. Run the source code through `black <https://black.readthedocs.io/en/stable/>`_ to check code style against a particular subset of the python style guide in `PEP 8 <https://www.python.org/dev/peps/pep-0008/>`_.
@@ -25,7 +25,7 @@ Testing on travis-ci currently does the following:
 Because the test_problem model produces different answers on different platforms, baseline comparisons do not check for equality.
 They instead use ``numpy.isclose``.
 
-Tests executed via travis-ci are performed with python versions 3.6, 3.7, 3.8, and 3.9.
+Tests executed via github actions are performed with python versions 3.6, 3.7, 3.8, and 3.9.
 Conda is currently unable to create environments with the required packages using earlier versions of python.
 
 The solver has been run for the cime_pop model with the iage and abio_dic_dic14 tracer modules successfully on the NCAR/CISL machine cheyenne using python3.6.
@@ -36,7 +36,7 @@ Adding more tests, particularly unit tests and verification of solver output for
 Interactive Testing
 ~~~~~~~~~~~~~~~~~~~
 
-All of the tests performed by travis-ci can be performed interactively, by running the following commands from the toplevel directory of the repo ``./scripts/travis_short.sh``, ``./scripts/travis_long_iage.sh`` and ``./scripts/travis_long_dye_decay.sh``.
+All of the tests performed by github actions can be performed interactively, by running the following commands from the toplevel directory of the repo ``./scripts/ci_short.sh``, ``./scripts/ci_long_iage.sh`` and ``./scripts/ci_long_dye_decay.sh``.
 
 ~~~~~~~~~~~~~~~~~~
 Pre-commit Testing
