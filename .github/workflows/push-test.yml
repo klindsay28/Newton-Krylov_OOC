@@ -2,6 +2,6 @@ name: push-test
 on: [push]
 jobs:
   test:
-    runs-on: [ubuntu-latest, macos-latest]
+    runs-on: ubuntu-latest
     steps:
       - run: conda install mamba -n base -c conda-forge
