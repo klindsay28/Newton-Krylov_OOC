@@ -1,0 +1,75 @@
+#include "inputGraph.h"
+#include <fstream>
+#include <iostream>
+#include <cstring>
+#include <stdlib.h>
+
+using namespace std;
+
+void logAndExit(string s) {
+	//Writes message s to screen and log file and then exits the program
+	ofstream resultsLog("resultsLog.log", ios::app);
+	resultsLog << s;
+	cout << s;
+	resultsLog.close();
+	exit(1);
+}
+
+void inputDimacsGraph(Graph& g, char* file) {
+	char c;
+	char str[400];
+	ifstream IN;
+	IN.open(file);
+	if (IN.fail()) logAndExit("Unrecognised file/argument in command line. Exiting\n");
+	int line = 0;
+	g.nbEdges = 0;
+	int edges = -1;
+	int blem = 1;
+	int multiple = 0;
+	while (!IN.eof()) {
+		line++;
+		IN.get(c);
+		if (IN.eof()) break;
+		switch (c) {
+		case 'p':
+			IN.get(c);
+			IN.getline(str, 39, ' ');
+			if (strcmp(str, "edge") && strcmp(str, "edges")) {
+				logAndExit("Error at line " + to_string(line) + ". No edge keyword found.\n");
+			}
+			IN >> g.n;
+			IN >> edges;
+			blem = 0;
+			g.resize(g.n);
+			break;
+		case 'e':
+			int node1, node2;
+			IN >> node1 >> node2;
+			if (node1 < 1 || node1 > g.n || node2 < 1 || node2 > g.n) {
+				logAndExit("Error at line " + to_string(line) + ". Node number out of range.\n");
+			}
+			node1--;
+			node2--;
+			if (g[node1][node2] == 0) {
+				g.nbEdges++;
+			}
+			else {
+				multiple++;
+				if (multiple < 5) {
+					logAndExit("Error at line " + to_string(line) + ". Edge defined more than once.\n");
+				}
+			}
+			g[node1][node2] = 1;
+			g[node2][node1] = 1;
+			break;
+		case 'c':
+			IN.putback('c');
+			IN.get(str, 399, '\n');
+			break;
+		default:
+			logAndExit("INVALID FILE. Line " + to_string(line) + " has unrecognised characters.\n");
+		}
+		IN.get(); // Kill the newline;
+	}
+	IN.close();
+}

@@ -59,12 +59,15 @@ annotations added by hand
 │       ├── dev-guide
 │       └── users-guide
 ├── environments              # YAML definition files of conda environments
+├── externals                 # redistributed external libraries and/or packages
+│   └── gCol                  # graph coloring algorithms
 ├── input                     # directories of model specific input files
 │   ├── cime_pop
 │   ├── py_driver_2d
 │   ├── test_problem
 │   └── tests
 ├── notebooks                 # jupyter notebooks utilizing the solver
+│   └── work                  # directory for temporary files used by notebooks
 ├── scripts                   # non-python scripts
 ├── nk_ooc                    # model independent python code
 │   ├── cime_pop              # cime_pop model specific python code
