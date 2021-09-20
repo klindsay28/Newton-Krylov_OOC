@@ -11,11 +11,11 @@ public:
 
 	void resize(int n);
 
-	int* matrix;
+	unsigned char** matrix;
 	int n;        // number of nodes
 	int nbEdges;  // number of edges
 
-	int* operator[](int index);
+	unsigned char* operator[](int index);
 
 };
 

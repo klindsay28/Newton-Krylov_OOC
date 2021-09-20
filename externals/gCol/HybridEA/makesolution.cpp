@@ -189,8 +189,9 @@ int generateInitialK(Graph& g, int alg, vector<int>& bestColouring) {
 	vector< vector<int> > candSol, adjList(g.n, vector<int>());
 	vector<int> colNode(g.n, INT_MAX);
 	for (i = 0; i < g.n; i++) {
+		unsigned char* uc_ptr = g[i];
 		for (j = 0; j < g.n; j++) {
-			if (g[i][j] && i != j) {
+			if (uc_ptr[j] && i != j) {
 				adjList[i].push_back(j);
 			}
 		}
@@ -214,9 +215,10 @@ void updateColOptions(vector< vector<bool> >& availCols, vector<int>& numColOpti
 	//Updates colOptions vector due to node v being assigned a colour
 	numColOptions[v] = ASSIGNED;
 	for (i = 0; i < g.n; i++) {
+		unsigned char* uc_ptr = g[i];
 		if (numColOptions[i] != ASSIGNED) {
 			numConfChecks++;
-			if (availCols[i][col] && g[i][v]) {
+			if (availCols[i][col] && uc_ptr[v]) {
 				availCols[i][col] = false;
 				numColOptions[i]--;
 			}

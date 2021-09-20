@@ -38,9 +38,10 @@ void initializeArrays(int**& nodesByColor, int**& conflicts, int**& tabuStatus, 
 
 	// Initialize the conflicts and neighbors array.
 	for (int i = 0; i < n; i++) {
+		unsigned char* uc_ptr = g[i];
 		for (int j = 0; j < n; j++) {
 			numConfChecks++;
-			if (g[i][j] && i != j) {
+			if (uc_ptr[j] && i != j) {
 				conflicts[c[j]][i]++;
 			}
 		}

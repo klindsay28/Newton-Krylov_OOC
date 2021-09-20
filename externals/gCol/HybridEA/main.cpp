@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <vector>
 #include <iomanip>
+#include <unistd.h>
 
 //This makes sure the compiler uses _strtoui64(x, y, z) with Microsoft Compilers, otherwise strtoull(x, y, z) is used
 #ifdef _MSC_VER
@@ -44,7 +45,7 @@ void logAndExitNow(string s) {
 
 int ASS = INT_MIN;
 bool solIsOptimal(vector<int>& sol, Graph& g, int k);
-void makeAdjList(int** neighbors, Graph& g);
+void makeAdjList(int** neighbors, Graph& g, int verbose);
 void replace(vector<vector<int> >& population, vector<int>& parents, vector<int>& osp, vector<int>& popCosts, Graph& g, int oCost);
 
 unsigned long long numConfChecks;
@@ -119,6 +120,7 @@ int main(int argc, char** argv) {
 			else {
 				cout << "Hybrid Evolutionary Algorithm using <" << argv[i] << ">\n\n";
 				inputDimacsGraph(g, argv[i]);
+				if (verbose >= 1) cout << "inputDimacsGraph complete" << endl;
 			}
 		}
 	}
@@ -151,7 +153,7 @@ int main(int argc, char** argv) {
 
 	//Make the adjacency list structure
 	int** neighbors = new int* [g.n];
-	makeAdjList(neighbors, g);
+	makeAdjList(neighbors, g, verbose);
 
 	//Produce some output
 	if (verbose >= 1) cout << " COLS     CPU-TIME\tCHECKS" << endl;
@@ -285,8 +287,9 @@ bool solIsOptimal(vector<int>& sol, Graph& g, int k)
 {
 	int i, j;
 	for (i = 0; i < (g.n) - 1; i++) {
+		unsigned char* uc_ptr = g[i];
 		for (j = i + 1; j < g.n; j++) {
-			if (sol[i] == sol[j] && g[i][j])
+			if (sol[i] == sol[j] && uc_ptr[j])
 				return(false);
 		}
 	}
@@ -294,20 +297,38 @@ bool solIsOptimal(vector<int>& sol, Graph& g, int k)
 	return(true);
 }
 //*********************************************************************
-void makeAdjList(int** neighbors, Graph& g)
+void makeAdjList(int** neighbors, Graph& g, int verbose)
 {
+	if (verbose >= 2) cout << "entering makeAdjList" << endl;
+	//initial pass to determine number of neighbors that each vertex has
+	int* neighbor_cnt = new int [g.n];
+	for (int i = 0; i < g.n; i++) {
+		unsigned char* uc_ptr = g[i];
+		neighbor_cnt[i] = 0;
+		for (int j = 0; j < g.n; j++) {
+			if (uc_ptr[j] && i != j) {
+				neighbor_cnt[i]++;
+			}
+		}
+	}
+	if (verbose >= 2) cout << "neighbors counted" << endl;
+
 	//Makes the adjacency list corresponding to G
 	for (int i = 0; i < g.n; i++) {
-		neighbors[i] = new int[g.n + 1];
+		neighbors[i] = new int[neighbor_cnt[i] + 1];
 		neighbors[i][0] = 0;
 	}
 	for (int i = 0; i < g.n; i++) {
+		unsigned char* uc_ptr = g[i];
 		for (int j = 0; j < g.n; j++) {
-			if (g[i][j] && i != j) {
+			if (uc_ptr[j] && i != j) {
 				neighbors[i][++neighbors[i][0]] = j;
 			}
 		}
 	}
+
+	delete[] neighbor_cnt;
+	if (verbose >= 1) cout << "makeAdjList complete" << endl;
 }
 
 //*********************************************************************
