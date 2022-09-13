@@ -116,8 +116,8 @@ class ModelState(ModelStateBase):
                 res_vals[ind0 : ind0 + cnt, :].reshape(-1),
                 "Radau",
                 t_eval,
-                atol=1.0e-10,
-                rtol=1.0e-10,
+                atol=1.0e-12,
+                rtol=1.0e-12,
                 args=(self.vert_mix,),
             )
             if ind0 == 0:

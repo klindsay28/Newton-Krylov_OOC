@@ -446,7 +446,7 @@ def _gen_hist(modelinfo, hist_fname):
 def _matrix_block_decomp(precond_task_cnt):
     """determine size of decomposition to be used in matrix factorization"""
     log2_precond_task_cnt = round(math.log2(precond_task_cnt))
-    if 2 ** log2_precond_task_cnt != precond_task_cnt:
+    if 2**log2_precond_task_cnt != precond_task_cnt:
         msg = "precond_task_cnt must be a power of 2"
         raise ValueError(msg)
     if (log2_precond_task_cnt % 2) == 0:

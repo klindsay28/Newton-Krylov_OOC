@@ -267,7 +267,7 @@ class TracerModuleState(TracerModuleStateBase):
 
             # std dev in time
             varname = tracer_like_name + "_time_std"
-            tracer_vals_var = np.einsum("i,i...", time_weights, tracer_vals_anom ** 2)
+            tracer_vals_var = np.einsum("i,i...", time_weights, tracer_vals_anom**2)
             fptr.variables[varname][:] = np.sqrt(tracer_vals_var)
 
             # end state minus start state
