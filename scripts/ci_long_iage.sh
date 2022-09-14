@@ -46,7 +46,7 @@ done
 echo comparing Newton_state.json to baseline
 expr_dir=$HOME/ci_long_iage_workdir
 baseline_dir=baselines/ci_long_iage
-diff -b <(sed "s%$HOME%HOME%g" $expr_dir/Newton_state.json) \
+diff -u -b <(sed "s%$HOME%HOME%g" $expr_dir/Newton_state.json) \
     $baseline_dir/Newton_state.json || err_cnt=$((err_cnt+1))
 
 echo err_cnt=$err_cnt

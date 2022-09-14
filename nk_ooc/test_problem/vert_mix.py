@@ -45,7 +45,7 @@ class VertMix:
             [res_log10_shallow, res_log10_deep],
         )
         self._mixing_coeff_time = time
-        self._mixing_coeff_vals[:] = 10.0 ** res_log10 * self._depth.delta_mid_r
+        self._mixing_coeff_vals[:] = 10.0**res_log10 * self._depth.delta_mid_r
         return self._mixing_coeff_vals
 
     @staticmethod
