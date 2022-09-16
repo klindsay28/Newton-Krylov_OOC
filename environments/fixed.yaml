@@ -26,6 +26,7 @@ dependencies:
 # test_problem requirements
 - scipy=1.5.3
 - pint=0.11
+- libopenblas=0.3.15
 
 # py_driver_2d requirements
 - petsc4py=3.14.1
