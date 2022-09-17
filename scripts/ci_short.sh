@@ -6,7 +6,7 @@ conda env export --no-builds
 err_cnt=0
 
 echo running isort
-isort --check-only --recursive nk_ooc tests || err_cnt=$((err_cnt+1))
+isort --check-only nk_ooc tests || err_cnt=$((err_cnt+1))
 
 echo running black
 black --check . || err_cnt=$((err_cnt+1))
