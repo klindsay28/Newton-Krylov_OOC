@@ -16,7 +16,7 @@ class SolverBase:
     """
 
     def __init__(self, solver_name, solverinfo, resume, rewind):
-        """initialize Krylov solver"""
+        """initialize solver"""
         logger = logging.getLogger(__name__)
 
         logger.debug(

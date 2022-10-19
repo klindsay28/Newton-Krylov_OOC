@@ -6,6 +6,7 @@ import logging
 import numpy as np
 import yaml
 from netCDF4 import Dataset
+from scipy import sparse
 
 from .region_scalars import RegionScalars
 from .share import repro_fname
@@ -52,7 +53,7 @@ class ModelConfig:
         )
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
-            grid_weight_no_region_dim = fptr.variables[varname][:]
+            self.grid_weight = fptr.variables[varname][:]
 
         # extract region_mask from modelinfo config object
         fname = modelinfo["region_mask_fname"]
@@ -67,33 +68,38 @@ class ModelConfig:
             with Dataset(fname, mode="r") as fptr:
                 fptr.set_auto_mask(False)
                 self.region_mask = fptr.variables[varname][:]
-                if self.region_mask.shape != grid_weight_no_region_dim.shape:
+                if self.region_mask.shape != self.grid_weight.shape:
                     msg = "region_mask and grid_weight must have the same shape"
                     raise RuntimeError(msg)
         else:
-            self.region_mask = np.ones_like(grid_weight_no_region_dim, dtype=np.int32)
+            self.region_mask = np.ones_like(self.grid_weight, dtype=np.int32)
 
         # enforce that region_mask and grid_weight and both 0 where one of them is
-        self.region_mask = np.where(
-            grid_weight_no_region_dim == 0.0, 0, self.region_mask
-        )
-        grid_weight_no_region_dim = np.where(
-            self.region_mask == 0, 0.0, grid_weight_no_region_dim
-        )
+        self.region_mask = np.where(self.grid_weight == 0.0, 0, self.region_mask)
+        self.grid_weight = np.where(self.region_mask == 0, 0.0, self.grid_weight)
 
+        self.region_mean_sparse = self.gen_region_mean_sparse()
         region_cnt = self.region_mask.max()
         RegionScalars.region_cnt = region_cnt
 
-        # add region dimension to grid_weight and normalize
-        self.grid_weight = np.empty((region_cnt,) + grid_weight_no_region_dim.shape)
-        for region_ind in range(region_cnt):
-            self.grid_weight[region_ind, :] = np.where(
-                self.region_mask == region_ind + 1, grid_weight_no_region_dim, 0.0
-            )
-            # normalize grid_weight so that its sum is 1.0 over each region
-            self.grid_weight[region_ind, :] *= 1.0 / np.sum(
-                self.grid_weight[region_ind, :]
-            )
+    def gen_region_mean_sparse(self):
+        """Generate sparse matrix used for computing means over regions."""
+
+        region_mask_flat = self.region_mask.reshape(-1)
+        grid_weight_flat = self.grid_weight.reshape(-1)
+
+        indices = []
+        indptr = [0]
+        data = []
+
+        for region_ind in range(self.region_mask.max()):
+            indices.extend(np.nonzero(region_mask_flat == region_ind + 1)[0])
+            indptr.append(len(indices))
+            data_row_raw = grid_weight_flat[indices[indptr[-2] : indptr[-1]]]
+            data_row_raw_sum_r = 1.0 / sum(data_row_raw)
+            data.extend([data_row_raw_sum_r * val for val in data_row_raw])
+
+        return sparse.csr_array((data, indices, indptr))
 
     def tracer_module_expand_all(self, tracer_module_names):
         """

@@ -307,50 +307,30 @@ class TracerModuleStateBase:
 
     def mean(self):
         """compute weighted mean of self"""
-        ndim = len(self._dimensions)
-        # i: region dimension
-        # j: tracer dimension
-        # k,l,m : grid dimensions
-        # sum over model grid dimensions, leaving region and tracer dimensions
-        if ndim == 1:
-            tmp = np.einsum("ik,jk", self.model_config_obj.grid_weight, self._vals)
-        elif ndim == 2:
-            tmp = np.einsum("ikl,jkl", self.model_config_obj.grid_weight, self._vals)
-        else:
-            tmp = np.einsum("iklm,jklm", self.model_config_obj.grid_weight, self._vals)
+        # multiply each tracer by the region_mean_sparse matrix
+        tmp = [
+            self.model_config_obj.region_mean_sparse.dot(
+                self._vals[tracer_ind, :].reshape(-1)
+            )
+            for tracer_ind in range(self.tracer_cnt)
+        ]
         # sum over tracer dimension, and return RegionScalars object
-        return region_scalars.RegionScalars(np.sum(tmp, axis=-1))
+        return region_scalars.RegionScalars(sum(tmp))
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        ndim = len(self._dimensions)
-        # i: region dimension
-        # j: tracer dimension
-        # k,l,m : grid dimensions
-        # sum over tracer and model grid dimensions, leaving region dimension
-        if ndim == 1:
-            tmp = np.einsum(
-                "ik,jk,jk",
-                self.model_config_obj.grid_weight,
-                self._vals,
-                other._vals,  # pylint: disable=protected-access
+        # multiply each tracer by the region_mean_sparse matrix
+        tmp = [
+            self.model_config_obj.region_mean_sparse.dot(
+                self._vals[tracer_ind, :].reshape(-1)
+                * other._vals[  # pylint: disable=protected-access
+                    tracer_ind, :
+                ].reshape(-1)
             )
-        elif ndim == 2:
-            tmp = np.einsum(
-                "ikl,jkl,jkl",
-                self.model_config_obj.grid_weight,
-                self._vals,
-                other._vals,  # pylint: disable=protected-access
-            )
-        else:
-            tmp = np.einsum(
-                "iklm,jklm,jklm",
-                self.model_config_obj.grid_weight,
-                self._vals,
-                other._vals,  # pylint: disable=protected-access
-            )
-        # return RegionScalars object
-        return region_scalars.RegionScalars(tmp)
+            for tracer_ind in range(self.tracer_cnt)
+        ]
+        # sum over tracer dimension, and return RegionScalars object
+        return region_scalars.RegionScalars(sum(tmp))
 
     def precond_matrix_list(self):
         """Return list of precond matrices being used"""
