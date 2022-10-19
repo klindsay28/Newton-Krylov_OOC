@@ -22,10 +22,11 @@ dependencies:
 # solver requirements
 - netCDF4=1.6.1
 - numpy=1.23.3
+- packaging=21.3
 - pyyaml=6.0
+- scipy=1.9.1
 
 # test_problem requirements
-- scipy=1.9.1
 - pint=0.19.2
 - libopenblas=0.3.21
 

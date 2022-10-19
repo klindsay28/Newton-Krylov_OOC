@@ -4,9 +4,11 @@ import copy
 import logging
 
 import numpy as np
+import scipy
+import scipy.sparse
 import yaml
 from netCDF4 import Dataset
-from scipy import sparse
+from packaging.version import Version
 
 from .region_scalars import RegionScalars
 from .share import repro_fname
@@ -99,7 +101,11 @@ class ModelConfig:
             data_row_raw_sum_r = 1.0 / sum(data_row_raw)
             data.extend([data_row_raw_sum_r * val for val in data_row_raw])
 
-        return sparse.csr_array((data, indices, indptr))
+        return (
+            scipy.sparse.csr_array((data, indices, indptr))
+            if Version(scipy.__version__) >= Version("1.8.0")
+            else scipy.sparse.csr_matrix((data, indices, indptr))
+        )
 
     def tracer_module_expand_all(self, tracer_module_names):
         """
