@@ -6,7 +6,6 @@ import os
 import numpy as np
 
 from .krylov_solver import KrylovSolver
-from .region_scalars import to_ndarray, to_region_scalar_ndarray
 from .solver_base import SolverBase
 from .solver_state import action_step_log_wrap
 from .utils import class_name, fmt_vals
@@ -21,7 +20,13 @@ class NewtonSolver(SolverBase):
     def __init__(self, model_state_class, solverinfo, resume, rewind):
         """initialize Newton solver"""
 
-        super().__init__("Newton", solverinfo, resume, rewind)
+        super().__init__(
+            "Newton",
+            solverinfo,
+            model_state_class.model_config_obj.region_cnt,
+            resume,
+            rewind,
+        )
 
         step = "Newton iterate 0 written"
         if self._solver_state.step_logged(step, per_iteration=False):
@@ -125,11 +130,11 @@ class NewtonSolver(SolverBase):
         log_obj = self._fcn if fcn is None else fcn
         log_obj.log("%s,fcn" % iteration_p_msg)
 
-    def converged_flat(self):
+    def converged(self):
         """is residual small"""
         rel_tol = self._get_rel_tol()
         return (self.get_iteration() >= self._get_min_iter()) & (
-            to_ndarray(self._fcn.norm()) < rel_tol * to_ndarray(self._iterate.norm())
+            self._fcn.norm() < rel_tol * self._iterate.norm()
         )
 
     def _comp_increment(self):
@@ -172,7 +177,7 @@ class NewtonSolver(SolverBase):
         """initialize Armijo factor computation"""
         solver_state.set_value_saved_state(key="armijo_ind", value=0)
         solver_state.set_value_saved_state(
-            key="armijo_factor_flat", value=np.where(self.converged_flat(), 0.0, 1.0)
+            key="armijo_factor", value=np.where(self.converged(), 0.0, 1.0)
         )
 
     def _comp_next_iterate(self, increment):
@@ -182,9 +187,7 @@ class NewtonSolver(SolverBase):
 
         self._armijo_init(solver_state=self._solver_state)
         armijo_ind = self._solver_state.get_value_saved_state(key="armijo_ind")
-        armijo_factor_flat = self._solver_state.get_value_saved_state(
-            key="armijo_factor_flat"
-        )
+        armijo_factor = self._solver_state.get_value_saved_state(key="armijo_factor")
 
         fcn_complete_step = "_comp_next_iterate complete"
 
@@ -200,7 +203,6 @@ class NewtonSolver(SolverBase):
 
         while True:
             # compute provisional candidate for next iterate
-            armijo_factor = to_region_scalar_ndarray(armijo_factor_flat)
             prov = self._iterate + armijo_factor * increment
             prov.dump(self._fname("prov_Armijo_%02d" % armijo_ind), caller)
             prov_fcn = prov.comp_fcn(
@@ -224,12 +226,11 @@ class NewtonSolver(SolverBase):
                 np.stack((armijo_factor, fcn_norm, prov_fcn_norm)),
             )
             alpha = 1.0e-4
-            armijo_cond_flat = (armijo_factor_flat == 0.0) | (
-                to_ndarray(prov_fcn_norm)
-                <= (1.0 - alpha * armijo_factor_flat) * to_ndarray(fcn_norm)
+            armijo_cond = (armijo_factor == 0.0) | (
+                prov_fcn_norm <= (1.0 - alpha * armijo_factor) * fcn_norm
             )
 
-            if armijo_cond_flat.all():
+            if armijo_cond.all():
                 logger.info("Armijo condition satisfied")
                 self._solver_state.log_step(fcn_complete_step)
 
@@ -238,13 +239,11 @@ class NewtonSolver(SolverBase):
                 return prov, prov_fcn
 
             logger.info("Armijo condition not satisfied")
-            armijo_factor_flat = np.where(
-                armijo_cond_flat, armijo_factor_flat, 0.5 * armijo_factor_flat
-            )
+            armijo_factor = np.where(armijo_cond, armijo_factor, 0.5 * armijo_factor)
             armijo_ind += 1
             self._solver_state.set_value_saved_state(key="armijo_ind", value=armijo_ind)
             self._solver_state.set_value_saved_state(
-                key="armijo_factor_flat", value=armijo_factor_flat
+                key="armijo_factor", value=armijo_factor
             )
 
             if armijo_ind > 10:

@@ -10,7 +10,6 @@ import yaml
 from netCDF4 import Dataset
 from packaging.version import Version
 
-from .region_scalars import RegionScalars
 from .share import repro_fname
 from .utils import fmt_vals
 
@@ -81,8 +80,7 @@ class ModelConfig:
         self.grid_weight = np.where(self.region_mask == 0, 0.0, self.grid_weight)
 
         self.region_mean_sparse = self.gen_region_mean_sparse()
-        region_cnt = self.region_mask.max()
-        RegionScalars.region_cnt = region_cnt
+        self.region_cnt = self.region_mean_sparse.shape[0]
 
     def gen_region_mean_sparse(self):
         """Generate sparse matrix used for computing means over regions."""

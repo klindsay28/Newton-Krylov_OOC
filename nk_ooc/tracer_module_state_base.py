@@ -5,7 +5,7 @@ import logging
 
 import numpy as np
 
-from . import region_scalars, utils
+from . import utils
 
 
 class TracerModuleStateBase:
@@ -137,16 +137,6 @@ class TracerModuleStateBase:
         """write per-tracer module values to the log"""
         logger = logging.getLogger(__name__)
 
-        # simplify subsequent logic by converting implicit RegionScalars dimension
-        # to an additional ndarray dimension
-        if (
-            isinstance(vals, region_scalars.RegionScalars)
-            or isinstance(vals, np.ndarray)
-            and isinstance(vals.ravel()[0], region_scalars.RegionScalars)
-        ):
-            self.log_vals(msg, region_scalars.to_ndarray(vals))
-            return
-
         # suppress printing of last index if its span is 1
         if vals.ndim >= 1 and vals.shape[-1] == 1:
             self.log_vals(msg, vals[..., 0])
@@ -228,8 +218,11 @@ class TracerModuleStateBase:
         res = copy.copy(self)
         if isinstance(other, float):
             res._vals = self._vals * other
-        elif isinstance(other, region_scalars.RegionScalars):
-            res._vals = self._vals * other.broadcast(self.model_config_obj.region_mask)
+        elif isinstance(other, np.ndarray):
+            if other.shape == (self.model_config_obj.region_cnt,):
+                res._vals = self._vals * self.broadcast_region_vals(other)
+            else:
+                return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals * other._vals
         else:
@@ -250,8 +243,11 @@ class TracerModuleStateBase:
         """
         if isinstance(other, float):
             self._vals *= other
-        elif isinstance(other, region_scalars.RegionScalars):
-            self._vals *= other.broadcast(self.model_config_obj.region_mask)
+        elif isinstance(other, np.ndarray):
+            if other.shape == (self.model_config_obj.region_cnt,):
+                self._vals *= self.broadcast_region_vals(other)
+            else:
+                return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
             self._vals *= other._vals
         else:
@@ -266,10 +262,11 @@ class TracerModuleStateBase:
         res = copy.copy(self)
         if isinstance(other, float):
             res._vals = self._vals * (1.0 / other)
-        elif isinstance(other, region_scalars.RegionScalars):
-            res._vals = self._vals * other.recip().broadcast(
-                self.model_config_obj.region_mask
-            )
+        elif isinstance(other, np.ndarray):
+            if other.shape == (self.model_config_obj.region_cnt,):
+                res._vals = self._vals * self.broadcast_region_vals(1.0 / other)
+            else:
+                return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
             res._vals = self._vals / other._vals
         else:
@@ -284,8 +281,11 @@ class TracerModuleStateBase:
         res = copy.copy(self)
         if isinstance(other, float):
             res._vals = other / self._vals
-        elif isinstance(other, region_scalars.RegionScalars):
-            res._vals = other.broadcast(self.model_config_obj.region_mask) / self._vals
+        elif isinstance(other, np.ndarray):
+            if other.shape == (self.model_config_obj.region_cnt,):
+                res._vals = self.broadcast_region_vals(other) / self._vals
+            else:
+                return NotImplemented
         else:
             return NotImplemented
         return res
@@ -297,8 +297,11 @@ class TracerModuleStateBase:
         """
         if isinstance(other, float):
             self._vals *= 1.0 / other
-        elif isinstance(other, region_scalars.RegionScalars):
-            self._vals *= other.recip().broadcast(self.model_config_obj.region_mask)
+        elif isinstance(other, np.ndarray):
+            if other.shape == (self.model_config_obj.region_cnt,):
+                self._vals *= self.broadcast_region_vals(1.0 / other)
+            else:
+                return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
             self._vals /= other._vals
         else:
@@ -307,30 +310,24 @@ class TracerModuleStateBase:
 
     def mean(self):
         """compute weighted mean of self"""
-        # multiply each tracer by the region_mean_sparse matrix
-        tmp = [
-            self.model_config_obj.region_mean_sparse.dot(
-                self._vals[tracer_ind, :].reshape(-1)
-            )
-            for tracer_ind in range(self.tracer_cnt)
-        ]
-        # sum over tracer dimension, and return RegionScalars object
-        return region_scalars.RegionScalars(sum(tmp))
+        matrix = self.model_config_obj.region_mean_sparse
+        res = np.zeros(matrix.shape[0])
+        for tracer_ind in range(self.tracer_cnt):
+            res += matrix.dot(self._vals[tracer_ind, ...].reshape(-1))
+        return np.array(res)
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        # multiply each tracer by the region_mean_sparse matrix
-        tmp = [
-            self.model_config_obj.region_mean_sparse.dot(
-                self._vals[tracer_ind, :].reshape(-1)
+        matrix = self.model_config_obj.region_mean_sparse
+        res = np.zeros(matrix.shape[0])
+        for tracer_ind in range(self.tracer_cnt):
+            res += matrix.dot(
+                self._vals[tracer_ind, ...].reshape(-1)
                 * other._vals[  # pylint: disable=protected-access
-                    tracer_ind, :
+                    tracer_ind, ...
                 ].reshape(-1)
             )
-            for tracer_ind in range(self.tracer_cnt)
-        ]
-        # sum over tracer dimension, and return RegionScalars object
-        return region_scalars.RegionScalars(sum(tmp))
+        return np.array(res)
 
     def precond_matrix_list(self):
         """Return list of precond matrices being used"""
@@ -366,11 +363,11 @@ class TracerModuleStateBase:
 
     def get_tracer_vals(self, tracer_name):
         """get tracer values"""
-        return self._vals[self.tracer_index(tracer_name), :]
+        return self._vals[self.tracer_index(tracer_name), ...]
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""
-        self._vals[self.tracer_index(tracer_name), :] = vals
+        self._vals[self.tracer_index(tracer_name), ...] = vals
 
     def shadow_tracers_on(self):
         """are any shadow tracers being run"""
@@ -411,11 +408,26 @@ class TracerModuleStateBase:
     def zero_extra_tracers(self):
         """set extra tracers (i.e., not being solved for) to zero"""
         for tracer_ind in self.extra_tracer_inds():
-            self._vals[tracer_ind, :] = 0.0
+            self._vals[tracer_ind, ...] = 0.0
 
     def apply_region_mask(self):
         """set _vals to zero where region_mask == 0"""
+        region_mask = self.model_config_obj.region_mask
         for tracer_ind in range(self.tracer_cnt):
-            self._vals[tracer_ind, :] = np.where(
-                self.model_config_obj.region_mask != 0, self._vals[tracer_ind, :], 0.0
+            self._vals[tracer_ind, ...] = np.where(
+                region_mask != 0, self._vals[tracer_ind, ...], 0.0
             )
+
+    def broadcast_region_vals(self, vals, fill_value=1.0):
+        """
+        broadcast values in vals to an array of same shape as region_mask
+        values in the results are:
+            fill_value  where region_mask is <= 0
+                        (e.g. complement of computational domain)
+            vals[ind]   where region_mask == ind+1
+        """
+        region_mask = self.model_config_obj.region_mask
+        res = np.full(shape=region_mask.shape, fill_value=fill_value)
+        for region_ind, val in enumerate(vals):
+            res = np.where(region_mask == region_ind + 1, val, res)
+        return res

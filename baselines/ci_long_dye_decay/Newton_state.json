@@ -45,7 +45,7 @@
     "02:ModelStateBase.put_stats_vars"
   ],
   "armijo_ind": 0,
-  "armijo_factor_flat": {
+  "armijo_factor": {
     "__ndarray__": [
       [
         1.0

@@ -6,7 +6,6 @@ from datetime import datetime
 import numpy as np
 from netCDF4 import Dataset, default_fillvals
 
-from .region_scalars import RegionScalars
 from .solver_state import action_step_log_wrap
 from .utils import class_name, create_dimensions_verify, create_vars
 
@@ -14,14 +13,19 @@ from .utils import class_name, create_dimensions_verify, create_vars
 class StatsFile:
     """class for stats for a solver"""
 
-    def __init__(self, name, workdir, solver_state):
+    def __init__(self, name, workdir, region_cnt, solver_state):
         self._fname = os.path.join(workdir, name + "_stats.nc")
 
-        self._create_stats_file(name=name, fname=self._fname, solver_state=solver_state)
+        self._create_stats_file(
+            name=name,
+            fname=self._fname,
+            region_cnt=region_cnt,
+            solver_state=solver_state,
+        )
 
     @action_step_log_wrap("_create_stats_file {fname}", per_iteration=False)
     # pylint: disable=unused-argument
-    def _create_stats_file(self, name, fname, solver_state):
+    def _create_stats_file(self, name, fname, region_cnt, solver_state):
         """create the stats file, along with required dimensions"""
 
         with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
@@ -31,9 +35,7 @@ class StatsFile:
             fptr.history = msg
 
             # define dimensions common to all solver stats files
-            create_dimensions_verify(
-                fptr, {"iteration": None, "region": RegionScalars.region_cnt}
-            )
+            create_dimensions_verify(fptr, {"iteration": None, "region": region_cnt})
 
             # define coordinate variables
             vars_metadata = {
@@ -61,7 +63,7 @@ class StatsFile:
             }
             create_vars(fptr, vars_metadata)
 
-            fptr.variables["region"][:] = np.arange(RegionScalars.region_cnt)
+            fptr.variables["region"][:] = np.arange(region_cnt)
 
     def def_dimensions(self, dimensions):
         """define dimensions in stats file"""
@@ -124,10 +126,7 @@ class StatsFile:
                 if "iteration" not in var.dimensions:
                     msg = "iteration is not a dimension for %s" % name
                     raise RuntimeError(msg)
-                if var.ndim == 1:
-                    var[iteration] = vals
-                else:
-                    var[iteration, :] = vals
+                var[iteration, ...] = vals
 
 
 def _grow_iteration(fptr):
@@ -139,7 +138,4 @@ def _grow_iteration(fptr):
         if var.name == "iteration":
             var[iteration] = iteration
         elif var.dimensions[0] == "iteration":
-            if var.ndim == 1:
-                var[iteration] = getattr(var, "_FillValue")
-            else:
-                var[iteration, :] = getattr(var, "_FillValue")
+            var[iteration, ...] = getattr(var, "_FillValue")
