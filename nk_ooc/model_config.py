@@ -92,17 +92,21 @@ class ModelConfig:
         indptr = [0]
         data = []
 
-        for region_ind in range(self.region_mask.max()):
+        region_cnt = self.region_mask.max()
+
+        for region_ind in range(region_cnt):
             indices.extend(np.nonzero(region_mask_flat == region_ind + 1)[0])
             indptr.append(len(indices))
             data_row_raw = grid_weight_flat[indices[indptr[-2] : indptr[-1]]]
             data_row_raw_sum_r = 1.0 / sum(data_row_raw)
             data.extend([data_row_raw_sum_r * val for val in data_row_raw])
 
+        arg1 = (data, indices, indptr)
+        shape = (region_cnt, len(grid_weight_flat))
         return (
-            scipy.sparse.csr_array((data, indices, indptr))
+            scipy.sparse.csr_array(arg1=arg1, shape=shape)
             if Version(scipy.__version__) >= Version("1.8.0")
-            else scipy.sparse.csr_matrix((data, indices, indptr))
+            else scipy.sparse.csr_matrix(arg1=arg1, shape=shape)
         )
 
     def tracer_module_expand_all(self, tracer_module_names):
