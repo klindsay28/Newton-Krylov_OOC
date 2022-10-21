@@ -44,21 +44,21 @@ class abio_dic_dic14(TracerModuleState):  # pylint: disable=invalid-name
         """return tracer module specific stats variables for the current iteration"""
         res = super().stats_vars_vals(fptr_hist)
 
-        # add region dimension to surface version of region_mask
-        # assume surf region_cnt at surf is same as full-depth region_cnt
-        region_mask_no_region_dim = self.model_config_obj.region_mask[0, :, :]
-        region_cnt = region_mask_no_region_dim.max()
-        region_mask = np.empty((region_cnt,) + region_mask_no_region_dim.shape)
-        for region_ind in range(region_cnt):
-            region_mask[region_ind, :] = np.where(
-                region_mask_no_region_dim == region_ind + 1, 1.0, 0.0
-            )
+        region_mask_surf = self.model_config_obj.region_mask[0, :, :]
+
+        # confirm that surf region_cnt is same as full-depth region_cnt
+        if region_mask_surf.max() != self.model_config_obj.region_cnt:
+            raise RuntimeError("region_cnt_surf != region_cnt")
 
         tarea = fptr_hist.variables["TAREA"][:]
 
         # add values for FG_ABIO_DIC, dropping singleton time dimension
-        hist_var_vals = fptr_hist.variables["FG_ABIO_DIC"][0, :]
-        stats_var_vals = (region_mask * (tarea * hist_var_vals)).sum(axis=(-2, -1))
+        hist_var_vals = tarea * fptr_hist.variables["FG_ABIO_DIC"][0, :]
+        stats_var_vals = np.empty(self.model_config_obj.region_cnt)
+        for region_ind in range(self.model_config_obj.region_cnt):
+            stats_var_vals[region_ind] = np.where(
+                region_mask_surf == region_ind + 1, hist_var_vals, 0.0
+            ).sum()
         # convert to desired units
         stats_var_vals *= 1.0e-9 * 12.0 * 1.0e-15 * 86400.0 * 365.0
         res["FG_ABIO_DIC_int_nlat_nlon"] = stats_var_vals

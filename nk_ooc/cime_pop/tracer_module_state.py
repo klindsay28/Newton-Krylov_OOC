@@ -127,6 +127,7 @@ class TracerModuleState(TracerModuleStateBase):
 
         for tracer_name in self.stats_vars_tracer_like():
             tracer = fptr_hist.variables[tracer_name]
+            dimensions = tracer.dimensions
             datatype = datatype_sname(tracer)
 
             attrs = tracer.__dict__
@@ -134,30 +135,27 @@ class TracerModuleState(TracerModuleStateBase):
                 if attr_name in attrs:
                     del attrs[attr_name]
 
-            dimensions = tracer.dimensions
             # drop dimensions[0] if it is time
             if dimensions[0] == "time":
                 dimensions = dimensions[1:]
 
             # grid-i average
-            if len(dimensions) >= 1:
-                varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
-                res[varname_stats] = {
-                    "datatype": datatype,
-                    "dimensions": ("iteration", "region") + dimensions[:-1],
-                    "attrs": attrs,
-                }
+            varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
+            res[varname_stats] = {
+                "datatype": datatype,
+                "dimensions": ("iteration", "region") + dimensions[:-1],
+                "attrs": attrs,
+            }
 
             # grid-ij average
-            if len(dimensions) >= 2:
-                varname_stats = "_".join(
-                    [tracer_name, "mean", dimensions[-2], dimensions[-1]]
-                )
-                res[varname_stats] = {
-                    "datatype": datatype,
-                    "dimensions": ("iteration", "region") + dimensions[:-2],
-                    "attrs": attrs,
-                }
+            varname_stats = "_".join(
+                [tracer_name, "mean", dimensions[-2], dimensions[-1]]
+            )
+            res[varname_stats] = {
+                "datatype": datatype,
+                "dimensions": ("iteration", "region") + dimensions[:-2],
+                "attrs": attrs,
+            }
         return res
 
     def stats_vars_vals_iteration_invariant(self, fptr_hist):
@@ -173,51 +171,55 @@ class TracerModuleState(TracerModuleStateBase):
         # return values for tracer-like variables
 
         grid_weight = self.model_config_obj.grid_weight
+        region_mask = self.model_config_obj.region_mask
 
-        if grid_weight.ndim < 2:  # includes region dim, so like tracer.ndim < 1
-            return {}
+        # allocate space for grid-i average computations
+        isum_shape = (self.model_config_obj.region_cnt,) + grid_weight.shape[:-1]
+        denom_isum = np.empty(isum_shape)
+        numer_isum = np.empty(isum_shape)
+        vals_isum = np.empty(isum_shape)
 
-        if grid_weight.ndim >= 2:  # includes region dim, so like tracer.ndim >= 1
-            denom_isum = grid_weight.sum(axis=-1)
-            numer_isum = np.empty(denom_isum.shape)
+        # allocate space for grid-ij average computations
+        ijsum_shape = (self.model_config_obj.region_cnt,) + grid_weight.shape[:-2]
+        denom_ijsum = np.empty(ijsum_shape)
+        numer_ijsum = np.empty(ijsum_shape)
+        vals_ijsum = np.empty(ijsum_shape)
 
-        if grid_weight.ndim >= 3:  # includes region dim, so like tracer.ndim >= 2
-            denom_ijsum = grid_weight.sum(axis=(-2, -1))
-            numer_ijsum = np.empty(denom_ijsum.shape)
+        # compute denominators outside tracer loop,
+        # as they are independent of the tracer
+        for region_ind in range(self.model_config_obj.region_cnt):
+            denom_isum[region_ind, :] = np.where(
+                region_mask == region_ind + 1, grid_weight, 0.0
+            ).sum(axis=-1)
+        denom_ijsum[:] = denom_isum[:].sum(axis=-1)
 
         res = {}
         for tracer_name in self.stats_vars_tracer_like():
             tracer = fptr_hist.variables[tracer_name]
+            dimensions = tracer.dimensions
             fill_value = getattr(tracer, "_FillValue")
             tracer_vals = tracer[:]
 
-            dimensions = tracer.dimensions
-            # drop dimensions[0] if it is time
-            if dimensions[0] == "time":
-                dimensions = dimensions[1:]
+            # compute grid-i average, store in result dictionary
+            weighted_vals = grid_weight * tracer_vals
+            for region_ind in range(self.model_config_obj.region_cnt):
+                numer_isum[region_ind, :] = np.where(
+                    region_mask == region_ind + 1, weighted_vals, 0.0
+                ).sum(axis=-1)
+            vals_isum[:] = fill_value
+            np.divide(numer_isum, denom_isum, out=vals_isum, where=(denom_isum != 0.0))
+            varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
+            res[varname_stats] = vals_isum
 
-            # grid-i average
-            if len(dimensions) >= 1:
-                varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
-                numer_isum[:] = (grid_weight * tracer_vals).sum(axis=-1)
-                vals_isum = np.full(numer_isum.shape, fill_value)
-                np.divide(
-                    numer_isum, denom_isum, out=vals_isum, where=(denom_isum != 0.0)
-                )
-                res[varname_stats] = vals_isum
+            # compute grid-ij average, store in result dictionary
+            numer_ijsum[:] = numer_isum[:].sum(axis=-1)
+            vals_ijsum[:] = fill_value
+            np.divide(
+                numer_ijsum, denom_ijsum, out=vals_ijsum, where=(denom_ijsum != 0.0)
+            )
+            varname_stats = "_".join(
+                [tracer_name, "mean", dimensions[-2], dimensions[-1]]
+            )
+            res[varname_stats] = vals_ijsum
 
-            # grid-ij average
-            if len(dimensions) >= 2:
-                varname_stats = "_".join(
-                    [tracer_name, "mean", dimensions[-2], dimensions[-1]]
-                )
-                numer_ijsum[:] = (grid_weight * tracer_vals).sum(axis=(-2, -1))
-                vals_ijsum = np.full(numer_ijsum.shape, fill_value)
-                np.divide(
-                    numer_ijsum,
-                    denom_ijsum,
-                    out=vals_ijsum,
-                    where=(denom_ijsum != 0.0),
-                )
-                res[varname_stats] = vals_ijsum
         return res

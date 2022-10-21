@@ -3,7 +3,6 @@
 import logging
 import os
 
-from .region_scalars import to_ndarray
 from .solver_state import SolverState
 from .stats_file import StatsFile
 from .utils import fmt_vals, mkdir_exist_okay
@@ -15,8 +14,8 @@ class SolverBase:
     base class for NewtonSolver and KrylovSolver
     """
 
-    def __init__(self, solver_name, solverinfo, resume, rewind):
-        """initialize Krylov solver"""
+    def __init__(self, solver_name, solverinfo, region_cnt, resume, rewind):
+        """initialize solver"""
         logger = logging.getLogger(__name__)
 
         logger.debug(
@@ -32,7 +31,9 @@ class SolverBase:
 
         self._solver_state = SolverState(self._solver_name, workdir, resume, rewind)
 
-        self._stats_file = StatsFile(self._solver_name, workdir, self._solver_state)
+        self._stats_file = StatsFile(
+            self._solver_name, workdir, region_cnt, self._solver_state
+        )
         self._stats_vars_put_metadata = {}
 
     def get_iteration(self):
@@ -87,7 +88,7 @@ class SolverBase:
             }
             if category == "model_state":
                 stats_varnames = {"mean": [], "norm": []}
-                for method in stats_varnames:
+                for method, varnames in stats_varnames.items():
                     repl_dict = {"method": method}
                     for tracer_module in tracer_modules:
                         repl_dict["tracer_module_name"] = tracer_module.name
@@ -97,7 +98,7 @@ class SolverBase:
                         attrs = vars_def_metadata[stats_varname]["attrs"]
                         if attrs["units"] == "None":
                             attrs["units"] = None
-                        stats_varnames[method].append(stats_varname)
+                        varnames.append(stats_varname)
                 self._stats_vars_put_metadata[key]["stats_varnames"] = stats_varnames
             elif category == "per_tracer_module":
                 stats_varnames = []
@@ -146,10 +147,7 @@ class SolverBase:
             category = var_put_metadata["category"]
             if category == "per_tracer_module":
                 for ind, stats_varname in enumerate(var_put_metadata["stats_varnames"]):
-                    if "region" in var_put_metadata["dimensions"]:
-                        vals_dict[stats_varname] = to_ndarray(vals[ind])
-                    else:
-                        vals_dict[stats_varname] = vals[ind]
+                    vals_dict[stats_varname] = vals[ind]
             elif category == "tracer_module_independent":
                 vals_dict[key] = vals
             else:
@@ -186,13 +184,10 @@ class SolverBase:
                     for ind, stats_varname in enumerate(
                         var_put_metadata["stats_varnames"][method]
                     ):
-                        vals_dict[stats_varname] = to_ndarray(vals_reduced[ind])
+                        vals_dict[stats_varname] = vals_reduced[ind]
             elif category == "per_tracer_module":
                 for ind, stats_varname in enumerate(var_put_metadata["stats_varnames"]):
-                    if "region" in var_put_metadata["dimensions"]:
-                        vals_dict[stats_varname] = to_ndarray(vals[ind])
-                    else:
-                        vals_dict[stats_varname] = vals[ind]
+                    vals_dict[stats_varname] = vals[ind]
             elif category == "tracer_module_independent":
                 vals_dict[key] = vals
             else:

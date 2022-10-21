@@ -6,7 +6,6 @@ import numpy as np
 from netCDF4 import Dataset
 from scipy import sparse
 
-from ..region_scalars import RegionScalars
 from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import (
     create_dimensions_verify,
@@ -24,9 +23,6 @@ class TracerModuleState(TracerModuleStateBase):
     """
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth, ypos):
-
-        if RegionScalars.region_cnt != 1:
-            raise NotImplementedError("region_cnt > 1 not implemented")
 
         self.depth = depth
         self.ypos = ypos
@@ -333,7 +329,7 @@ class TracerModuleState(TracerModuleStateBase):
             # tracer itself
             res[tracer_name] = {
                 "datatype": datatype,
-                "dimensions": ("iteration", "region", "depth", "ypos"),
+                "dimensions": ("iteration", "depth", "ypos"),
                 "attrs": attrs,
             }
 
@@ -341,7 +337,7 @@ class TracerModuleState(TracerModuleStateBase):
             varname_stats = "_".join([tracer_name, "mean", "ypos"])
             res[varname_stats] = {
                 "datatype": datatype,
-                "dimensions": ("iteration", "region", "depth"),
+                "dimensions": ("iteration", "depth"),
                 "attrs": attrs,
             }
         return res
@@ -363,7 +359,6 @@ class TracerModuleState(TracerModuleStateBase):
         for tracer_name in self.stats_vars_tracer_like():
             tracer_vals = fptr_hist.variables[tracer_name][:]
             # tracer itself
-            # assume region dimension has length 1
             res[tracer_name] = np.einsum("i,i...", time_weights, tracer_vals)
 
             # ypos average

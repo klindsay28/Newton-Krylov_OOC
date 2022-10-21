@@ -55,8 +55,12 @@ class ModelState(ModelStateBase):
             fname=modelinfo["grid_weight_fname"], axisname="ypos"
         )
         ModelState.processes = {}
-        ModelState.processes["advection"] = Advection(ModelState.depth, ModelState.ypos)
-        ModelState.processes["horiz_mix"] = HorizMix(ModelState.depth, ModelState.ypos)
+        ModelState.processes["advection"] = Advection(
+            ModelState.depth, ModelState.ypos, modelinfo
+        )
+        ModelState.processes["horiz_mix"] = HorizMix(
+            ModelState.depth, ModelState.ypos, modelinfo
+        )
         ModelState.processes["vert_mix"] = VertMix(ModelState.depth, ModelState.ypos)
 
         ModelState.class_vars_set = True

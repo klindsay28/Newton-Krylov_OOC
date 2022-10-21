@@ -10,34 +10,41 @@ from .model_process import ModelProcess
 class HorizMix(ModelProcess):
     """class related to horizontal mixing"""
 
-    def __init__(self, depth, ypos):
+    def __init__(self, depth, ypos, modelinfo):
 
         super().__init__(depth, ypos)
 
         self._tend_work = np.zeros((len(depth), len(ypos) + 1))
 
         # compute (time-invariant) mixing coefficients
-        self._mixing_coeff = self._comp_mixing_coeff(mixing_coeff_const=1000.0)
+        self._mixing_coeff = self._comp_mixing_coeff(
+            float(modelinfo["horiz_mix_coeff"])
+        )
 
         HorizMix.jacobian_cache = None
 
-    def _comp_mixing_coeff(self, mixing_coeff_const):
+    def _comp_mixing_coeff(self, horiz_mix_coeff):
         """
         compute mixing_coeff values
         includes 1/dypos term
         """
 
-        res = np.full((len(self.depth), len(self.ypos) - 1), mixing_coeff_const)
+        if horiz_mix_coeff > 0.0:
+            res = np.full((len(self.depth), len(self.ypos) - 1), horiz_mix_coeff)
+            # increase mixing_coeff to keep grid Peclet number <= 2.0
+            peclet_p5 = (
+                (0.5 / horiz_mix_coeff)
+                * self.ypos.delta_mid[:]
+                * abs(Advection.vvel[:, 1:-1])
+            )
+            res *= np.where(peclet_p5 > 1.0, peclet_p5, 1.0)
+            res *= self.ypos.delta_mid_r
+        else:
+            # enforce grid Peclet number = 2.0
+            # note that this yields 0.0 if vvel == 0.0
+            res = 0.5 * abs(Advection.vvel[:, 1:-1])
 
-        # increase mixing_coeff to keep grid Peclet number <= 2.0
-        peclet_p5 = (
-            (0.5 / mixing_coeff_const)
-            * self.ypos.delta_mid[:]
-            * abs(Advection.vvel[:, 1:-1])
-        )
-        res *= np.where(peclet_p5 > 1.0, peclet_p5, 1.0)
-
-        return res * self.ypos.delta_mid_r
+        return res
 
     def comp_tend(self, time, tracer_vals):
         """

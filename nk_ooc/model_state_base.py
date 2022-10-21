@@ -131,17 +131,11 @@ class ModelStateBase:
         for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
             if isinstance(msg, list):
                 for msg_ind, submsg in enumerate(msg):
-                    if vals.ndim == 2:
-                        tracer_module.log_vals(submsg, vals[msg_ind, tracer_module_ind])
-                    else:
-                        tracer_module.log_vals(
-                            submsg, vals[msg_ind, tracer_module_ind, :]
-                        )
+                    tracer_module.log_vals(
+                        submsg, vals[msg_ind, tracer_module_ind, ...]
+                    )
             else:
-                if vals.ndim == 1:
-                    tracer_module.log_vals(msg, vals[tracer_module_ind])
-                else:
-                    tracer_module.log_vals(msg, vals[tracer_module_ind, :])
+                tracer_module.log_vals(msg, vals[tracer_module_ind, ...])
 
     def log(self, msg=None):
         """write info of the instance to the log"""
@@ -270,7 +264,11 @@ class ModelStateBase:
         if isinstance(other, float):
             res.tracer_modules = self.tracer_modules * other
         elif isinstance(other, np.ndarray):
-            res.tracer_modules = self.tracer_modules * other
+            if other.shape[0] == len(self.tracer_modules):
+                for ind in range(other.shape[0]):
+                    res.tracer_modules[ind] = self.tracer_modules[ind] * other[ind, ...]
+            else:
+                return NotImplemented
         elif isinstance(other, ModelStateBase):
             res.tracer_modules = self.tracer_modules * other.tracer_modules
         else:
@@ -292,7 +290,11 @@ class ModelStateBase:
         if isinstance(other, float):
             self.tracer_modules *= other
         elif isinstance(other, np.ndarray):
-            self.tracer_modules *= other
+            if other.shape[0] == len(self.tracer_modules):
+                for ind in range(other.shape[0]):
+                    self.tracer_modules[ind] *= other[ind, ...]
+            else:
+                return NotImplemented
         elif isinstance(other, ModelStateBase):
             self.tracer_modules *= other.tracer_modules
         else:
@@ -308,7 +310,13 @@ class ModelStateBase:
         if isinstance(other, float):
             res.tracer_modules = self.tracer_modules * (1.0 / other)
         elif isinstance(other, np.ndarray):
-            res.tracer_modules = self.tracer_modules * (1.0 / other)
+            if other.shape[0] == len(self.tracer_modules):
+                for ind in range(other.shape[0]):
+                    res.tracer_modules[ind] = self.tracer_modules[ind] * (
+                        1.0 / other[ind, ...]
+                    )
+            else:
+                return NotImplemented
         elif isinstance(other, ModelStateBase):
             res.tracer_modules = self.tracer_modules / other.tracer_modules
         else:
@@ -324,7 +332,11 @@ class ModelStateBase:
         if isinstance(other, float):
             res.tracer_modules = other / self.tracer_modules
         elif isinstance(other, np.ndarray):
-            res.tracer_modules = other / self.tracer_modules
+            if other.shape[0] == len(self.tracer_modules):
+                for ind in range(other.shape[0]):
+                    res.tracer_modules[ind] = other[ind, ...] / self.tracer_modules[ind]
+            else:
+                return NotImplemented
         else:
             return NotImplemented
         return res
@@ -337,7 +349,11 @@ class ModelStateBase:
         if isinstance(other, float):
             self.tracer_modules *= 1.0 / other
         elif isinstance(other, np.ndarray):
-            self.tracer_modules *= 1.0 / other
+            if other.shape[0] == len(self.tracer_modules):
+                for ind in range(other.shape[0]):
+                    self.tracer_modules[ind] *= 1.0 / other[ind, ...]
+            else:
+                return NotImplemented
         elif isinstance(other, ModelStateBase):
             self.tracer_modules /= other.tracer_modules
         else:
@@ -346,16 +362,16 @@ class ModelStateBase:
 
     def mean(self):
         """compute weighted mean of self"""
-        res = np.empty(self.tracer_modules.shape, dtype=object)
+        res = np.empty((len(self.tracer_modules), self.model_config_obj.region_cnt))
         for ind, tracer_module in enumerate(self.tracer_modules):
-            res[ind] = tracer_module.mean()
+            res[ind, :] = tracer_module.mean()
         return res
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        res = np.empty(self.tracer_modules.shape, dtype=object)
+        res = np.empty((len(self.tracer_modules), self.model_config_obj.region_cnt))
         for ind, tracer_module in enumerate(self.tracer_modules):
-            res[ind] = tracer_module.dot_prod(other.tracer_modules[ind])
+            res[ind, :] = tracer_module.dot_prod(other.tracer_modules[ind])
         return res
 
     def norm(self):
@@ -367,11 +383,13 @@ class ModelStateBase:
         inplace modified Gram-Schmidt projection
         return projection coefficients
         """
-        h_val = np.empty((len(self.tracer_modules), basis_cnt), dtype=object)
+        h_val = np.empty(
+            (len(self.tracer_modules), basis_cnt, self.model_config_obj.region_cnt)
+        )
         for i_val in range(0, basis_cnt):
             basis_i = type(self)(fname_fcn(quantity, i_val))
-            h_val[:, i_val] = self.dot_prod(basis_i)
-            self -= h_val[:, i_val] * basis_i
+            h_val[:, i_val, :] = self.dot_prod(basis_i)
+            self -= h_val[:, i_val, :] * basis_i
         return h_val
 
     def hist_vars_for_precond_list(self):
@@ -507,10 +525,7 @@ class ModelStateBase:
         sigma = 1.0e-4 * self.norm()
 
         # set sigma to 1.0 where it is 0.0
-        for sigma_tracer_module in sigma:
-            sigma_vals = sigma_tracer_module.vals()
-            if any(sigma_vals == 0.0):
-                sigma_vals[:] = np.where(sigma_vals == 0.0, 1.0, sigma_vals)
+        sigma = np.where(sigma == 0.0, 1.0, sigma)
 
         # perturbed ModelStateBase
         perturb_ms = self + sigma * direction
@@ -618,9 +633,9 @@ def _precond_dimensions_for_hist_var(fptr_hist, hist_varname, time_op):
 
 def lin_comb(res_type, coeff, fname_fcn, quantity):
     """compute a linear combination of ModelStateBase objects in files"""
-    res = coeff[:, 0] * res_type(fname_fcn(quantity, 0))
-    for j_val in range(1, coeff.shape[-1]):
-        res += coeff[:, j_val] * res_type(fname_fcn(quantity, j_val))
+    res = coeff[..., 0, :] * res_type(fname_fcn(quantity, 0))
+    for j_val in range(1, coeff.shape[-2]):
+        res += coeff[..., j_val, :] * res_type(fname_fcn(quantity, j_val))
     return res
 
 

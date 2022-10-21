@@ -21,10 +21,11 @@ dependencies:
 # solver requirements
 - netCDF4
 - numpy
+- packaging
 - pyyaml
+- scipy
 
 # test_problem requirements
-- scipy
 - pint
 
 # py_driver_2d requirements

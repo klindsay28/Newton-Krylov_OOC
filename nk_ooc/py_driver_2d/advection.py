@@ -9,11 +9,11 @@ from .model_process import ModelProcess
 class Advection(ModelProcess):
     """class related to advection"""
 
-    def __init__(self, depth, ypos):
+    def __init__(self, depth, ypos, modelinfo):
 
         super().__init__(depth, ypos)
 
-        self.gen_vel_field(depth, ypos)
+        self.gen_vel_field(depth, ypos, float(modelinfo["max_abs_vvel"]))
 
         self._tend_work_y = np.zeros((len(self.depth), len(self.ypos) + 1))
         self._tend_work_z = np.zeros((len(self.depth) + 1, len(self.ypos)))
@@ -21,7 +21,7 @@ class Advection(ModelProcess):
         Advection.jacobian_cache = None
 
     @staticmethod
-    def gen_vel_field(depth, ypos):
+    def gen_vel_field(depth, ypos, max_abs_vvel):
         """generate streamfunction and velocity field"""
 
         depth_norm = (depth.edges - depth.edges.min()) / (
@@ -38,9 +38,9 @@ class Advection(ModelProcess):
 
         stream = np.outer(depth_fcn, ypos_fcn)
 
-        # normalize so that max vvel ~ 0.1 m/s
+        # normalize so that max vvel = max_abs_vvel
         vvel = (stream[1:, :] - stream[:-1, :]) * depth.delta_r[:, np.newaxis]
-        stream = stream * 0.1 / abs(vvel).max()
+        stream = stream * max_abs_vvel / abs(vvel).max()
 
         vvel = (stream[1:, :] - stream[:-1, :]) * depth.delta_r[:, np.newaxis]
         wvel = (stream[:, 1:] - stream[:, :-1]) * ypos.delta_r
