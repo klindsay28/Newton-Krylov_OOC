@@ -273,8 +273,9 @@ class ModelState(ModelStateBase):
                 modelinfo["invoker_script_fname"],
             )
             logger.info('cmd="%s"', cmd)
-            subprocess.run(cmd, check=True, shell=True)
+            cmd_out = subprocess.check_output(cmd, shell=True).decode()
             solver_state.log_step(fcn_complete_step)
+            logger.info('cmd_out="%s"', cmd_out)
             logger.debug("raising SystemExit")
             raise SystemExit
 
