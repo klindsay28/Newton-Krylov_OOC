@@ -50,6 +50,11 @@ def parse_args(args_list_in=None):
         help="profile comp_fcn call; write output to provided argument",
         default=None,
     )
+    parser.add_argument(
+        "--deprecation_warning_to_error",
+        help="treat DeprecationWarning warnings as errors",
+        action="store_true",
+    )
 
     return args_replace(parser.parse_args(args_remaining))
 

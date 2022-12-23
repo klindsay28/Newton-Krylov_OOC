@@ -30,7 +30,8 @@ done
 echo running setup_solver.sh
 ./scripts/setup_solver.sh --fp_cnt 1 --depth_nlevs 20 --persist \
     --model_name test_problem \
-    --workdir $HOME/ci_short_workdir $@ || err_cnt=$((err_cnt+1))
+    --workdir $HOME/ci_short_workdir --deprecation_warning_to_error \
+    $@ || err_cnt=$((err_cnt+1))
 
 for fname in depth_axis.nc; do
     echo comparing $fname
