@@ -80,7 +80,7 @@ class ModelState(ModelStateBase):
         ind0 = 0
         if reseat_vals:
             tracer_modules_orig = self.tracer_modules
-            self.tracer_modules = np.empty(len(tracer_modules_orig), dtype=np.object)
+            self.tracer_modules = np.empty(len(tracer_modules_orig), dtype=object)
             for ind, tracer_module_orig in enumerate(tracer_modules_orig):
                 self.tracer_modules[ind] = copy.copy(tracer_module_orig)
                 cnt = tracer_module_orig.tracer_cnt
