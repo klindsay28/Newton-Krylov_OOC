@@ -7,7 +7,8 @@ err_cnt=0
 echo running setup_solver.sh for iage
 ./scripts/setup_solver.sh --fp_cnt 1 --depth_nlevs 20 --persist \
     --tracer_module_names iage \
-    --workdir $HOME/ci_long_iage_workdir $@ || err_cnt=$((err_cnt+1))
+    --workdir $HOME/ci_long_iage_workdir --deprecation_warning_to_error \
+    $@ || err_cnt=$((err_cnt+1))
 
 echo comparing iage from gen_init_iterate fixed point iteration \
     to same from from ci_short

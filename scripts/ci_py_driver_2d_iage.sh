@@ -23,7 +23,8 @@ cfg_fnames=$input_dir/newton_krylov.cfg,$input_dir/model_params.cfg,$workdir/ove
 echo running setup_solver.sh
 ./scripts/setup_solver.sh --fp_cnt 1 \
     --model_name py_driver_2d --tracer_module_names iage \
-    --cfg_fnames $cfg_fnames --workdir $workdir $@ || err_cnt=$((err_cnt+1))
+    --cfg_fnames $cfg_fnames --workdir $workdir --deprecation_warning_to_error \
+    $@ || err_cnt=$((err_cnt+1))
 
 for fname in grid_vars.nc; do
     echo comparing $fname

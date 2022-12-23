@@ -31,6 +31,8 @@ def gen_invoker_script(args, modelinfo, repo_root):
         fptr.write("#!/bin/bash\n")
         fptr.write("cd %s\n" % repo_root)
         fptr.write("source scripts/newton_krylov_env_cmds\n")
+        if getattr(args, "deprecation_warning_to_error", False):
+            fptr.write("export PYTHONWARNINGS=error::DeprecationWarning\n")
         if "mpi_cmd_env_cmds_fname" in modelinfo:
             if modelinfo["mpi_cmd_env_cmds_fname"] is not None:
                 fptr.write("source %s\n" % modelinfo["mpi_cmd_env_cmds_fname"])
