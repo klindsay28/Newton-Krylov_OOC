@@ -11,11 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
     steps:
-      - run: conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC
-          python=${{ matrix.python-version }}
-          black flake8 "isort<5.12" netCDF4 numpy pint pytest pyyaml scipy
+      - run: |
+          if [[ ${{ matrix.python-version }} == 3.7 ]] ; then
+            conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC \
+              python=${{ matrix.python-version }} \
+              black flake8 "isort<5.12" netCDF4 numpy pint pytest pyyaml scipy
+          else
+            conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC \
+              python=${{ matrix.python-version }} \
+              black flake8 isort netCDF4 numpy pint pytest pyyaml scipy
+          fi
       - uses: actions/checkout@v2
       - run: ./scripts/ci_short.sh
       - run: ./scripts/ci_zero_iage.sh
