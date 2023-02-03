@@ -10,7 +10,6 @@ class Advection(ModelProcess):
     """class related to advection"""
 
     def __init__(self, depth, ypos, modelinfo):
-
         super().__init__(depth, ypos)
 
         self.gen_vel_field(depth, ypos, float(modelinfo["max_abs_vvel"]))

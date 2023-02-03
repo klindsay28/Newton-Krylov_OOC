@@ -27,7 +27,6 @@ class ModelState(ModelStateBase):
     class_vars_set = False
 
     def __init__(self, fname):
-
         # confirm that model_config_obj has been set for this class
         if ModelState.model_config_obj is None:
             raise RuntimeError("ModelState.model_config_obj is None")

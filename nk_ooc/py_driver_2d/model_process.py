@@ -5,7 +5,6 @@ class ModelProcess:
     """generic model process class"""
 
     def __init__(self, depth, ypos):
-
         ModelProcess.depth = depth
         ModelProcess.ypos = ypos
 

@@ -11,7 +11,6 @@ class HorizMix(ModelProcess):
     """class related to horizontal mixing"""
 
     def __init__(self, depth, ypos, modelinfo):
-
         super().__init__(depth, ypos)
 
         self._tend_work = np.zeros((len(depth), len(ypos) + 1))

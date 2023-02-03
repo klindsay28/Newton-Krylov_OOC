@@ -11,7 +11,6 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
     """iage tracer module specifics for TracerModuleState"""
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth, ypos):
-
         super().__init__(tracer_module_name, fname, model_config_obj, depth, ypos)
 
         # restore surface layer to zero at rate of 24 / day over 10 m

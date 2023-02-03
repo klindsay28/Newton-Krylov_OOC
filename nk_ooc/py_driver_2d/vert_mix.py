@@ -12,7 +12,6 @@ class VertMix(ModelProcess):
     """class related to vertical mixing"""
 
     def __init__(self, depth, ypos):
-
         super().__init__(depth, ypos)
 
         VertMix.depth_edges_axis = SpatialAxis("depth_edges", depth.mid)

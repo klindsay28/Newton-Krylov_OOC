@@ -9,7 +9,6 @@ class VertMix:
     """class related to vertical mixing"""
 
     def __init__(self, depth):
-
         self._depth = depth
 
         self._mixing_coeff_time = None

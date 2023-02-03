@@ -14,7 +14,6 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
     forced_class_vars_set = False
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth, ypos):
-
         super().__init__(tracer_module_name, fname, model_config_obj, depth, ypos)
 
         self._set_forced_class_vars(model_config_obj.modelinfo)

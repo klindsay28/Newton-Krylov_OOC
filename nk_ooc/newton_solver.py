@@ -264,7 +264,6 @@ class NewtonSolver(SolverBase):
 
         step = "fp iterations started"
         if not self._solver_state.step_logged(step):
-
             increment = self._comp_increment()
 
             scalef = increment.apply_limiter(self._iterate)

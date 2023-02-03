@@ -11,7 +11,6 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
     """iage tracer module specifics for TracerModuleState"""
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth):
-
         super().__init__(tracer_module_name, fname, model_config_obj, depth)
 
         # surface_flux equivalent to restoring 24 / day over 10 m

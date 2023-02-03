@@ -17,7 +17,6 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
     """phosphorus tracer module specifics for TracerModuleState"""
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth, ypos):
-
         super().__init__(tracer_module_name, fname, model_config_obj, depth, ypos)
 
         # light has e-folding decay of 25m

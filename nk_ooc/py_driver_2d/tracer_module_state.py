@@ -23,7 +23,6 @@ class TracerModuleState(TracerModuleStateBase):
     """
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth, ypos):
-
         self.depth = depth
         self.ypos = ypos
 

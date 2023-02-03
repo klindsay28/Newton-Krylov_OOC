@@ -22,7 +22,6 @@ class TracerModuleState(TracerModuleStateBase):
     """
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth):
-
         if model_config_obj.region_cnt != 1:
             raise NotImplementedError("region_cnt > 1 not implemented")
 
