@@ -82,7 +82,7 @@ def main(args):
     # generate depth axis from args and modelinfo
     defn_dict = {}
     for key, defn in spatial_axis_defn_dict(axisname="depth").items():
-        depth_key = "depth_" + key
+        depth_key = f"depth_{key}"
         if depth_key in modelinfo:
             defn_dict[key] = (defn["type"])(modelinfo[depth_key])
         if hasattr(args, depth_key):
@@ -124,15 +124,13 @@ def main(args):
         for fp_iter in range(args.fp_cnt):
             logger.info("fp_iter=%d", fp_iter)
             init_iterate.dump(
-                os.path.join(
-                    gen_init_iterate_workdir, "init_iterate_%02d.nc" % fp_iter
-                ),
+                os.path.join(gen_init_iterate_workdir, f"init_iterate_{fp_iter:02}.nc"),
                 caller,
             )
             init_iterate_fcn = init_iterate.comp_fcn(
-                os.path.join(gen_init_iterate_workdir, "fcn_%02d.nc" % fp_iter),
+                os.path.join(gen_init_iterate_workdir, f"fcn_{fp_iter:02}.nc"),
                 None,
-                os.path.join(gen_init_iterate_workdir, "hist_%02d.nc" % fp_iter),
+                os.path.join(gen_init_iterate_workdir, f"hist_{fp_iter:02}.nc"),
             )
             init_iterate += init_iterate_fcn
             init_iterate.copy_shadow_tracers_to_real_tracers()

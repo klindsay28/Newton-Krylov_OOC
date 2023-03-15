@@ -101,7 +101,7 @@ class ModelState(ModelStateBase):
         logger.debug('res_fname="%s", hist_fname="%s"', res_fname, hist_fname)
 
         if solver_state is not None:
-            fcn_complete_step = "comp_fcn complete for %s" % res_fname
+            fcn_complete_step = f"comp_fcn complete for {res_fname}"
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
                 return ModelState(res_fname)
@@ -159,7 +159,7 @@ class ModelState(ModelStateBase):
         res_ms = copy.copy(self)
         res_ms.set_tracer_vals_all(res_vals, reseat_vals=True)
 
-        caller = class_name(self) + ".comp_fcn"
+        caller = f"{class_name(self)}.comp_fcn"
         res_ms.comp_fcn_postprocess(res_fname, caller)
 
         if solver_state is not None:
@@ -182,8 +182,8 @@ class ModelState(ModelStateBase):
         # create the hist file
         fptr_hist = Dataset(hist_fname, mode="w", format="NETCDF3_64BIT_OFFSET")
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = __name__ + "._gen_hist"
-        fptr_hist.history = datestamp + ": created by " + name
+        name = f"{__name__}._gen_hist"
+        fptr_hist.history = f"{datestamp}: created by {name}"
 
         # define dimensions
         dimensions = {"time": None}
@@ -274,7 +274,7 @@ class ModelState(ModelStateBase):
         logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
         if solver_state is not None:
-            fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
+            fcn_complete_step = f"apply_precond_jacobian complete for {res_fname}"
             if solver_state.step_logged(fcn_complete_step):
                 logger.debug('"%s" logged, returning result', fcn_complete_step)
                 return ModelState(res_fname)
@@ -296,11 +296,11 @@ class ModelState(ModelStateBase):
                     self.time_range,
                     res_ms.tracer_modules[tracer_module_ind],
                     ModelState.processes,
-                    **kwargs
+                    **kwargs,
                 )
 
         if solver_state is not None:
             solver_state.log_step(fcn_complete_step)
 
-        caller = class_name(self) + ".apply_precond_jacobian"
+        caller = f"{class_name(self)}.apply_precond_jacobian"
         return res_ms.dump(res_fname, caller)

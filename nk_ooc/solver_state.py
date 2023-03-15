@@ -31,7 +31,7 @@ class SolverState:
 
         self._name = name
         self._workdir = workdir
-        self._state_fname = os.path.join(self._workdir, name + "_state.json")
+        self._state_fname = os.path.join(self._workdir, f"{name}_state.json")
         self._rewound_step_string = None
         if resume:
             self._read_saved_state()
@@ -45,7 +45,7 @@ class SolverState:
                 )
         else:
             if rewind:
-                msg = "rewind cannot be True if resume is False, name=%s" % self._name
+                msg = f"rewind cannot be True if resume is False, name={self._name}"
                 raise RuntimeError(msg)
             self._saved_state = {"iteration": 0, "step_log": []}
             self.log_step("__init__", per_iteration=False)
@@ -125,7 +125,7 @@ class SolverState:
 
     def _step_log_string(self, stepval, per_iteration):
         """string that gets appended to step_log corresponding to stepval"""
-        return "%02d:%s" % (self.get_iteration(), stepval) if per_iteration else stepval
+        return f"{self.get_iteration():02}:{stepval}" if per_iteration else stepval
 
     def _write_saved_state(self):
         """write _saved_state to a JSON file"""

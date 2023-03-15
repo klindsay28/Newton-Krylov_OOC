@@ -108,7 +108,7 @@ def gen_irf_file(modelinfo):
     irf_hist_freq_opt = modelinfo["irf_hist_freq_opt"]
 
     if irf_hist_freq_opt not in ["nyear", "nmonth"]:
-        msg = "irf_hist_freq_opt = %s not implemented" % irf_hist_freq_opt
+        msg = f"irf_hist_freq_opt = {irf_hist_freq_opt} not implemented"
         raise NotImplementedError(msg)
 
     # get start date for date range getting averaged into irf file
@@ -128,13 +128,12 @@ def gen_irf_file(modelinfo):
     # basic error checking
 
     if irf_hist_day0 != "01":
-        msg = "irf_hist_day0 = %s not implemented" % irf_hist_day0
+        msg = f"irf_hist_day0 = {irf_hist_day0} not implemented"
         raise NotImplementedError(msg)
 
     if irf_hist_freq_opt == "nyear" and irf_hist_month0 != "01":
         msg = (
-            "irf_hist_month0 = %s not implemented for nyear tavg output"
-            % irf_hist_month0
+            f"irf_hist_month0 = {irf_hist_month0} not implemented for nyear tavg output"
         )
         raise NotImplementedError(msg)
 
@@ -147,8 +146,10 @@ def gen_irf_file(modelinfo):
 
     caller = "nk_ooc.cime_pop.setup_solver.gen_irf_file"
 
+    irf_case = modelinfo["irf_case"]
+
     if irf_hist_freq_opt == "nyear":
-        fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}.nc"
+        fname_fmt = f"{irf_case}.pop.h.{{year:04}}.nc"
         ann_files_to_mean_file(
             modelinfo["irf_hist_dir"],
             fname_fmt,
@@ -159,7 +160,7 @@ def gen_irf_file(modelinfo):
         )
 
     if irf_hist_freq_opt == "nmonth":
-        fname_fmt = modelinfo["irf_case"] + ".pop.h.{year:04d}-{month:02d}.nc"
+        fname_fmt = f"{irf_case}.pop.h.{{year:04}}-{{month:02}}.nc"
         mon_files_to_mean_file(
             modelinfo["irf_hist_dir"],
             fname_fmt,
@@ -174,7 +175,9 @@ def gen_irf_file(modelinfo):
 def gen_grid_weight_file(modelinfo):
     """generate weight file from irf file, based on modelinfo"""
 
-    with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
+    irf_fname = modelinfo["irf_fname"]
+
+    with Dataset(irf_fname, mode="r") as fptr_in:
         history_in = getattr(fptr_in, "history", None)
         # generate weight
         thickness = 1.0e-2 * fptr_in.variables["dz"][:]  # convert from cm to m
@@ -196,7 +199,7 @@ def gen_grid_weight_file(modelinfo):
     ) as fptr_out:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "nk_ooc.cime_pop.setup_solver.gen_grid_weight_file"
-        msg = datestamp + ": created by " + name + " from " + modelinfo["irf_fname"]
+        msg = f"{datestamp}: created by {name} from {irf_fname}"
         fptr_out.history = msg if history_in is None else "\n".join([msg, history_in])
 
         # propagate dimension sizes from fptr_in to fptr_out
@@ -216,7 +219,9 @@ def gen_grid_weight_file(modelinfo):
 def gen_region_mask_file(modelinfo):
     """generate region_mask file from irf file, based on modelinfo"""
 
-    with Dataset(modelinfo["irf_fname"], mode="r") as fptr_in:
+    irf_fname = modelinfo["irf_fname"]
+
+    with Dataset(irf_fname, mode="r") as fptr_in:
         history_in = getattr(fptr_in, "history", None)
         # generate mask
         kmt = fptr_in.variables["KMT"][:]
@@ -240,13 +245,12 @@ def gen_region_mask_file(modelinfo):
     ) as fptr_out:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "nk_ooc.cime_pop.setup_solver.gen_region_mask_file"
-        msg = datestamp + ": "
         if mode_out == "a":
             history_in = getattr(fptr_out, "history", None)
             vars_appended = ",".join([modelinfo["region_mask_varname"], "DYN_REGMASK"])
-            msg = msg + vars_appended + " appended by " + name
+            msg = f"{datestamp}: {vars_appended} appended by {name}"
         else:
-            msg = msg + "created by " + name + " from " + modelinfo["irf_fname"]
+            msg = f"{datestamp}: created by {name} from {irf_fname}"
         fptr_out.history = msg if history_in is None else "\n".join([msg, history_in])
 
         # propagate dimension sizes from fptr_in to fptr_out

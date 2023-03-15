@@ -62,7 +62,7 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
 
         params["surf_restore_opt"] = modelinfo["forced_surf_restore_opt"]
         if params["surf_restore_opt"] not in ["none", "const", "file"]:
-            msg = "unknown forced_surf_restore_opt=%s" % params["surf_restore_opt"]
+            msg = f'unknown forced_surf_restore_opt={params["surf_restore_opt"]}'
             raise ValueError(msg)
 
         if params["surf_restore_opt"] == "none":
@@ -91,7 +91,7 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
 
         params["sms_opt"] = modelinfo["forced_sms_opt"]
         if params["sms_opt"] not in ["none", "const", "decay", "file"]:
-            msg = "unknown forced_sms_opt=%s" % params["sms_opt"]
+            msg = f'unknown forced_sms_opt={params["sms_opt"]}'
             raise ValueError(msg)
 
         if params["sms_opt"] == "none":

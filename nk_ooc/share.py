@@ -67,18 +67,18 @@ def common_args(description, model_name, args_list):
         override_var = metadata.get("override_var", argname)
         if "action" not in metadata:
             parser.add_argument(
-                "--%s" % argname,
-                help="override %s from cfg file" % override_var,
+                f"--{argname}",
+                help=f"override {override_var} from cfg file",
                 default=None,
             )
         elif metadata["action"] in ["store_true"]:
             parser.add_argument(
-                "--%s" % argname,
-                help="override %s from cfg file" % override_var,
+                f"--{argname}",
+                help=f"override {override_var} from cfg file",
                 action=metadata["action"],
             )
         else:
-            msg = "action = %s not implemented" % metadata["action"]
+            msg = f'action = {metadata["action"]} not implemented'
             raise NotImplementedError(msg)
 
     return parser, args_remaining
@@ -107,7 +107,7 @@ def read_cfg_files(args):
     config = configparser.ConfigParser(defaults, allow_no_value=True)
     files_read = config.read(cfg_fnames.split(","))
     if len(files_read) == 0:
-        msg = "cfg_fnames not read: %s" % cfg_fnames
+        msg = f"cfg_fnames not read: {cfg_fnames}"
         raise RuntimeError(msg)
 
     _check_config_no_values(cfg_fnames, config)
@@ -136,7 +136,7 @@ def _check_config_no_values(cfg_fnames, config):
     for section in config.sections():
         for name in config[section]:
             if config[section][name] is None and name not in nva_list:
-                msg = "%s not allowed to be empty in cfg file %s" % (name, cfg_fnames)
+                msg = f"{name} not allowed to be empty in cfg file {cfg_fnames}"
                 raise ValueError(msg)
 
 
@@ -148,7 +148,7 @@ def _apply_cfg_override_args(args, config):
             continue
         override_var = metadata.get("override_var", argname)
         if override_var not in config[metadata["section"]]:
-            msg = "%s not in cfg section %s" % (override_var, metadata["section"])
+            msg = f'{override_var} not in cfg section {metadata["section"]}'
             raise ValueError(msg)
         if "action" not in metadata:
             if getattr(args, argname) is not None:

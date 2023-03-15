@@ -57,8 +57,8 @@ class TracerModuleState(TracerModuleStateBase):
                     )
                 else:
                     msg = (
-                        "gen_init_iterate failure for %s"
-                        % self.tracer_names()[tracer_ind]
+                        "gen_init_iterate failure for "
+                        f"{self.tracer_names()[tracer_ind]}"
                     )
                     raise ValueError(msg)
             return vals, {"depth": len(self.depth)}
@@ -74,16 +74,16 @@ class TracerModuleState(TracerModuleStateBase):
             for tracer_name in self.tracer_names():
                 if extract_dimensions(fptr, tracer_name) != dimensions:
                     msg = (
-                        "not all vars have same dimensions"
-                        ", tracer_module_name=%s, fname=%s" % (self.name, fname)
+                        "not all vars have same dimensions, "
+                        f"tracer_module_name={self.name}, fname={fname}"
                     )
                     raise ValueError(msg)
             # read values
             if len(dimensions) > 3:
                 msg = (
-                    "ndim too large (for implementation of dot_prod)"
-                    "tracer_module_name=%s, fname=%s, ndim=%s"
-                    % (self.name, fname, len(dimensions))
+                    "ndim too large (for implementation of dot_prod), "
+                    f"tracer_module_name={self.name}, fname={fname}, "
+                    f"ndim={len(dimensions)}"
                 )
                 raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
@@ -132,7 +132,7 @@ class TracerModuleState(TracerModuleStateBase):
             }
 
             # mean in time
-            varname = tracer_like_name + "_time_mean"
+            varname = f"{tracer_like_name}_time_mean"
             res[varname] = {
                 "dimensions": ("depth"),
                 "attrs": tracer_metadata["attrs"].copy(),
@@ -140,7 +140,7 @@ class TracerModuleState(TracerModuleStateBase):
             res[varname]["attrs"]["long_name"] += ", mean in time"
 
             # anomaly in time
-            varname = tracer_like_name + "_time_anom"
+            varname = f"{tracer_like_name}_time_anom"
             res[varname] = {
                 "dimensions": ("time", "depth"),
                 "attrs": tracer_metadata["attrs"].copy(),
@@ -148,7 +148,7 @@ class TracerModuleState(TracerModuleStateBase):
             res[varname]["attrs"]["long_name"] += ", anomaly in time"
 
             # std dev in time
-            varname = tracer_like_name + "_time_std"
+            varname = f"{tracer_like_name}_time_std"
             res[varname] = {
                 "dimensions": ("depth"),
                 "attrs": tracer_metadata["attrs"].copy(),
@@ -156,7 +156,7 @@ class TracerModuleState(TracerModuleStateBase):
             res[varname]["attrs"]["long_name"] += ", std dev in time"
 
             # end state minus start state
-            varname = tracer_like_name + "_time_delta"
+            varname = f"{tracer_like_name}_time_delta"
             res[varname] = {
                 "dimensions": ("depth"),
                 "attrs": tracer_metadata["attrs"].copy(),
@@ -164,7 +164,7 @@ class TracerModuleState(TracerModuleStateBase):
             res[varname]["attrs"]["long_name"] += ", end state minus start state"
 
             # depth integral
-            varname = tracer_like_name + "_depth_int"
+            varname = f"{tracer_like_name}_depth_int"
             res[varname] = {
                 "dimensions": ("time"),
                 "attrs": tracer_metadata["attrs"].copy(),
@@ -206,26 +206,26 @@ class TracerModuleState(TracerModuleStateBase):
             fptr.variables[varname][:] = tracer_vals
 
             # mean in time
-            varname = tracer_like_name + "_time_mean"
+            varname = f"{tracer_like_name}_time_mean"
             tracer_vals_mean = np.einsum("i,i...", time_weights, tracer_vals)
             fptr.variables[varname][:] = tracer_vals_mean
 
             # anomaly in time
-            varname = tracer_like_name + "_time_anom"
+            varname = f"{tracer_like_name}_time_anom"
             tracer_vals_anom = tracer_vals - tracer_vals_mean
             fptr.variables[varname][:] = tracer_vals_anom
 
             # std dev in time
-            varname = tracer_like_name + "_time_std"
+            varname = f"{tracer_like_name}_time_std"
             tracer_vals_var = np.einsum("i,i...", time_weights, tracer_vals_anom**2)
             fptr.variables[varname][:] = np.sqrt(tracer_vals_var)
 
             # end state minus start state
-            varname = tracer_like_name + "_time_delta"
+            varname = f"{tracer_like_name}_time_delta"
             fptr.variables[varname][:] = tracer_vals[-1, :] - tracer_vals[0, :]
 
             # depth integral
-            varname = tracer_like_name + "_depth_int"
+            varname = f"{tracer_like_name}_depth_int"
             fptr.variables[varname][:] = self.depth.int_vals_mid(tracer_vals, axis=-1)
 
     def stats_dimensions(self, fptr):

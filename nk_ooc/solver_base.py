@@ -51,7 +51,7 @@ class SolverBase:
         """construct fname corresponding to particular quantity"""
         if iteration is None:
             iteration = self.get_iteration()
-        return os.path.join(self._get_workdir(), "%s_%02d.nc" % (quantity, iteration))
+        return os.path.join(self._get_workdir(), f"{quantity}_{iteration:02}.nc")
 
     def _get_rel_tol(self):
         """get solver's relative tolerance from solverinfo"""
@@ -115,11 +115,11 @@ class SolverBase:
             elif category == "tracer_module_independent":
                 vars_def_metadata[key] = metadata
             else:
-                msg = "unknown category %s" % category
+                msg = f"unknown category {category}"
                 raise ValueError(msg)
 
         # use step-log to avoid attempting to redefine stats file vars
-        step = "define %s solver stats file vars" % self._solver_name
+        step = f"define {self._solver_name} solver stats file vars"
         if not self._solver_state.step_logged(step, per_iteration=False):
             self._stats_file.def_vars(vars_def_metadata)
         self._solver_state.log_step(step, per_iteration=False)
@@ -141,7 +141,7 @@ class SolverBase:
                 )
                 raise ValueError(msg)
             # use step-log to avoid rewriting vals to the stats file
-            step = "write %s vals to stats file" % key
+            step = f"write {key} vals to stats file"
             if self._solver_state.step_logged(step, per_iteration=False):
                 continue
             category = var_put_metadata["category"]
@@ -151,7 +151,7 @@ class SolverBase:
             elif category == "tracer_module_independent":
                 vals_dict[key] = vals
             else:
-                msg = "unknown category %s" % category
+                msg = f"unknown category {category}"
                 raise ValueError(msg)
             self._solver_state.log_step(step, per_iteration=False)
 
@@ -174,7 +174,7 @@ class SolverBase:
                 )
                 raise ValueError(msg)
             # use step-log to avoid rewriting vals to the stats file
-            step = "write %s vals to stats file" % key
+            step = f"write {key} vals to stats file"
             if self._solver_state.step_logged(step):
                 continue
             category = var_put_metadata["category"]
@@ -191,7 +191,7 @@ class SolverBase:
             elif category == "tracer_module_independent":
                 vals_dict[key] = vals
             else:
-                msg = "unknown category %s" % category
+                msg = f"unknown category {category}"
                 raise ValueError(msg)
             self._solver_state.log_step(step)
 

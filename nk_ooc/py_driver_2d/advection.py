@@ -170,7 +170,7 @@ class Advection(ModelProcess):
                     col_ind[mat_ind] = cell_ind
                     mat_ind += 1
             if mat_ind != nnz:
-                msg = "mat_ind = %d, nnz = %d" % (mat_ind, nnz)
+                msg = f"mat_ind = {mat_ind}, nnz = {nnz}"
                 raise RuntimeError(msg)
             dof = ypos_n * depth_n
             Advection.jacobian_cache = sparse.csr_matrix(

@@ -37,16 +37,16 @@ class TracerModuleState(TracerModuleStateBase):
             for tracer_name in self.tracer_names():
                 if extract_dimensions(fptr, tracer_name + suffix) != dimensions:
                     msg = (
-                        "not all vars have same dimensions"
-                        ", tracer_module_name=%s, fname=%s" % (self.name, fname)
+                        "not all vars have same dimensions, tracer_module_name="
+                        f"{self.name}, fname={fname}"
                     )
                     raise ValueError(msg)
             # read values
             if len(dimensions) > 3:
                 msg = (
-                    "ndim too large (for implementation of dot_prod)"
-                    "tracer_module_name=%s, fname=%s, ndim=%s"
-                    % (self.name, fname, len(dimensions))
+                    "ndim too large (for implementation of dot_prod), "
+                    f"tracer_module_name={self.name}, fname={fname}, "
+                    f"ndim={len(dimensions)}"
                 )
                 raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):

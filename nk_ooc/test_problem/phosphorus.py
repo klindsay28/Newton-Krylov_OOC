@@ -124,7 +124,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         res = super().hist_vars_metadata_tracer_like()
         po4_units = res["po4"]["attrs"]["units"]
         res["po4_uptake"] = {
-            "attrs": {"long_name": "uptake of po4", "units": po4_units + " / s"}
+            "attrs": {"long_name": "uptake of po4", "units": f"{po4_units} / s"}
         }
         res["po4_s_restore_tau_r"] = {
             "attrs": {

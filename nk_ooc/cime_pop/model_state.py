@@ -76,11 +76,11 @@ class ModelState(ModelStateBase):
             for ind, matrix_opt in enumerate(matrix_opts):
                 matrix_opts[ind] = matrix_opt.format(**opt_str_subs)
 
-            matrix_opts_fname = os.path.join(workdir, "matrix_" + matrix_name + ".opts")
+            matrix_opts_fname = os.path.join(workdir, f"matrix_{matrix_name}.opts")
             with open(matrix_opts_fname, "w") as fptr:
                 for opt in matrix_opts:
-                    fptr.write("%s\n" % opt)
-            matrix_fname = os.path.join(workdir, "matrix_" + matrix_name + ".nc")
+                    fptr.write(f"{opt}\n")
+            matrix_fname = os.path.join(workdir, f"matrix_{matrix_name}.nc")
             matrix_gen_exe = os.path.join(jacobian_precond_tools_dir, "bin", "gen_A")
             cmd = [matrix_gen_exe, "-D1", "-o", matrix_opts_fname, matrix_fname]
             logger.info('cmd="%s"', " ".join(cmd))
@@ -89,11 +89,11 @@ class ModelState(ModelStateBase):
             # add creation metadata to file attributes
             with Dataset(matrix_fname, mode="a") as fptr:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                msg = datestamp + ": created by " + matrix_gen_exe
-                fcn_name = class_name(self) + "._gen_precond_matrix_files"
-                msg = msg + " called from " + fcn_name
+                msg = f"{datestamp}: created by {matrix_gen_exe}"
+                fcn_name = f"{class_name(self)}._gen_precond_matrix_files"
+                msg = f"{msg} called from {fcn_name}"
                 if hasattr(fptr, "history"):
-                    msg = msg + "\n" + fptr.history
+                    msg = f"{msg}\n{fptr.history}"
                 fptr.history = msg
                 fptr.matrix_opts = "\n".join(matrix_opts)
 
@@ -102,7 +102,7 @@ class ModelState(ModelStateBase):
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s", hist_fname="%s"', res_fname, hist_fname)
 
-        fcn_complete_step = "comp_fcn complete for %s" % res_fname
+        fcn_complete_step = f"comp_fcn complete for {res_fname}"
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
@@ -114,7 +114,7 @@ class ModelState(ModelStateBase):
 
         ms_res = self._comp_fcn_post_modelrun()
 
-        caller = class_name(self) + ".comp_fcn"
+        caller = f"{class_name(self)}.comp_fcn"
         ms_res.comp_fcn_postprocess(res_fname, caller)
 
         solver_state.log_step(fcn_complete_step)
@@ -135,7 +135,7 @@ class ModelState(ModelStateBase):
         # relative pathname of tracer_ic
         tracer_ic_fname_rel = "tracer_ic.nc"
         fname = os.path.join(cime_xmlquery(caseroot, "RUNDIR"), tracer_ic_fname_rel)
-        caller = __name__ + "._comp_fcn_pre_modelrun"
+        caller = f"{__name__}._comp_fcn_pre_modelrun"
         self.dump(fname, caller)
 
         # ensure certain env xml vars are set properly
@@ -171,7 +171,7 @@ class ModelState(ModelStateBase):
         logger = logging.getLogger(__name__)
         logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
-        fcn_complete_step = "apply_precond_jacobian complete for %s" % res_fname
+        fcn_complete_step = f"apply_precond_jacobian complete for {res_fname}"
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
@@ -180,7 +180,7 @@ class ModelState(ModelStateBase):
         self._apply_precond_jacobian_pre_solve_lin_eqns(res_fname, solver_state)
 
         lin_eqns_soln_fname = os.path.join(
-            os.path.dirname(res_fname), "lin_eqns_soln_" + os.path.basename(res_fname)
+            os.path.dirname(res_fname), f"lin_eqns_soln_{os.path.basename(res_fname)}"
         )
         ms_res = self._apply_precond_jacobian_solve_lin_eqns(
             precond_fname, lin_eqns_soln_fname, solver_state
@@ -190,7 +190,7 @@ class ModelState(ModelStateBase):
 
         solver_state.log_step(fcn_complete_step)
 
-        caller = class_name(self) + ".apply_precond_jacobian"
+        caller = f"{class_name(self)}.apply_precond_jacobian"
         return ms_res.dump(res_fname, caller)
 
     def _comp_fcn_post_modelrun(self):
@@ -220,7 +220,7 @@ class ModelState(ModelStateBase):
         logger.debug('res_fname="%s"', res_fname)
 
         fcn_complete_step = (
-            "_apply_precond_jacobian_pre_solve_lin_eqns complete for %s" % res_fname
+            f"_apply_precond_jacobian_pre_solve_lin_eqns complete for {res_fname}"
         )
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning', fcn_complete_step)
@@ -267,9 +267,9 @@ class ModelState(ModelStateBase):
             batch_cmd = (
                 modelinfo["batch_cmd_precond"].replace("\n", " ").replace("\r", " ")
             )
-            cmd = "%s %s --resume" % (
-                batch_cmd.format(**opt_str_subs),
-                modelinfo["invoker_script_fname"],
+            cmd = (
+                f"{batch_cmd.format(**opt_str_subs)} "
+                f'{modelinfo["invoker_script_fname"]} --resume'
             )
             logger.info('cmd="%s"', cmd)
             cmd_out = subprocess.check_output(cmd, shell=True).decode()
@@ -290,14 +290,14 @@ class ModelState(ModelStateBase):
         logger.debug('precond_fname="%s", res_fname="%s"', precond_fname, res_fname)
 
         fcn_complete_step = (
-            "_apply_precond_jacobian_solve_lin_eqns complete for %s" % res_fname
+            f"_apply_precond_jacobian_solve_lin_eqns complete for {res_fname}"
         )
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
             return ModelState(res_fname)
         logger.debug('"%s" not logged, proceeding', fcn_complete_step)
 
-        caller = __name__ + "._apply_precond_jacobian_solve_lin_eqns"
+        caller = f"{__name__}._apply_precond_jacobian_solve_lin_eqns"
         self.dump(res_fname, caller)
 
         modelinfo = self.model_config_obj.modelinfo
@@ -319,7 +319,7 @@ class ModelState(ModelStateBase):
             nprow, npcol = _matrix_block_decomp(task_cnt)
 
             matrix_fname = os.path.join(
-                solver_state.get_workdir(), "matrix_" + matrix_name + ".nc"
+                solver_state.get_workdir(), f"matrix_{matrix_name}.nc"
             )
             # split mpi_cmd, in case it has spaces because of arguments
             cmd = modelinfo["mpi_cmd"].split()
@@ -328,7 +328,7 @@ class ModelState(ModelStateBase):
                     os.path.join(jacobian_precond_tools_dir, "bin", "solve_ABdist"),
                     "-D1",
                     "-n",
-                    "%d,%d" % (nprow, npcol),
+                    f"{nprow},{npcol}",
                     "-v",
                     tracer_names_list_to_str(tracer_names_subset),
                     matrix_fname,
@@ -364,11 +364,9 @@ def _gen_post_modelrun_script(modelinfo, script_fname):
         fptr.write("if ./xmlquery --value RESUBMIT | grep -q '^0$'; then\n")
         fptr.write("    # forward run is done, reinvoke solver\n")
         if batch_cmd_script is None:
-            fptr.write("    %s --resume\n" % invoker_script_fname)
+            fptr.write(f"    {invoker_script_fname} --resume\n")
         else:
-            fptr.write(
-                "    %s %s --resume\n" % (batch_cmd_script, invoker_script_fname)
-            )
+            fptr.write(f"    {batch_cmd_script} {invoker_script_fname} --resume\n")
         fptr.write("else\n")
         fptr.write("    # set POP_PASSIVE_TRACER_RESTART_OVERRIDE for resubmit\n")
         fptr.write("    ./xmlchange POP_PASSIVE_TRACER_RESTART_OVERRIDE=none\n")
@@ -395,12 +393,12 @@ def _gen_hist(modelinfo, hist_fname):
         varname = "tavg_freq_opt"
     tavg_freq_opt_0 = _get_pop_nl_var(caseroot, varname).split()[0].split("'")[1]
     if tavg_freq_opt_0 not in ["nyear", "nmonth"]:
-        msg = "tavg_freq_opt_0 = %s not implemented" % tavg_freq_opt_0
+        msg = f"tavg_freq_opt_0 = {tavg_freq_opt_0} not implemented"
         raise NotImplementedError(msg)
 
     tavg_freq_0 = _get_pop_nl_var(caseroot, "tavg_freq").split()[0]
     if tavg_freq_0 != "1":
-        msg = "tavg_freq_0 = %s not implemented" % tavg_freq_0
+        msg = f"tavg_freq_0 = {tavg_freq_0} not implemented"
         raise NotImplementedError(msg)
 
     # get starting year and month
@@ -413,25 +411,26 @@ def _gen_hist(modelinfo, hist_fname):
     # basic error checking
 
     if day_str != "01":
-        msg = "initial day = %s not implemented" % day_str
+        msg = f"initial day = {day_str} not implemented"
         raise NotImplementedError(msg)
 
     if tavg_freq_opt_0 == "nyear" and mon_str != "01":
-        msg = "initial month = %s not implemented for nyear tavg output" % mon_str
+        msg = f"initial month = {mon_str} not implemented for nyear tavg output"
         raise NotImplementedError(msg)
 
     # location of history files
     hist_dir = cime_xmlquery(caseroot, "RUNDIR")
+    case = cime_xmlquery(caseroot, "CASE")
 
     caller = "nk_ooc.cime_pop.model_state._gen_hist"
     if tavg_freq_opt_0 == "nyear":
-        fname_fmt = cime_xmlquery(caseroot, "CASE") + ".pop.h.{year:04d}.nc"
+        fname_fmt = f"{case}.pop.h.{{year:04}}.nc"
         ann_files_to_mean_file(
             hist_dir, fname_fmt, int(yr_str), cime_yr_cnt(modelinfo), hist_fname, caller
         )
 
     if tavg_freq_opt_0 == "nmonth":
-        fname_fmt = cime_xmlquery(caseroot, "CASE") + ".pop.h.{year:04d}-{month:02d}.nc"
+        fname_fmt = f"{case}.pop.h.{{year:04}}-{{month:02}}.nc"
         mon_files_to_mean_file(
             hist_dir,
             fname_fmt,
@@ -460,7 +459,7 @@ def _matrix_block_decomp(precond_task_cnt):
 
 def tracer_names_list_to_str(tracer_names_list):
     """comma separated string of tracers being solved for"""
-    return ",".join([tracer_name + "_CUR" for tracer_name in tracer_names_list])
+    return ",".join([f"{tracer_name}_CUR" for tracer_name in tracer_names_list])
 
 
 def _apply_tracers_sflux_term(
@@ -483,9 +482,7 @@ def _apply_tracers_sflux_term(
         for tracer_name_src in tracer_names_subset:
             tracer_name_src_ind = tracer_names_all.index(tracer_name_src)
             for tracer_name_dst in tracer_names_all[tracer_name_src_ind + 1 :]:
-                partial_deriv_varname = (
-                    "d_SF_" + tracer_name_dst + "_d_" + tracer_name_src
-                )
+                partial_deriv_varname = f"d_SF_{tracer_name_dst}_d_{tracer_name_src}"
                 if partial_deriv_varname in fptr.variables:
                     logger.info('applying "%s"', partial_deriv_varname)
                     partial_deriv = fptr.variables[partial_deriv_varname]
@@ -502,7 +499,7 @@ def _apply_tracers_sflux_term(
                     model_state.set_tracer_vals(tracer_name_dst, dst)
                     term_applied = True
     if term_applied:
-        caller = __name__ + "._apply_tracers_sflux_term"
+        caller = f"{__name__}._apply_tracers_sflux_term"
         model_state.dump(res_fname, caller)
 
 
@@ -511,7 +508,7 @@ def _pop_nl_var_exists(caseroot, varname):
     does varname exist as a variable in the pop namelist
     """
     nl_fname = os.path.join(caseroot, "CaseDocs", "pop_in")
-    cmd = ["grep", "-q", "^ *" + varname + " *=", nl_fname]
+    cmd = ["grep", "-q", f"^ *{varname} *=", nl_fname]
     return subprocess.call(cmd) == 0
 
 
@@ -524,6 +521,6 @@ def _get_pop_nl_var(caseroot, varname):
     does not handle multiple matches of varname in pop_in
     """
     nl_fname = os.path.join(caseroot, "CaseDocs", "pop_in")
-    cmd = ["grep", "^ *" + varname + " *=", nl_fname]
+    cmd = ["grep", f"^ *{varname} *=", nl_fname]
     line = subprocess.check_output(cmd).decode()
     return line.split("=")[1].strip().replace(",", " ")

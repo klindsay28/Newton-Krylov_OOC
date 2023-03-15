@@ -29,32 +29,32 @@ def gen_invoker_script(args, modelinfo, repo_root):
 
     with open(invoker_script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
-        fptr.write("cd %s\n" % repo_root)
+        fptr.write(f"cd {repo_root}\n")
         fptr.write("source scripts/newton_krylov_env_cmds\n")
         if getattr(args, "deprecation_warning_to_error", False):
             fptr.write("export PYTHONWARNINGS=error::DeprecationWarning\n")
-        if "mpi_cmd_env_cmds_fname" in modelinfo:
-            if modelinfo["mpi_cmd_env_cmds_fname"] is not None:
-                fptr.write("source %s\n" % modelinfo["mpi_cmd_env_cmds_fname"])
+        mpi_cmd_env_cmds_fname = modelinfo.get("mpi_cmd_env_cmds_fname", None)
+        if mpi_cmd_env_cmds_fname is not None:
+            fptr.write(f"source {mpi_cmd_env_cmds_fname}\n")
 
         # construct invocation command
-        line = 'python -m nk_ooc.nk_driver --cfg_fnames "%s" ' % args.cfg_fnames
+        line = f'python -m nk_ooc.nk_driver --cfg_fnames "{args.cfg_fnames}" '
         if "model_name" in args:
-            line = line + '--model_name "%s" ' % args.model_name
+            line = f'{line}--model_name "{args.model_name}" '
         for argname, metadata in cfg_override_args.items():
             # skip conditional overrides that were not added
             if argname not in args:
                 continue
             if "action" not in metadata:
                 if getattr(args, argname) is not None:
-                    line = line + '--%s "%s" ' % (argname, getattr(args, argname))
+                    line = f'{line}--{argname} "{getattr(args, argname)}" '
             elif metadata["action"] == "store_true":
                 if getattr(args, argname):
-                    line = line + "--%s " % argname
+                    line = f"{line}--{argname} "
             else:
-                msg = "action = %s not implemented" % metadata["action"]
+                msg = f'action = {metadata["action"]} not implemented'
                 raise NotImplementedError(msg)
-        line = line + '"$@"\n'
+        line = f'{line}"$@"\n'
         fptr.write(line)
 
     # ensure script is executable by the user, while preserving other permissions
