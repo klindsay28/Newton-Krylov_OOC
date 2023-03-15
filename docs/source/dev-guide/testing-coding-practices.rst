@@ -25,7 +25,7 @@ Testing with github actions currently does the following:
 Because the test_problem model produces different answers on different platforms, baseline comparisons do not check for equality.
 They instead use ``numpy.isclose``.
 
-Tests executed via github actions are performed with python versions 3.6, 3.7, 3.8, and 3.9.
+Tests executed via github actions are performed with python versions 3.7, 3.8, 3.9, 3.10, and 3.11.
 Conda is currently unable to create environments with the required packages using earlier versions of python.
 
 The solver has been run for the cime_pop model with the iage and abio_dic_dic14 tracer modules successfully on the NCAR/CISL machine cheyenne using python3.6.
@@ -51,12 +51,5 @@ A developer should run the command ``pre-commit install`` to enable these checks
 Python Version
 --------------
 
-The minimal version of python required is 3.2 for python3 or 2.7 for python2, as ``allow_no_value`` is passed to ``configparser.ConfigParser()``.
-This argument was introduced in python 3.2 (and 2.7).
-
-The use of multiple context expressions, e.g., in ``gen_precond_jacobian`` in ``newton_fcn_base.py``, requires a minimal version of 3.1 (or 2.7).
-
-Usage of ``.format()`` for formatting strings in ``ann_files_to_mean_file`` and ``mon_files_to_mean_file`` in ``nk_ooc/utils.py`` requires a minimal version of 3.0 (or 2.6).
-
-The usage of f-strings is under consideration, which would require the minimal version of python to be 3.6.
-Support for 2.7 could be maintained by using `future-fstrings <https://github.com/asottile/future-fstrings>`_.
+The minimal version of python required is 3.6, as f-strings are used.
+Note that testing is performed for versions 3.7 and higher as support for 3.6 was ceased on `2021-12-23 <https://devguide.python.org/versions/>`_.
