@@ -52,8 +52,9 @@ def gen_invoker_script(args, modelinfo, repo_root):
                 if getattr(args, argname):
                     line = f"{line}--{argname} "
             else:
-                msg = f'action = {metadata["action"]} not implemented'
-                raise NotImplementedError(msg)
+                raise NotImplementedError(
+                    f'action={metadata["action"]} not implemented'
+                )
         line = f'{line}"$@"\n'
         fptr.write(line)
 

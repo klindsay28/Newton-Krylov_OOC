@@ -549,8 +549,7 @@ class ModelStateBase:
                 return tracer_module.get_tracer_vals(tracer_name)
             except ValueError:
                 pass
-        msg = f"unknown tracer_name={tracer_name}"
-        raise ValueError(msg)
+        raise ValueError(f"unknown tracer_name={tracer_name}")
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""

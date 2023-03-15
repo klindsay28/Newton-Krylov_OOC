@@ -45,8 +45,9 @@ class SolverState:
                 )
         else:
             if rewind:
-                msg = f"rewind cannot be True if resume is False, name={self._name}"
-                raise RuntimeError(msg)
+                raise RuntimeError(
+                    f"rewind cannot be True if resume is False, name={self._name}"
+                )
             self._saved_state = {"iteration": 0, "step_log": []}
             self.log_step("__init__", per_iteration=False)
             logger.info(
@@ -104,12 +105,10 @@ class SolverState:
         self._read_saved_state()
         if isinstance(value, np.ndarray):
             if not np.array_equal(self._saved_state[key], value):
-                msg = "saved_state value not recovered on reread"
-                raise RuntimeError(msg)
+                raise RuntimeError("saved_state value not recovered on reread")
         else:
             if not self._saved_state[key] == value:
-                msg = "saved_state value not recovered on reread"
-                raise RuntimeError(msg)
+                raise RuntimeError("saved_state value not recovered on reread")
 
     def get_value_saved_state(self, key):
         """get a value from the saved_state dictionary"""

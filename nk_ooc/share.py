@@ -78,8 +78,7 @@ def common_args(description, model_name, args_list):
                 action=metadata["action"],
             )
         else:
-            msg = f'action = {metadata["action"]} not implemented'
-            raise NotImplementedError(msg)
+            raise NotImplementedError(f'action={metadata["action"]} not implemented')
 
     return parser, args_remaining
 

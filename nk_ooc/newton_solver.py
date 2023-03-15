@@ -247,8 +247,7 @@ class NewtonSolver(SolverBase):
             )
 
             if armijo_ind > 10:
-                msg = "Armijo_ind exceeds limit"
-                raise RuntimeError(msg)
+                raise RuntimeError("Armijo_ind exceeds limit")
 
     def step(self):
         """perform a step of Newton's method"""
@@ -257,8 +256,7 @@ class NewtonSolver(SolverBase):
 
         if self.get_iteration() >= int(self._solverinfo["newton_max_iter"]):
             self.log()
-            msg = "number of maximum Newton iterations exceeded"
-            raise RuntimeError(msg)
+            raise RuntimeError("number of maximum Newton iterations exceeded")
 
         caller = f"{class_name(self)}.step"
 

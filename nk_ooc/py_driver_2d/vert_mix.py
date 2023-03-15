@@ -180,8 +180,7 @@ class VertMix(ModelProcess):
                 col_ind[mat_ind] = cell_ind
                 mat_ind += 1
         if mat_ind != nnz:
-            msg = f"mat_ind = {mat_ind}, nnz = {nnz}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"mat_ind={mat_ind}, nnz={nnz}")
         dof = ypos_n * depth_n
         jacobian_single_tracer = sparse.csr_matrix(
             (data, (row_ind, col_ind)), shape=(dof, dof)

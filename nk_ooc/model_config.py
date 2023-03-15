@@ -70,8 +70,9 @@ class ModelConfig:
                 fptr.set_auto_mask(False)
                 self.region_mask = fptr.variables[varname][:]
                 if self.region_mask.shape != self.grid_weight.shape:
-                    msg = "region_mask and grid_weight must have the same shape"
-                    raise RuntimeError(msg)
+                    raise RuntimeError(
+                        "region_mask and grid_weight must have the same shape"
+                    )
         else:
             self.region_mask = np.ones_like(self.grid_weight, dtype=np.int32)
 
@@ -170,14 +171,10 @@ def check_tracer_module_names(tracer_module_names, tracer_module_defs):
         if has_suff:
             tracer_module_name = tracer_module_name.partition(":")[0]
         if tracer_module_name not in tracer_module_defs:
-            msg = f"unknown tracer module name {tracer_module_name}"
-            raise ValueError(msg)
+            raise ValueError(f"unknown tracer module name {tracer_module_name}")
         if has_suff == (tracer_module_name.format(**fmt) == tracer_module_name):
-            if has_suff:
-                msg = f"{tracer_module_name} doesn't expect suff"
-            else:
-                msg = f"{tracer_module_name} expects suff"
-            raise ValueError(msg)
+            verb = "doesn't expect" if has_suff else "expects"
+            raise ValueError(f"{tracer_module_name} {verb} suff")
 
 
 def check_shadow_tracers(tracer_module_defs, lvl):
@@ -192,11 +189,10 @@ def check_shadow_tracers(tracer_module_defs, lvl):
         for tracer_name, tracer_metadata in tracer_module_def["tracers"].items():
             if "shadows" in tracer_metadata:
                 if tracer_metadata["shadows"] not in tracer_module_def["tracers"]:
-                    msg = (
+                    raise ValueError(
                         f'shadows value {tracer_metadata["shadows"]} for {tracer_name} '
                         f"in tracer module {tracer_module_name} not known"
                     )
-                    raise ValueError(msg)
                 logger.log(
                     lvl,
                     "tracer module %s has %s as a shadow for %s",
@@ -205,11 +201,10 @@ def check_shadow_tracers(tracer_module_defs, lvl):
                     tracer_metadata["shadows"],
                 )
                 if tracer_metadata["shadows"] in shadowed_tracers:
-                    msg = (
+                    raise ValueError(
                         f'{tracer_metadata["shadows"]} shadowed multiple times in '
                         f"tracer module {tracer_module_name}"
                     )
-                    raise ValueError(msg)
                 shadowed_tracers.append(tracer_metadata["shadows"])
 
 
@@ -225,13 +220,11 @@ def check_tracer_module_suffs(tracer_module_defs):
         name_has_suff = name.format(**fmt) != name
         metadata_has_suff = fmt_vals(metadata, fmt) != metadata
         if name_has_suff != metadata_has_suff:
-            msg = f"{name}: name_has_suff must equal metadata_has_suff"
-            raise ValueError(msg)
+            raise ValueError(f"{name}: name_has_suff must equal metadata_has_suff")
         if name_has_suff:
             for tracer_name in metadata["tracers"]:
                 if tracer_name.format(**fmt) == tracer_name:
-                    msg = f"{name}: tracer {tracer_name} must have suff"
-                    raise ValueError(msg)
+                    raise ValueError(f"{name}: tracer {tracer_name} must have suff")
 
 
 def propagate_base_matrix_defs_to_all(matrix_defs):
@@ -265,8 +258,7 @@ def propagate_base_matrix_defs_to_one(base_def, matrix_def):
                     if key not in matrix_def_value:
                         matrix_def_value[key] = base_def_value[key]
             else:
-                msg = f"base defn type {type(base_def_value)} not supported"
-                raise TypeError(msg)
+                raise TypeError(f"base defn type {type(base_def_value)} not supported")
 
 
 def check_precond_matrix_defs(precond_matrix_defs):
@@ -281,8 +273,7 @@ def check_precond_matrix_defs(precond_matrix_defs):
             for hist_var in precond_matrix_def["hist_to_precond_varnames"]:
                 _, _, time_op = hist_var.partition(":")
                 if time_op not in ["mean", "log_mean", ""]:
-                    msg = (
+                    raise ValueError(
                         f"unknown time_op={time_op} in {hist_var} from "
                         f"{precond_matrix_name}"
                     )
-                    raise ValueError(msg)

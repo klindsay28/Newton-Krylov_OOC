@@ -108,8 +108,9 @@ def gen_irf_file(modelinfo):
     irf_hist_freq_opt = modelinfo["irf_hist_freq_opt"]
 
     if irf_hist_freq_opt not in ["nyear", "nmonth"]:
-        msg = f"irf_hist_freq_opt = {irf_hist_freq_opt} not implemented"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(
+            f"irf_hist_freq_opt={irf_hist_freq_opt} not implemented"
+        )
 
     # get start date for date range getting averaged into irf file
 
@@ -128,14 +129,12 @@ def gen_irf_file(modelinfo):
     # basic error checking
 
     if irf_hist_day0 != "01":
-        msg = f"irf_hist_day0 = {irf_hist_day0} not implemented"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(f"irf_hist_day0={irf_hist_day0} not implemented")
 
     if irf_hist_freq_opt == "nyear" and irf_hist_month0 != "01":
-        msg = (
-            f"irf_hist_month0 = {irf_hist_month0} not implemented for nyear tavg output"
+        raise NotImplementedError(
+            f"irf_hist_month0={irf_hist_month0} not implemented for nyear tavg output"
         )
-        raise NotImplementedError(msg)
 
     # get duration of date range getting averaged into irf file
 

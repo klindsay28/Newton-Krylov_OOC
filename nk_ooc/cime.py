@@ -58,8 +58,7 @@ def cime_yr_cnt(modelinfo):
     if stop_option in ["nmonth", "nmonths"]:
         nmonths = (resubmit + 1) * stop_n
         if nmonths % 12 != 0:
-            msg = f"number of months={nmonths} not divisible by 12"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"number of months={nmonths} not divisible by 12")
         return nmonths // 12
 
     msg = f"stop_option = {stop_option} not implemented"

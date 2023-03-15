@@ -57,11 +57,10 @@ class TracerModuleState(TracerModuleStateBase):
                     )
                     vals[tracer_ind, :] = column_vals[:, np.newaxis]
                 else:
-                    msg = (
+                    raise ValueError(
                         "gen_init_iterate failure for "
                         f"{self.tracer_names()[tracer_ind]}"
                     )
-                    raise ValueError(msg)
             return vals, {"depth": len(self.depth), "ypos": len(self.ypos)}
         with Dataset(fname, mode="r") as fptr:
             fptr.set_auto_mask(False)
@@ -74,19 +73,17 @@ class TracerModuleState(TracerModuleStateBase):
             # check that all vars have the same dimensions
             for tracer_name in self.tracer_names():
                 if extract_dimensions(fptr, tracer_name) != dimensions:
-                    msg = (
+                    raise ValueError(
                         "not all vars have same dimensions, tracer_module_name="
                         f"{self.name}, fname={fname}"
                     )
-                    raise ValueError(msg)
             # read values
             if len(dimensions) > 3:
-                msg = (
+                raise ValueError(
                     "ndim too large (for implementation of dot_prod), "
                     f"tracer_module_name={self.name}, fname={fname}, "
                     f"ndim={len(dimensions)}"
                 )
-                raise ValueError(msg)
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 var = fptr.variables[tracer_name]
                 vals[tracer_ind, :] = var[:]
@@ -116,8 +113,7 @@ class TracerModuleState(TracerModuleStateBase):
             for tracer_ind, tracer_name in enumerate(self.tracer_names()):
                 fptr.variables[tracer_name][:] = self._vals[tracer_ind, :]
         else:
-            msg = f"unknown action={action}"
-            raise ValueError(msg)
+            raise ValueError(f"unknown action={action}")
         return self
 
     def comp_tend(self, time, tracer_vals, processes):

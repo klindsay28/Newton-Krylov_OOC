@@ -393,13 +393,11 @@ def _gen_hist(modelinfo, hist_fname):
         varname = "tavg_freq_opt"
     tavg_freq_opt_0 = _get_pop_nl_var(caseroot, varname).split()[0].split("'")[1]
     if tavg_freq_opt_0 not in ["nyear", "nmonth"]:
-        msg = f"tavg_freq_opt_0 = {tavg_freq_opt_0} not implemented"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(f"tavg_freq_opt_0={tavg_freq_opt_0} not implemented")
 
     tavg_freq_0 = _get_pop_nl_var(caseroot, "tavg_freq").split()[0]
     if tavg_freq_0 != "1":
-        msg = f"tavg_freq_0 = {tavg_freq_0} not implemented"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(f"tavg_freq_0={tavg_freq_0} not implemented")
 
     # get starting year and month
     if cime_xmlquery(caseroot, "RUN_TYPE") == "branch":
@@ -411,12 +409,12 @@ def _gen_hist(modelinfo, hist_fname):
     # basic error checking
 
     if day_str != "01":
-        msg = f"initial day = {day_str} not implemented"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(f"initial day={day_str} not implemented")
 
     if tavg_freq_opt_0 == "nyear" and mon_str != "01":
-        msg = f"initial month = {mon_str} not implemented for nyear tavg output"
-        raise NotImplementedError(msg)
+        raise NotImplementedError(
+            f"initial month={mon_str} not implemented for nyear tavg output"
+        )
 
     # location of history files
     hist_dir = cime_xmlquery(caseroot, "RUNDIR")
@@ -446,8 +444,7 @@ def _matrix_block_decomp(precond_task_cnt):
     """determine size of decomposition to be used in matrix factorization"""
     log2_precond_task_cnt = round(math.log2(precond_task_cnt))
     if 2**log2_precond_task_cnt != precond_task_cnt:
-        msg = "precond_task_cnt must be a power of 2"
-        raise ValueError(msg)
+        raise ValueError("precond_task_cnt must be a power of 2")
     if (log2_precond_task_cnt % 2) == 0:
         nprow = 2 ** (log2_precond_task_cnt // 2)
         npcol = nprow

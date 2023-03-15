@@ -70,11 +70,9 @@ def dict_update_verify(dict_in, dict_add):
         else:
             if isinstance(value_add, np.ndarray):
                 if np.any(dict_in[key] != value_add):
-                    msg = f"dict value mismatch for key = {key}"
-                    raise RuntimeError(msg)
+                    raise RuntimeError(f"dict value mismatch for key={key}")
             elif dict_in[key] != value_add:
-                msg = f"dict value mismatch for key = {key}"
-                raise RuntimeError(msg)
+                raise RuntimeError(f"dict value mismatch for key={key}")
     return dict_in
 
 
@@ -263,8 +261,9 @@ def _isclose_one_var(var1, var2, rtol, atol):
                 vals1 = ureg.Quantity(vals1, var1.units).to(var2.units).magnitude
         else:
             if var1.units != var2.units:
-                msg = f"time-like units disagree '{var1.units}' != '{var2.units}'"
-                raise ValueError(msg)
+                raise ValueError(
+                    f"time-like units disagree '{var1.units}'!='{var2.units}'"
+                )
 
     if not _isclose_one_var_core(vals1, vals2, rtol=rtol, atol=atol):
         logger.info("    %s vals not close", var1.name)
@@ -312,8 +311,7 @@ def extract_dimensions(fptr, names):
         elif name in fptr.variables:
             res.update(extract_dimensions(fptr, fptr.variables[name].dimensions))
         else:
-            msg = f"unknown name {name}"
-            raise ValueError(msg)
+            raise ValueError(f"unknown name {name}")
     return res
 
 
@@ -347,8 +345,9 @@ def datatype_sname(var):
         datatype = datatype[1:]
     datatype = datatype_replace.get(datatype, datatype)
     if datatype not in default_fillvals:
-        msg = f"unknown datatype {str(var.datatype)}->{datatype} for {var.name}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"unknown datatype {str(var.datatype)}->{datatype} for {var.name}"
+        )
     return datatype
 
 
@@ -456,14 +455,12 @@ def gen_forcing_fcn(fname, varname, additional_dims_out, scalef=1.0):
 
         # verify various assumptions of implementation
         if var.ndim not in [1, 2, 3]:
-            msg = f"unexpected ndim={var.ndim}"
-            raise ValueError(msg)
+            raise ValueError(f"unexpected ndim={var.ndim}")
         if len(additional_dims_out) != var.ndim - 1:
-            msg = (
+            raise ValueError(
                 f"len(additional_dims_out) = {len(additional_dims_out)} must be "
                 f"{var.ndim - 1}"
             )
-            raise ValueError(msg)
         dimnames = var.dimensions
 
         dim0_in = fptr.variables[dimnames[0]][:]
