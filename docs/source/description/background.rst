@@ -33,4 +33,4 @@ The application of a preliminary version of Newton-Krylov_OOC to spinning up pas
 References
 ~~~~~~~~~~
 
-.. bibliography:: ../references.bib
+.. bibliography::
