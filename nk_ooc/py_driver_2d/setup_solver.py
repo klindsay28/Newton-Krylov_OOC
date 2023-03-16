@@ -126,15 +126,13 @@ def main(args):
         for fp_iter in range(args.fp_cnt):
             logger.info("fp_iter=%d", fp_iter)
             init_iterate.dump(
-                os.path.join(
-                    gen_init_iterate_workdir, "init_iterate_%04d.nc" % fp_iter
-                ),
+                os.path.join(gen_init_iterate_workdir, f"init_iterate_{fp_iter:04}.nc"),
                 caller,
             )
             init_iterate_fcn = init_iterate.comp_fcn(
-                os.path.join(gen_init_iterate_workdir, "fcn_%04d.nc" % fp_iter),
+                os.path.join(gen_init_iterate_workdir, f"fcn_{fp_iter:04}.nc"),
                 None,
-                os.path.join(gen_init_iterate_workdir, "hist_%04d.nc" % fp_iter),
+                os.path.join(gen_init_iterate_workdir, f"hist_{fp_iter:04}.nc"),
             )
             init_iterate += init_iterate_fcn
             init_iterate.copy_shadow_tracers_to_real_tracers()
@@ -158,7 +156,7 @@ def gen_grid_weight_file(args, modelinfo):
     ) as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "nk_ooc.py_driver_2d.setup_solver.gen_grid_weight_file"
-        fptr.history = datestamp + ": created by " + name
+        fptr.history = f"{datestamp}: created by {name}"
 
         for axis in axes.values():
             create_dimensions_verify(fptr, axis.dump_dimensions())
@@ -198,17 +196,19 @@ def gen_region_mask_file(modelinfo):
         "a" if modelinfo["region_mask_fname"] == modelinfo["grid_weight_fname"] else "w"
     )
 
+    region_mask_varname = modelinfo["region_mask_varname"]
+
     with Dataset(
         modelinfo["region_mask_fname"], mode=mode_out, format="NETCDF3_64BIT_OFFSET"
     ) as fptr_out:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "nk_ooc.py_driver_2d.setup_solver.gen_region_mask_file"
-        msg = datestamp + ": "
         if mode_out == "a":
             history_in = getattr(fptr_out, "history", None)
-            msg = msg + modelinfo["region_mask_varname"] + " appended by " + name
+            msg = f"{datestamp}: {region_mask_varname} appended by {name}"
         else:
-            msg = msg + "created by " + name
+            history_in = None
+            msg = f"{datestamp}: created by {name}"
         fptr_out.history = msg if history_in is None else "\n".join([msg, history_in])
 
         # propagate dimension sizes from fptr_in to fptr_out
@@ -223,7 +223,7 @@ def gen_region_mask_file(modelinfo):
         }
         create_vars(fptr_out, vars_metadata)
 
-        fptr_out.variables[modelinfo["region_mask_varname"]][:] = mask
+        fptr_out.variables[region_mask_varname][:] = mask
 
 
 def gen_axis(axisname, args, modelinfo):

@@ -20,9 +20,7 @@ def cime_xmlchange(caseroot, varname, value):
     # skip change command if it would not change the value
     # this avoids clutter in the file CaseStatus
     if value != cime_xmlquery(caseroot, varname):
-        subprocess.run(
-            ["./xmlchange", "%s=%s" % (varname, value)], cwd=caseroot, check=True
-        )
+        subprocess.run(["./xmlchange", f"{varname}={value}"], cwd=caseroot, check=True)
 
 
 def cime_case_submit(modelinfo):
@@ -32,9 +30,9 @@ def cime_case_submit(modelinfo):
     script_fname = os.path.join(modelinfo["workdir"], "case_submit.sh")
     with open(script_fname, mode="w") as fptr:
         fptr.write("#!/bin/bash\n")
-        fptr.write("cd %s\n" % modelinfo["repo_root"])
+        fptr.write(f'cd {modelinfo["repo_root"]}\n')
         fptr.write("source scripts/cime_env_cmds\n")
-        fptr.write("cd %s\n" % modelinfo["caseroot"])
+        fptr.write(f'cd {modelinfo["caseroot"]}\n')
         fptr.write("./case.submit\n")
 
     # ensure script_fname is executable by the user, while preserving other permissions
@@ -60,9 +58,8 @@ def cime_yr_cnt(modelinfo):
     if stop_option in ["nmonth", "nmonths"]:
         nmonths = (resubmit + 1) * stop_n
         if nmonths % 12 != 0:
-            msg = "number of months=%d not divisible by 12" % nmonths
-            raise RuntimeError(msg)
+            raise RuntimeError(f"number of months={nmonths} not divisible by 12")
         return nmonths // 12
 
-    msg = "stop_option = %s not implemented" % stop_option
+    msg = f"stop_option = {stop_option} not implemented"
     raise NotImplementedError(msg)

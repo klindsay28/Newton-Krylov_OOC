@@ -152,7 +152,7 @@ class TracerModuleStateBase:
                 for j in range(vals.shape[1]):
                     logger.info("%s[%s,%d,%d]=%e", msg, self.name, i, j, vals[i, j])
         else:
-            msg = "vals.ndim=%d not handled" % vals.ndim
+            msg = f"vals.ndim={vals.ndim} not handled"
             raise ValueError(msg)
 
     def __neg__(self):

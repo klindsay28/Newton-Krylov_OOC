@@ -96,7 +96,7 @@ class KrylovSolver(SolverBase):
         beta = precond_fcn.norm()
         fcn.log_vals("beta", beta)
         self._put_solver_stats_vars_iteration_independent(precond_rhs_norm=beta)
-        caller = class_name(self) + "._solve0"
+        caller = f"{class_name(self)}._solve0"
         (-precond_fcn / beta).dump(self._fname("basis"), caller)
         self._solver_state.set_value_saved_state("beta", beta)
 
@@ -107,7 +107,7 @@ class KrylovSolver(SolverBase):
 
         self._solve0(fcn, solver_state=self._solver_state)
 
-        caller = class_name(self) + ".solve"
+        caller = f"{class_name(self)}.solve"
 
         while True:
             j_val = self.get_iteration()

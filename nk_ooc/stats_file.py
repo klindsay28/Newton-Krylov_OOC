@@ -14,7 +14,7 @@ class StatsFile:
     """class for stats for a solver"""
 
     def __init__(self, name, workdir, region_cnt, solver_state):
-        self._fname = os.path.join(workdir, name + "_stats.nc")
+        self._fname = os.path.join(workdir, f"{name}_stats.nc")
 
         self._create_stats_file(
             name=name,
@@ -30,9 +30,8 @@ class StatsFile:
 
         with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fcn_name = class_name(self) + "._create_stats_file"
-            msg = datestamp + ": created by " + fcn_name + " for " + name + " solver"
-            fptr.history = msg
+            fcn_name = f"{class_name(self)}._create_stats_file"
+            fptr.history = f"{datestamp}: created by {fcn_name} for {name} solver"
 
             # define dimensions common to all solver stats files
             create_dimensions_verify(fptr, {"iteration": None, "region": region_cnt})
@@ -44,7 +43,7 @@ class StatsFile:
                     "dimensions": ("iteration",),
                     "attrs": {
                         "_FillValue": None,
-                        "long_name": "%s solver iteration" % name,
+                        "long_name": f"{name} solver iteration",
                     },
                 },
                 "region": {  # work-around for pyferret-related issue #65
@@ -88,9 +87,10 @@ class StatsFile:
             if caller is not None:
                 datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 varnames = ",".join(vars_metadata)
-                fcn_name = class_name(self) + ".def_vars"
-                msg = datestamp + ": " + varnames + " appended by " + fcn_name
-                msg = msg + " called by " + caller
+                fcn_name = f"{class_name(self)}.def_vars"
+                msg = (
+                    f"{datestamp}: {varnames} appended by {fcn_name} called by {caller}"
+                )
                 fptr.history = "\n".join([msg, fptr.history])
 
     def put_vars_iteration_invariant(self, name_vals_dict):
@@ -105,8 +105,7 @@ class StatsFile:
             for name, vals in name_vals_dict.items():
                 var = fptr.variables[name]
                 if "iteration" in var.dimensions:
-                    msg = "iteration is a dimension for %s" % name
-                    raise RuntimeError(msg)
+                    raise RuntimeError(f"iteration is a dimension for {name}")
                 var[:] = vals
 
     def put_vars(self, iteration, name_vals_dict):
@@ -124,8 +123,7 @@ class StatsFile:
             for name, vals in name_vals_dict.items():
                 var = fptr.variables[name]
                 if "iteration" not in var.dimensions:
-                    msg = "iteration is not a dimension for %s" % name
-                    raise RuntimeError(msg)
+                    raise RuntimeError(f"iteration is not a dimension for {name}")
                 var[iteration, ...] = vals
 
 

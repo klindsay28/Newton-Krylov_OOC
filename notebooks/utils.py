@@ -25,7 +25,7 @@ def plot_all_vars(ds):
         else:
             if "fcn_mean" in varname or "increment_mean" in varname:
                 plot_da = abs(plot_da)
-                title = "abs({title})".format(title=title)
+                title = f"abs({title})"
             plot_da.plot.line("-ok")
             log_substrs = ["fcn_norm", "increment_norm", "fcn_mean", "increment_mean"]
             if any([substr in varname for substr in log_substrs]):

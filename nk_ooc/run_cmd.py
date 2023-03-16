@@ -82,8 +82,7 @@ def main(args):
             solver_state=None,
         ).log("precond_res")
     else:
-        msg = "unknown cmd=%s" % args.cmd
-        raise ValueError(msg)
+        raise ValueError(f"unknown cmd={args.cmd}")
 
     logger.info("done")
 

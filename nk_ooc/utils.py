@@ -26,7 +26,7 @@ def attr_common(metadata_dict, attr_name):
     can occur if the value is None for all dict entries.
     """
     if not isinstance(metadata_dict, dict):
-        raise TypeError("metadata_dict must be a dict, not %s" % type(metadata_dict))
+        raise TypeError(f"metadata_dict must be a dict, not {type(metadata_dict)}")
     attr_list = []
     for metadata in metadata_dict.values():
         if attr_name not in metadata.get("attrs", {}):
@@ -47,7 +47,7 @@ def dict_sel(dict_obj, **kwargs):
     that matches (sel_key, sel_value) pairs in kwargs
     """
     if not isinstance(dict_obj, dict):
-        raise TypeError("dict_obj must be a dict, not %s" % type(dict_obj))
+        raise TypeError(f"dict_obj must be a dict, not {type(dict_obj)}")
     res = dict_obj
     for sel_key, sel_value in kwargs.items():
         res = {
@@ -70,17 +70,15 @@ def dict_update_verify(dict_in, dict_add):
         else:
             if isinstance(value_add, np.ndarray):
                 if np.any(dict_in[key] != value_add):
-                    msg = "dict value mismatch for key = %s" % key
-                    raise RuntimeError(msg)
+                    raise RuntimeError(f"dict value mismatch for key={key}")
             elif dict_in[key] != value_add:
-                msg = "dict value mismatch for key = %s" % key
-                raise RuntimeError(msg)
+                raise RuntimeError(f"dict value mismatch for key={key}")
     return dict_in
 
 
 def class_name(obj):
     """return name of class and module that it is define in"""
-    return obj.__module__ + "." + type(obj).__name__
+    return f"{obj.__module__}.{type(obj).__name__}"
 
 
 def get_subclasses(mod_name, base_class):
@@ -194,8 +192,7 @@ def units_str_format(units_str):
     parsing is very primitive
     """
 
-    ureg = UnitRegistry()
-    res = "{:~}".format(ureg(units_str).units)
+    res = f"{UnitRegistry()(units_str).units:~}"
     # do some replacements
     term_repl = {"a": "years"}
     res = " ".join([term_repl.get(term, term) for term in res.split()])
@@ -264,8 +261,9 @@ def _isclose_one_var(var1, var2, rtol, atol):
                 vals1 = ureg.Quantity(vals1, var1.units).to(var2.units).magnitude
         else:
             if var1.units != var2.units:
-                msg = "time-like units disagree '%s' != '%s'" % (var1.units, var2.units)
-                raise ValueError(msg)
+                raise ValueError(
+                    f"time-like units disagree '{var1.units}'!='{var2.units}'"
+                )
 
     if not _isclose_one_var_core(vals1, vals2, rtol=rtol, atol=atol):
         logger.info("    %s vals not close", var1.name)
@@ -305,7 +303,7 @@ def extract_dimensions(fptr, names):
     if isinstance(names, str):
         return extract_dimensions(fptr, [names])
     if not isinstance(names, (tuple, list)):
-        raise TypeError("names must be a str, tuple, or list, not %s" % type(names))
+        raise TypeError(f"names must be a str, tuple, or list, not {type(names)}")
     res = {}
     for name in names:
         if name in fptr.dimensions:
@@ -313,8 +311,7 @@ def extract_dimensions(fptr, names):
         elif name in fptr.variables:
             res.update(extract_dimensions(fptr, fptr.variables[name].dimensions))
         else:
-            msg = "unknown name %s" % name
-            raise ValueError(msg)
+            raise ValueError(f"unknown name {name}")
     return res
 
 
@@ -324,7 +321,7 @@ def create_dimensions_verify(fptr, dimensions):
     and dimlen differs from the existing dimension's length, raise a RuntimeError.
     """
     if not isinstance(dimensions, dict):
-        raise TypeError("dimensions must be a dict, not %s" % type(dimensions))
+        raise TypeError(f"dimensions must be a dict, not {type(dimensions)}")
     for dimname, dimlen in dimensions.items():
         try:
             fptr.createDimension(dimname, dimlen)
@@ -348,8 +345,9 @@ def datatype_sname(var):
         datatype = datatype[1:]
     datatype = datatype_replace.get(datatype, datatype)
     if datatype not in default_fillvals:
-        msg = "unknown datatype %s->%s for %s" % (str(var.datatype), datatype, var.name)
-        raise ValueError(msg)
+        raise ValueError(
+            f"unknown datatype {str(var.datatype)}->{datatype} for {var.name}"
+        )
     return datatype
 
 
@@ -373,7 +371,7 @@ def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
 
     fname_fmt is a string format specifying the filenames,
     relative to dir_in, of the annual means, with year as a field
-    e.g., fname_fmt = "casename.pop.h.{year:04d}.nc"
+    e.g., fname_fmt = "casename.pop.h.{year:04}.nc"
 
     the mean is written to fname_out
     """
@@ -392,7 +390,7 @@ def ann_files_to_mean_file(dir_in, fname_fmt, year0, cnt, fname_out, caller):
     with Dataset(os.path.join(dir_in, fname_out), mode="a") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "nk_ooc.utils.ann_files_to_mean_file"
-        msg = datestamp + ": ncra called from " + name + " called from " + caller
+        msg = f"{datestamp}: ncra called from {name} called from {caller}"
         fptr.history = "\n".join([msg, fptr.history])
 
 
@@ -402,7 +400,7 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
 
     fname_fmt is a string format specifying the filenames,
     relative to dir_in, of the monthly means, with year and month as fields
-    e.g., fname_fmt = "casename.pop.h.{year:04d}-{month:02d}.nc"
+    e.g., fname_fmt = "casename.pop.h.{year:04}-{month:02}.nc"
 
     the mean is written to fname_out
 
@@ -414,7 +412,7 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
     # construct averaging weights
     days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     days_all = [days_in_month[(month0 - 1 + inc) % 12] for inc in range(cnt)]
-    days_all_str = ",".join(["%d" % wval for wval in days_all])
+    days_all_str = ",".join([str(wval) for wval in days_all])
 
     # generate filenames of input monthly means
     yr_vals = [year0 + (month0 - 1 + inc) // 12 for inc in range(cnt)]
@@ -434,7 +432,7 @@ def mon_files_to_mean_file(dir_in, fname_fmt, year0, month0, cnt, fname_out, cal
     with Dataset(os.path.join(dir_in, fname_out), mode="a") as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = "nk_ooc.utils.mon_files_to_mean_file"
-        msg = datestamp + ": ncra called from " + name + " called from " + caller
+        msg = f"{datestamp}: ncra called from {name} called from {caller}"
         fptr.history = "\n".join([msg, fptr.history])
 
 
@@ -457,14 +455,12 @@ def gen_forcing_fcn(fname, varname, additional_dims_out, scalef=1.0):
 
         # verify various assumptions of implementation
         if var.ndim not in [1, 2, 3]:
-            msg = "unexpected ndim=%d" % var.ndim
-            raise ValueError(msg)
+            raise ValueError(f"unexpected ndim={var.ndim}")
         if len(additional_dims_out) != var.ndim - 1:
-            msg = "len(additional_dims_out) = %d must be %d" % (
-                len(additional_dims_out),
-                var.ndim - 1,
+            raise ValueError(
+                f"len(additional_dims_out) = {len(additional_dims_out)} must be "
+                f"{var.ndim - 1}"
             )
-            raise ValueError(msg)
         dimnames = var.dimensions
 
         dim0_in = fptr.variables[dimnames[0]][:]

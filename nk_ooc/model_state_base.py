@@ -114,10 +114,10 @@ class ModelStateBase:
             return self
         with Dataset(fname, mode="w", format="NETCDF3_64BIT_OFFSET") as fptr:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            name = class_name(self) + ".dump"
-            msg = datestamp + ": created by " + name
+            name = f"{class_name(self)}.dump"
+            msg = f"{datestamp}: created by {name}"
             if caller is not None:
-                msg = msg + " called from " + caller
+                msg = f"{msg} called from {caller}"
             else:
                 raise ValueError("caller unknown")
             fptr.history = msg
@@ -142,7 +142,7 @@ class ModelStateBase:
         if msg is None:
             msg_full = ["mean", "norm"]
         else:
-            msg_full = [msg + ",mean", msg + ",norm"]
+            msg_full = [f"{msg},mean", f"{msg},norm"]
         mean_vals = self.mean()
         norm_vals = self.norm()
         self.log_vals(msg_full, np.stack((mean_vals, norm_vals)))
@@ -435,8 +435,8 @@ class ModelStateBase:
             precond_fname, "w", format="NETCDF3_64BIT_OFFSET"
         ) as fptr_out:
             datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            fcn_name = class_name(self) + ".gen_precond_jacobian"
-            msg = datestamp + ": created by " + fcn_name
+            fcn_name = f"{class_name(self)}.gen_precond_jacobian"
+            msg = f"{datestamp}: created by {fcn_name}"
             history_in = getattr(fptr_in, "history", None)
             fptr_out.history = (
                 msg if history_in is None else "\n".join([msg, history_in])
@@ -477,11 +477,11 @@ class ModelStateBase:
                             del attrs["cell_methods"]
 
                     if time_op == "mean":
-                        precond_varname = hist_varname + "_mean"
+                        precond_varname = f"{hist_varname}_mean"
                         var_metadata["attrs"]["long_name"] += ", mean over time dim"
                         vals = hist_var[:].mean(axis=0)
                     elif time_op == "log_mean":
-                        precond_varname = hist_varname + "_log_mean"
+                        precond_varname = f"{hist_varname}_log_mean"
                         var_metadata["attrs"]["long_name"] += ", log mean over time dim"
                         vals = np.exp(np.log(hist_var[:]).mean(axis=0))
                     else:
@@ -501,8 +501,8 @@ class ModelStateBase:
         apply postprocessing to comp_fcn result in self that is common to all comp_fcn
         methods
         """
-        fcn_name = class_name(self) + ".comp_fcn_postprocess"
-        caller = fcn_name + " called from " + caller
+        fcn_name = f"{class_name(self)}.comp_fcn_postprocess"
+        caller = f"{fcn_name} called from {caller}"
         return self.zero_extra_tracers().apply_region_mask().dump(res_fname, caller)
 
     def comp_jacobian_fcn_state_prod(self, fcn, direction, res_fname, solver_state):
@@ -515,7 +515,7 @@ class ModelStateBase:
         logger = logging.getLogger(__name__)
         logger.debug('res_fname="%s"', res_fname)
 
-        fcn_complete_step = "comp_jacobian_fcn_state_prod complete for %s" % res_fname
+        fcn_complete_step = f"comp_jacobian_fcn_state_prod complete for {res_fname}"
 
         if solver_state.step_logged(fcn_complete_step):
             logger.debug('"%s" logged, returning result', fcn_complete_step)
@@ -530,12 +530,12 @@ class ModelStateBase:
         # perturbed ModelStateBase
         perturb_ms = self + sigma * direction
         perturb_fcn_fname = os.path.join(
-            solver_state.get_workdir(), "perturb_fcn_" + os.path.basename(res_fname)
+            solver_state.get_workdir(), f"perturb_fcn_{os.path.basename(res_fname)}"
         )
         perturb_fcn = perturb_ms.comp_fcn(perturb_fcn_fname, solver_state)
 
         # compute finite difference
-        caller = class_name(self) + ".comp_jacobian_fcn_state_prod"
+        caller = f"{class_name(self)}.comp_jacobian_fcn_state_prod"
         res = ((perturb_fcn - fcn) / sigma).dump(res_fname, caller)
 
         solver_state.log_step(fcn_complete_step)
@@ -549,8 +549,7 @@ class ModelStateBase:
                 return tracer_module.get_tracer_vals(tracer_name)
             except ValueError:
                 pass
-        msg = "unknown tracer_name=%s" % tracer_name
-        raise ValueError(msg)
+        raise ValueError(f"unknown tracer_name={tracer_name}")
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""

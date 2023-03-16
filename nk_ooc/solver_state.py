@@ -31,7 +31,7 @@ class SolverState:
 
         self._name = name
         self._workdir = workdir
-        self._state_fname = os.path.join(self._workdir, name + "_state.json")
+        self._state_fname = os.path.join(self._workdir, f"{name}_state.json")
         self._rewound_step_string = None
         if resume:
             self._read_saved_state()
@@ -45,8 +45,9 @@ class SolverState:
                 )
         else:
             if rewind:
-                msg = "rewind cannot be True if resume is False, name=%s" % self._name
-                raise RuntimeError(msg)
+                raise RuntimeError(
+                    f"rewind cannot be True if resume is False, name={self._name}"
+                )
             self._saved_state = {"iteration": 0, "step_log": []}
             self.log_step("__init__", per_iteration=False)
             logger.info(
@@ -104,12 +105,10 @@ class SolverState:
         self._read_saved_state()
         if isinstance(value, np.ndarray):
             if not np.array_equal(self._saved_state[key], value):
-                msg = "saved_state value not recovered on reread"
-                raise RuntimeError(msg)
+                raise RuntimeError("saved_state value not recovered on reread")
         else:
             if not self._saved_state[key] == value:
-                msg = "saved_state value not recovered on reread"
-                raise RuntimeError(msg)
+                raise RuntimeError("saved_state value not recovered on reread")
 
     def get_value_saved_state(self, key):
         """get a value from the saved_state dictionary"""
@@ -125,7 +124,7 @@ class SolverState:
 
     def _step_log_string(self, stepval, per_iteration):
         """string that gets appended to step_log corresponding to stepval"""
-        return "%02d:%s" % (self.get_iteration(), stepval) if per_iteration else stepval
+        return f"{self.get_iteration():02}:{stepval}" if per_iteration else stepval
 
     def _write_saved_state(self):
         """write _saved_state to a JSON file"""
