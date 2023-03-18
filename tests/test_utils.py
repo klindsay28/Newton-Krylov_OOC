@@ -2,6 +2,7 @@
 
 import os
 
+import numpy as np
 import pytest
 
 from nk_ooc import utils
@@ -72,3 +73,152 @@ def test_isclose_all_vars():
     assert not utils.isclose_all_vars(fname_1, fname_2, rtol=0.0, atol=0.0)
     assert not utils.isclose_all_vars(fname_1, fname_2, rtol=1.0e-8, atol=1.0e-8)
     assert utils.isclose_all_vars(fname_1, fname_2, rtol=1.0e-5, atol=1.0e-5)
+
+
+@pytest.mark.parametrize("lout", [True, False])
+def test_min_by_region(lout):
+    """test min_by_region with specific values"""
+    vals = np.arange(24.0).reshape((4, 6))
+    region_mask = np.empty(vals.shape, dtype=np.int32)
+
+    # single region_mask value
+    region_mask[:] = 1
+    region_cnt = region_mask.max()
+    expected = np.array(0.0)
+    if lout:
+        out = np.empty(region_cnt)
+        utils.min_by_region(region_cnt, region_mask, vals, out=out)
+    else:
+        out = utils.min_by_region(region_cnt, region_mask, vals)
+    assert (out == expected).all()
+
+    # region_mask equals 1st index + 1
+    for ind in range(vals.shape[0]):
+        region_mask[ind, :] = 1 + ind
+    region_cnt = region_mask.max()
+    expected = vals[:, 0]
+    if lout:
+        out = np.empty(region_cnt)
+        utils.min_by_region(region_cnt, region_mask, vals, out=out)
+    else:
+        out = utils.min_by_region(region_cnt, region_mask, vals)
+    assert (out == expected).all()
+
+    # region_mask equals 1st index // 2 + 1
+    for ind in range(vals.shape[0]):
+        region_mask[ind, :] = 1 + ind // 2
+    region_cnt = region_mask.max()
+    expected = vals[::2, 0]
+    if lout:
+        out = np.empty(region_cnt)
+        utils.min_by_region(region_cnt, region_mask, vals, out=out)
+    else:
+        out = utils.min_by_region(region_cnt, region_mask, vals)
+    assert (out == expected).all()
+
+    # region_mask equals 2nd index + 1
+    for ind in range(vals.shape[1]):
+        region_mask[:, ind] = 1 + ind
+    region_cnt = region_mask.max()
+    expected = vals[0, :]
+    if lout:
+        out = np.empty(region_cnt)
+        utils.min_by_region(region_cnt, region_mask, vals, out=out)
+    else:
+        out = utils.min_by_region(region_cnt, region_mask, vals)
+    assert (out == expected).all()
+
+    # region_mask equals 2nd index // 2 + 1
+    for ind in range(vals.shape[1]):
+        region_mask[:, ind] = 1 + ind // 2
+    region_cnt = region_mask.max()
+    expected = vals[0, ::2]
+    if lout:
+        out = np.empty(region_cnt)
+        utils.min_by_region(region_cnt, region_mask, vals, out=out)
+    else:
+        out = utils.min_by_region(region_cnt, region_mask, vals)
+    assert (out == expected).all()
+
+
+@pytest.mark.parametrize("lout", [True, False])
+def test_comp_scalef(lout):
+    """test comp_scalef_lob, comp_scalef_upb with specific values"""
+
+    region_cnt = 7
+    shape = (3, region_cnt)
+    region_mask = np.zeros(shape, dtype=np.int32)
+    base = np.ones(shape)
+    increment = np.ones(shape)
+    lob = 0.0
+    expected = np.empty(region_cnt)
+
+    region_ind = 0
+
+    # base > lob, all increments positive, scalef = 1
+    region_mask[:, region_ind] = region_ind + 1
+    expected[region_ind] = 1.0
+
+    region_ind += 1
+
+    # base > lob, some increments negative, base + increment > lob, scalef = 1
+    region_mask[:, region_ind] = region_ind + 1
+    increment[0, region_ind] = -0.5
+    expected[region_ind] = 1.0
+
+    region_ind += 1
+
+    # base > lob, some increments negative, base + increment == lob, scalef = 1
+    region_mask[:, region_ind] = region_ind + 1
+    increment[0, region_ind] = -0.5
+    increment[1, region_ind] = -1.0
+    expected[region_ind] = 1.0
+
+    region_ind += 1
+
+    # base > lob, some increments negative, base + increment < lob, scalef = .5
+    region_mask[:, region_ind] = region_ind + 1
+    increment[0, region_ind] = -0.5
+    increment[1, region_ind] = -1.0
+    increment[2, region_ind] = -2.0
+    expected[region_ind] = 0.5
+
+    region_ind += 1
+
+    # base == lob, all increments positive, scalef = 1
+    region_mask[:, region_ind] = region_ind + 1
+    base[:, region_ind] = lob
+    expected[region_ind] = 1.0
+
+    region_ind += 1
+
+    # base == lob, some increments zero, scalef = 1
+    region_mask[:, region_ind] = region_ind + 1
+    base[:, region_ind] = lob
+    increment[0, region_ind] = 0.0
+    expected[region_ind] = 1.0
+
+    region_ind += 1
+
+    # base == lob, some increments negative, scalef = 0
+    region_mask[:, region_ind] = region_ind + 1
+    base[:, region_ind] = lob
+    increment[0, region_ind] = 0.0
+    increment[1, region_ind] = -1.0
+    expected[region_ind] = 0.0
+
+    assert region_cnt == region_mask.max()
+
+    if lout:
+        out = np.empty(region_cnt)
+        utils.comp_scalef_lob(region_cnt, region_mask, base, increment, lob, out=out)
+    else:
+        out = utils.comp_scalef_lob(region_cnt, region_mask, base, increment, lob)
+    assert (out == expected).all()
+
+    if lout:
+        out = np.empty(region_cnt)
+        utils.comp_scalef_upb(region_cnt, region_mask, -base, -increment, -lob, out=out)
+    else:
+        out = utils.comp_scalef_upb(region_cnt, region_mask, -base, -increment, -lob)
+    assert (out == expected).all()

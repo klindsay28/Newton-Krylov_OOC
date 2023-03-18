@@ -87,23 +87,36 @@ class TracerModuleStateBase:
         apply limiter scalef to self to ensure base + scalef * self is within bounds
         return scalef value
         """
-        logger = logging.getLogger(__name__)
-
         if not self.has_bounds():
             return 1.0
 
-        scalef = 1.0
-        for tracer_name in self._tracer_module_def["tracers"]:
+        scalef = np.ones(self.model_config_obj.region_cnt)
+        scalef_tracer = np.ones(self.model_config_obj.region_cnt)
+        for tracer_ind, tracer_name in enumerate(self._tracer_module_def["tracers"]):
             lob, upb = self.get_bounds(tracer_name)
-            if lob is None and upb is None:
-                continue
-            self_vals = self.get_tracer_vals(tracer_name)
-            base_vals = base.get_tracer_vals(tracer_name)
-            scalef = min(scalef, utils.comp_scalef_lob(base_vals, self_vals, lob))
-            scalef = min(scalef, utils.comp_scalef_upb(base_vals, self_vals, upb))
+            if lob is not None:
+                utils.comp_scalef_lob(
+                    self.model_config_obj.region_cnt,
+                    self.model_config_obj.region_mask,
+                    base._vals[tracer_ind, ...],
+                    self._vals[tracer_ind, ...],
+                    lob,
+                    out=scalef_tracer,
+                )
+                np.minimum(scalef, scalef_tracer, out=scalef)
+            if upb is not None:
+                utils.comp_scalef_upb(
+                    self.model_config_obj.region_cnt,
+                    self.model_config_obj.region_mask,
+                    base._vals[tracer_ind, ...],
+                    self._vals[tracer_ind, ...],
+                    upb,
+                    out=scalef_tracer,
+                )
+                np.minimum(scalef, scalef_tracer, out=scalef)
 
-        if scalef < 1.0:
-            logger.info("applying scalef[%s]=%e", self.name, scalef)
+        if (scalef < 1.0).any():
+            self.log_vals("applying scalef", scalef)
             self *= scalef
 
         return scalef

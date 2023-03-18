@@ -83,7 +83,7 @@ class NewtonSolver(SolverBase):
 
         vars_metadata["increment_scalef"] = {
             "category": "per_tracer_module",
-            "dimensions": ("iteration",),
+            "dimensions": ("iteration", "region"),
             "attrs": {
                 "long_name": (
                     "factor applied to {tracer_module_name} Newton increment to "
