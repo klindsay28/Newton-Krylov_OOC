@@ -83,9 +83,9 @@ class ModelStateBase:
         apply limiter scalef to self to ensure base + scalef * self is within bounds
         return scalef values
         """
-        scalef = np.empty(self.tracer_modules.shape)
+        scalef = np.empty((len(self.tracer_modules), self.model_config_obj.region_cnt))
         for ind, tracer_module in enumerate(self.tracer_modules):
-            scalef[ind] = tracer_module.apply_limiter(base.tracer_modules[ind])
+            scalef[ind, :] = tracer_module.apply_limiter(base.tracer_modules[ind])
         return scalef
 
     def apply_precond_jacobian(self, precond_fname, res_fname, solver_state):

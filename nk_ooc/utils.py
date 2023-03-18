@@ -492,23 +492,60 @@ def gen_forcing_fcn(fname, varname, additional_dims_out, scalef=1.0):
 # utilities related to numpy arrays
 
 
-def comp_scalef_lob(base, increment, lob):
-    """compute largest 0<scalef<1 to ensure base + scalef * increment >= lob"""
+def min_by_region(region_cnt, region_mask, vals, out=None):
+    """
+    compute min of vals for each value of region_mask
+    result is stored in out, if present
+    out is assumed to be a 1d numpy array of shape (region_cnt,)
+    """
+    if out is None:
+        out = np.empty(region_cnt)
+    else:
+        if out.shape != (region_cnt,):
+            raise ValueError(f"unexpected out.shape={out.shape}")
+    for region_ind in range(out.size):
+        mask = region_mask == region_ind + 1
+        out[region_ind] = np.amin(vals, initial=np.inf, where=mask)
+    return out
+
+
+def comp_scalef_lob(region_cnt, region_mask, base, increment, lob, out=None):
+    """
+    compute largest 0<scalef<1, by region, to ensure base + scalef * increment >= lob
+    result is stored in out, if present
+    out is assumed to be a 1d numpy array of shape (region_cnt,)
+    """
+    if out is None:
+        out = np.empty(region_cnt)
+    else:
+        if out.shape != (region_cnt,):
+            raise ValueError(f"unexpected out.shape={out.shape}")
     if lob is None or (base + increment >= lob).all():
-        return 1.0
+        out[:] = 1.0
+        return out
     if (base < lob).any():
         raise ValueError("base < lob")
-    scalef = np.ones(base.shape)
-    np.divide(lob - base, increment, out=scalef, where=(base + increment < lob))
-    return scalef.min()
+    scalef_all = np.ones(base.shape)
+    np.divide(lob - base, increment, out=scalef_all, where=(base + increment < lob))
+    return min_by_region(region_cnt, region_mask, scalef_all, out)
 
 
-def comp_scalef_upb(base, increment, upb):
-    """compute smallest 0<scalef<1 to ensure base + scalef * increment <= upb"""
+def comp_scalef_upb(region_cnt, region_mask, base, increment, upb, out=None):
+    """
+    compute largest 0<scalef<1, by region, to ensure base + scalef * increment <= upb
+    result is stored in out, if present
+    out is assumed to be a 1d numpy array of shape (region_cnt,)
+    """
+    if out is None:
+        out = np.empty(region_cnt)
+    else:
+        if out.shape != (region_cnt,):
+            raise ValueError(f"unexpected out.shape={out.shape}")
     if upb is None or (base + increment <= upb).all():
-        return 1.0
+        out[:] = 1.0
+        return out
     if (base > upb).any():
         raise ValueError("base > upb")
-    scalef = np.ones(base.shape)
-    np.divide(upb - base, increment, out=scalef, where=(base + increment > upb))
-    return scalef.min()
+    scalef_all = np.ones(base.shape)
+    np.divide(upb - base, increment, out=scalef_all, where=(base + increment > upb))
+    return min_by_region(region_cnt, region_mask, scalef_all, out)
