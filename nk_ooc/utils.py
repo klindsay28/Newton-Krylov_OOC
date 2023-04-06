@@ -300,10 +300,10 @@ def extract_dimensions(fptr, names):
     dimension or variable names.
     Raise a ValueError if a name from names is unknown.
     """
-    if isinstance(names, str):
-        return extract_dimensions(fptr, [names])
-    if not isinstance(names, (tuple, list)):
+    if not isinstance(names, (str, tuple, list)):
         raise TypeError(f"names must be a str, tuple, or list, not {type(names)}")
+    if isinstance(names, str):
+        names = [names]
     res = {}
     for name in names:
         if name in fptr.dimensions:
