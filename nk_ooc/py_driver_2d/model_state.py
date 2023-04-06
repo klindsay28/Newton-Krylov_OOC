@@ -64,37 +64,6 @@ class ModelState(ModelStateBase):
 
         ModelState.class_vars_set = True
 
-    def get_tracer_vals_all(self):
-        """get all tracer values"""
-        res_vals = np.empty((self.tracer_cnt, len(self.depth), len(self.ypos)))
-        ind0 = 0
-        for tracer_module in self.tracer_modules:
-            cnt = tracer_module.tracer_cnt
-            res_vals[ind0 : ind0 + cnt, :] = tracer_module.get_tracer_vals_all()
-            ind0 = ind0 + cnt
-        return res_vals
-
-    def set_tracer_vals_all(self, vals, reseat_vals=False):
-        """set all tracer values"""
-        ind0 = 0
-        if reseat_vals:
-            tracer_modules_orig = self.tracer_modules
-            self.tracer_modules = np.empty(len(tracer_modules_orig), dtype=object)
-            for ind, tracer_module_orig in enumerate(tracer_modules_orig):
-                self.tracer_modules[ind] = copy.copy(tracer_module_orig)
-                cnt = tracer_module_orig.tracer_cnt
-                self.tracer_modules[ind].set_tracer_vals_all(
-                    vals[ind0 : ind0 + cnt, :], reseat_vals=reseat_vals
-                )
-                ind0 = ind0 + cnt
-        else:
-            for tracer_module in self.tracer_modules:
-                cnt = tracer_module.tracer_cnt
-                tracer_module.set_tracer_vals_all(
-                    vals[ind0 : ind0 + cnt, :], reseat_vals=reseat_vals
-                )
-                ind0 = ind0 + cnt
-
     def comp_fcn(self, res_fname, solver_state, hist_fname=None):
         """evalute function being solved with Newton's method"""
         logger = logging.getLogger(__name__)
@@ -113,20 +82,19 @@ class ModelState(ModelStateBase):
         else:
             t_eval = np.array(self.time_range)
 
-        # memory for result, use it initially for passing initial value to solve_ivp
-        res_vals = self.get_tracer_vals_all()
+        # ModelState instance for result
+        res_ms = copy.copy(self)
+        res_ms.tracer_modules = np.empty(len(self.tracer_modules), dtype=object)
+        for tracer_module_ind, tracer_module in enumerate(self.tracer_modules):
+            res_ms.tracer_modules[tracer_module_ind] = copy.copy(tracer_module)
 
         fptr_hist = self._hist_def_dimensions(hist_fname)
         self._hist_def_vars_tracer_module_independent(fptr_hist)
 
-        shape = (len(self.depth), len(self.ypos))
-
         # solve ODEs for each tracer module independently, using scipy.integrate
-        ind0 = 0
-        for tracer_module in self.tracer_modules:
+        for tracer_module_ind, tracer_module in enumerate(res_ms.tracer_modules):
             self._hist_def_vars(tracer_module, fptr_hist)
-            cnt = tracer_module.tracer_cnt
-            tracer_vals_init = res_vals[ind0 : ind0 + cnt, :].reshape(-1)
+            tracer_vals_init = tracer_module.get_tracer_vals_all().reshape(-1)
             # assume sparsity pattern does not change in time
             jac_sparsity = tracer_module.comp_jacobian_sparsity(
                 self.time_range[0], tracer_vals_init, self.processes
@@ -144,20 +112,16 @@ class ModelState(ModelStateBase):
                 jac=tracer_module.comp_jacobian,
                 jac_sparsity=jac_sparsity,
             )
-            if ind0 == 0:
+            if tracer_module_ind == 0:
                 self._hist_write_tracer_module_independent(sol, fptr_hist)
             self._hist_write(tracer_module, sol, fptr_hist)
-            res_vals[ind0 : ind0 + cnt, :] = (
-                sol.y[:, -1].reshape((cnt,) + shape) - res_vals[ind0 : ind0 + cnt, :]
+            shape = (tracer_module.tracer_cnt, len(self.depth), len(self.ypos))
+            tracer_module.set_tracer_vals_all(
+                (sol.y[:, -1] - tracer_vals_init).reshape(shape), reseat_vals=True
             )
-            ind0 = ind0 + cnt
 
         if fptr_hist is not None:
             fptr_hist.close()
-
-        # ModelState instance for result
-        res_ms = copy.copy(self)
-        res_ms.set_tracer_vals_all(res_vals, reseat_vals=True)
 
         caller = f"{class_name(self)}.comp_fcn"
         res_ms.comp_fcn_postprocess(res_fname, caller)

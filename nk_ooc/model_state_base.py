@@ -67,10 +67,6 @@ class ModelStateBase:
                 tracer_module_name, fname, **kwargs
             )
 
-        self.tracer_cnt = sum(
-            tracer_module.tracer_cnt for tracer_module in self.tracer_modules
-        )
-
     def comp_fcn(self, res_fname, solver_state, hist_fname=None):
         """
         evalute function being solved with Newton's method
