@@ -213,7 +213,7 @@ class NewtonSolver(SolverBase):
 
             # at this point in the execution flow, only keep latest Armijo hist file
             if armijo_ind > 0:
-                os.remove(self._fname(f"prov_hist_Armijo_{(armijo_ind + 1):02}"))
+                os.remove(self._fname(f"prov_hist_Armijo_{(armijo_ind - 1):02}"))
 
             logger.info("Armijo_ind=%d", armijo_ind)
 
