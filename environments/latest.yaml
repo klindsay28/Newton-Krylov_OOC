@@ -24,6 +24,7 @@ dependencies:
 - packaging
 - pyyaml
 - scipy
+- xarray
 
 # test_problem requirements
 - pint
@@ -39,6 +40,5 @@ dependencies:
 # notebooks
 - ipykernel
 - matplotlib
-- xarray
 - nc-time-axis
 - cftime

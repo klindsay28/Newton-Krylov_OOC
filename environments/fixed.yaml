@@ -25,6 +25,7 @@ dependencies:
 - packaging=21.3
 - pyyaml=6.0
 - scipy=1.9.1
+- xarray=2022.6.0
 
 # test_problem requirements
 - pint=0.19.2
@@ -41,6 +42,5 @@ dependencies:
 # notebooks
 - ipykernel=6.15.3
 - matplotlib=3.6.0
-- xarray=2022.6.0
 - nc-time-axis=1.4.1
 - cftime=1.6.1
