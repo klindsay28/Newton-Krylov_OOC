@@ -40,8 +40,8 @@ The ``setup_solver.sh`` script does the following:
    The work directory contents for test_problem are small.
 #. Invoke ``gen_invoker_script``, to generate the solver's invocation script.
    The location of the solver's invocation script, which defaults to a file in the work directory, is specified by ``invoker_script_fname`` in the cfg files.
-#. Create a vertical grid file.
-   The location of the grid file, which defaults to a file in the work directory, is specified by ``grid_weight_fname`` in the cfg files.
+#. Create grid_vars file.
+   The location of the grid file, which defaults to a file in the work directory, is specified by ``grid_vars_fname`` in the cfg files.
    The default vertical grid has 30 layers spanning 900 m.
    The ratio of the bottom-layer thickness to the top-layer thickness is 5.0, yielding a top-layer thickness of 10 m.
    The defaults can be overwritten with arguments to the ``setup_solver.sh`` script.
@@ -51,7 +51,6 @@ The ``setup_solver.sh`` script does the following:
 #. Run the model forward from the generated initial state for a number of years.
    The number of years run, which defaults to 2, can be modified by with the ``--fp_cnt`` argument to the ``setup_solver.sh`` script.
    The result of these forward model runs is written to ``init_iterate_fname``, which is defined in the cfg files.
-
 
 ------
 Step 3

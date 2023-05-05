@@ -15,8 +15,6 @@ depth_nlevs = 20
 ypos_nlevs = 3
 max_abs_vvel = 0.0
 horiz_mix_coeff = 0.0
-region_mask_fname = %(grid_weight_fname)s
-region_mask_varname = region_mask
 EOF
 
 input_dir=`pwd`/input/py_driver_2d

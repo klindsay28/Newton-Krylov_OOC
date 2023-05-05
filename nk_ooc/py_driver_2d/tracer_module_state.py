@@ -3,7 +3,7 @@
 import logging
 
 import numpy as np
-from netCDF4 import Dataset
+import xarray as xr
 from scipy import sparse
 
 from ..tracer_module_state_base import TracerModuleStateBase
@@ -11,7 +11,6 @@ from ..utils import (
     create_dimensions_verify,
     create_vars,
     datatype_sname,
-    extract_dimensions,
     units_str_format,
 )
 
@@ -19,7 +18,7 @@ from ..utils import (
 class TracerModuleState(TracerModuleStateBase):
     """
     Derived class for representing a collection of model tracers.
-    It implements _read_vals and dump.
+    It implements _load_dataset and dump.
     """
 
     def __init__(self, tracer_module_name, fname, model_config_obj, depth, ypos):
@@ -28,25 +27,30 @@ class TracerModuleState(TracerModuleStateBase):
 
         super().__init__(tracer_module_name, fname, model_config_obj)
 
-    def _read_vals(self, fname):
-        """return tracer values and dimension names and lengths, read from fname)"""
+    def _load_dataset(self, fname):
+        """return xarray Dataset of tracer module tracers"""
         logger = logging.getLogger(__name__)
         logger.debug('tracer_module_name="%s", fname="%s"', self.name, fname)
         if fname == "zeros":
-            tracers_metadata = self._tracer_module_def["tracers"]
-            vals = np.zeros((len(tracers_metadata), len(self.depth), len(self.ypos)))
-            return vals, {"depth": len(self.depth), "ypos": len(self.ypos)}
+            ds = xr.Dataset()
+            for tracer_name in self._tracer_module_def["tracers"]:
+                tracer_vals = np.zeros((len(self.depth), len(self.ypos)))
+                ds[tracer_name] = xr.DataArray(
+                    tracer_vals, dims=(self.depth.axisname, self.ypos.axisname)
+                )
+            return ds
         if fname == "gen_init_iterate":
+            ds = xr.Dataset()
             tracers_metadata = self._tracer_module_def["tracers"]
-            vals = np.empty((len(tracers_metadata), len(self.depth), len(self.ypos)))
-            for tracer_ind, tracer_metadata in enumerate(tracers_metadata.values()):
+            shape = (len(self.depth), len(self.ypos))
+            for tracer_name, tracer_metadata in tracers_metadata.items():
                 if "init_iterate_vals" in tracer_metadata:
                     column_vals = np.interp(
                         self.depth.mid,
                         tracer_metadata["init_iterate_val_depths"],
                         tracer_metadata["init_iterate_vals"],
                     )
-                    vals[tracer_ind, :] = column_vals[:, np.newaxis]
+                    tracer_vals = np.broadcast_to(column_vals[:, np.newaxis], shape)
                 elif "shadows" in tracer_metadata:
                     shadowed_tracer = tracer_metadata["shadows"]
                     shadow_tracer_metadata = tracers_metadata[shadowed_tracer]
@@ -55,39 +59,14 @@ class TracerModuleState(TracerModuleStateBase):
                         shadow_tracer_metadata["init_iterate_val_depths"],
                         shadow_tracer_metadata["init_iterate_vals"],
                     )
-                    vals[tracer_ind, :] = column_vals[:, np.newaxis]
+                    tracer_vals = np.broadcast_to(column_vals[:, np.newaxis], shape)
                 else:
-                    raise ValueError(
-                        "gen_init_iterate failure for "
-                        f"{self.tracer_names()[tracer_ind]}"
-                    )
-            return vals, {"depth": len(self.depth), "ypos": len(self.ypos)}
-        with Dataset(fname, mode="r") as fptr:
-            fptr.set_auto_mask(False)
-            # get dimensions from first variable
-            varname = self.tracer_names()[0]
-            dimensions = extract_dimensions(fptr, varname)
-            # all tracers are stored in a single array
-            # tracer index is the leading index
-            vals = np.empty((self.tracer_cnt,) + tuple(dimensions.values()))
-            # check that all vars have the same dimensions
-            for tracer_name in self.tracer_names():
-                if extract_dimensions(fptr, tracer_name) != dimensions:
-                    raise ValueError(
-                        "not all vars have same dimensions, tracer_module_name="
-                        f"{self.name}, fname={fname}"
-                    )
-            # read values
-            if len(dimensions) > 3:
-                raise ValueError(
-                    "ndim too large (for implementation of dot_prod), "
-                    f"tracer_module_name={self.name}, fname={fname}, "
-                    f"ndim={len(dimensions)}"
+                    raise ValueError(f"gen_init_iterate failure for {tracer_name}")
+                ds[tracer_name] = xr.DataArray(
+                    tracer_vals, dims=(self.depth.axisname, self.ypos.axisname)
                 )
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                var = fptr.variables[tracer_name]
-                vals[tracer_ind, :] = var[:]
-        return vals, dimensions
+            return ds
+        return super()._load_dataset(fname)
 
     def dump(self, fptr, action):
         """
@@ -95,23 +74,23 @@ class TracerModuleState(TracerModuleStateBase):
         to an open file
         """
         if action == "define":
-            create_dimensions_verify(fptr, self._dimensions)
             for axis in [self.depth, self.ypos]:
                 create_dimensions_verify(fptr, axis.dump_dimensions())
                 if axis.axisname not in fptr.variables:
                     create_vars(fptr, axis.dump_vars_metadata())
             # define all tracers
             vars_metadata = {}
-            dimnames = tuple(self._dimensions.keys())
-            for tracer_name in self.tracer_names():
-                vars_metadata[tracer_name] = {"dimensions": dimnames}
+            for tracer_name in self._tracer_module_def["tracers"]:
+                vars_metadata[tracer_name] = {
+                    "dimensions": self._dataset[tracer_name].dims
+                }
             create_vars(fptr, vars_metadata)
         elif action == "write":
             for axis in [self.depth, self.ypos]:
                 axis.dump_write(fptr)
             # write all tracers
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                fptr.variables[tracer_name][:] = self._vals[tracer_ind, :]
+            for tracer_name in self._tracer_module_def["tracers"]:
+                fptr.variables[tracer_name][:] = self.get_tracer_vals(tracer_name)
         else:
             raise ValueError(f"unknown action={action}")
         return self
@@ -138,14 +117,14 @@ class TracerModuleState(TracerModuleStateBase):
             # tracer itself
             varname = tracer_like_name
             res[varname] = {
-                "dimensions": ("time", "depth", "ypos"),
+                "dimensions": ("time", self.depth.axisname, self.ypos.axisname),
                 "attrs": tracer_metadata["attrs"].copy(),
             }
 
             # mean in time
             varname = f"{tracer_like_name}_time_mean"
             res[varname] = {
-                "dimensions": ("depth", "ypos"),
+                "dimensions": (self.depth.axisname, self.ypos.axisname),
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", time mean"
@@ -153,7 +132,7 @@ class TracerModuleState(TracerModuleStateBase):
             # anomaly in time
             varname = f"{tracer_like_name}_time_anom"
             res[varname] = {
-                "dimensions": ("time", "depth", "ypos"),
+                "dimensions": ("time", self.depth.axisname, self.ypos.axisname),
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", time anomaly"
@@ -161,7 +140,7 @@ class TracerModuleState(TracerModuleStateBase):
             # std dev in time
             varname = f"{tracer_like_name}_time_std"
             res[varname] = {
-                "dimensions": ("depth", "ypos"),
+                "dimensions": (self.depth.axisname, self.ypos.axisname),
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", time std dev"
@@ -169,7 +148,7 @@ class TracerModuleState(TracerModuleStateBase):
             # end state minus start state
             varname = f"{tracer_like_name}_time_delta"
             res[varname] = {
-                "dimensions": ("depth", "ypos"),
+                "dimensions": (self.depth.axisname, self.ypos.axisname),
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", end state minus start state"
@@ -177,7 +156,7 @@ class TracerModuleState(TracerModuleStateBase):
             # depth integral
             varname = f"{tracer_like_name}_depth_int"
             res[varname] = {
-                "dimensions": ("time", "ypos"),
+                "dimensions": ("time", self.ypos.axisname),
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", depth integral"
@@ -189,7 +168,7 @@ class TracerModuleState(TracerModuleStateBase):
             # mean in ypos
             varname = f"{tracer_like_name}_ypos_mean"
             res[varname] = {
-                "dimensions": ("time", "depth"),
+                "dimensions": ("time", self.depth.axisname),
                 "attrs": tracer_metadata["attrs"].copy(),
             }
             res[varname]["attrs"]["long_name"] += ", ypos mean"
@@ -324,15 +303,15 @@ class TracerModuleState(TracerModuleStateBase):
             # tracer itself
             res[tracer_name] = {
                 "datatype": datatype,
-                "dimensions": ("iteration", "depth", "ypos"),
+                "dimensions": ("iteration", self.depth.axisname, self.ypos.axisname),
                 "attrs": attrs,
             }
 
             # ypos average
-            varname_stats = "_".join([tracer_name, "mean", "ypos"])
+            varname_stats = "_".join([tracer_name, "mean", self.ypos.axisname])
             res[varname_stats] = {
                 "datatype": datatype,
-                "dimensions": ("iteration", "depth"),
+                "dimensions": ("iteration", self.depth.axisname),
                 "attrs": attrs,
             }
         return res
@@ -357,6 +336,6 @@ class TracerModuleState(TracerModuleStateBase):
             res[tracer_name] = np.einsum("i,i...", time_weights, tracer_vals)
 
             # ypos average
-            varname_stats = "_".join([tracer_name, "mean", "ypos"])
+            varname_stats = "_".join([tracer_name, "mean", self.ypos.axisname])
             res[varname_stats] = np.einsum("j,...j", ypos_weights, res[tracer_name])
         return res

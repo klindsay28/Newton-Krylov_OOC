@@ -312,7 +312,7 @@ def spatial_axis_defn_dict(axisname="depth", trap_unknown=True, **kwargs):
     }
 
     # set item defaults, based on axisname argument
-    if axisname == "depth":
+    if axisname.lower() == "depth":
         defn_dict["units"]["value"] = "m"
         defn_dict["nlevs"]["value"] = 30
         defn_dict["edge_start"]["value"] = 0.0

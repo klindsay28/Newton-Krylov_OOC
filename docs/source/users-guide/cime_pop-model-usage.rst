@@ -109,10 +109,10 @@ The ``setup_solver.sh`` script does the following:
    The location of the irf file, which defaults to a file in the work directory, is specified by ``irf_fname`` in the cfg files.
    The contents of this file are used in the preconditioner in the Krylov solver.
    Options for specifying the inputs to the mean irf file are in the cfg files.
-#. Create grid weights and region files.
-   The location of these files, which defaults to files in the work directory, are specified by ``grid_weight_fname`` and ``region_mask_fname`` in the cfg files.
-   These files are generated from the irf file.
-   The solver configuration function is run, to ensure that the generated files are
+#. Create grid_vars file.
+   The location of this file, which defaults to being in the work directory, is specified by ``grid_vars_fname`` in the cfg files.
+   This file is generated from the irf file.
+   The solver configuration function is run, to ensure that the generated files can be used by the solver.
 
 
 ~~~~~~

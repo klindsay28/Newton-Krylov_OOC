@@ -6,10 +6,10 @@ conda env export --no-builds
 err_cnt=0
 
 echo running isort
-isort --check-only nk_ooc tests || err_cnt=$((err_cnt+1))
+isort --diff nk_ooc tests || err_cnt=$((err_cnt+1))
 
 echo running black
-black --check . || err_cnt=$((err_cnt+1))
+black --diff . || err_cnt=$((err_cnt+1))
 
 echo running flake8
 flake8 || err_cnt=$((err_cnt+1))

@@ -48,10 +48,10 @@ class ModelState(ModelStateBase):
 
         ModelState.time_range = (0.0, 365.0 * 86400.0)
         ModelState.depth = spatial_axis_from_file(
-            fname=modelinfo["grid_weight_fname"], axisname="depth"
+            fname=modelinfo["grid_vars_fname"], axisname=modelinfo["depth_axisname"]
         )
         ModelState.ypos = spatial_axis_from_file(
-            fname=modelinfo["grid_weight_fname"], axisname="ypos"
+            fname=modelinfo["grid_vars_fname"], axisname=modelinfo["ypos_axisname"]
         )
         ModelState.processes = {}
         ModelState.processes["advection"] = Advection(

@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 
-from .utils import isclose_all_vars
+from .utils import isclose_all_vars, metadata_same
 
 
 def parse_args(args_list_in=None):
@@ -41,7 +41,11 @@ def main(args):
     logger.info("expr_fname = %s", expr_fname)
     logger.info("baseline_fname = %s", baseline_fname)
 
-    res = isclose_all_vars(expr_fname, baseline_fname, rtol=args.rtol, atol=args.atol)
+    res = True
+    if not metadata_same(expr_fname, baseline_fname):
+        res = False
+    if not isclose_all_vars(expr_fname, baseline_fname, rtol=args.rtol, atol=args.atol):
+        res = False
     sys.exit(0 if res else 1)
 
 

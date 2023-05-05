@@ -3,7 +3,6 @@
 import logging
 
 import numpy as np
-from netCDF4 import Dataset
 
 from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import (
@@ -17,40 +16,15 @@ from ..utils import (
 class TracerModuleState(TracerModuleStateBase):
     """
     Derived class for representing a collection of model tracers.
-    It implements _read_vals and dump.
+    It implements _load_dataset and dump.
     """
 
-    def _read_vals(self, fname):
-        """return tracer values and dimension names and lengths, read from fname)"""
+    def _load_dataset(self, fname):
+        """return xarray Dataset of tracer module tracers"""
         logger = logging.getLogger(__name__)
         logger.debug('tracer_module_name="%s", fname="%s"', self.name, fname)
-        suffix = "_CUR"
-        with Dataset(fname, mode="r") as fptr:
-            fptr.set_auto_mask(False)
-            # get dimensions from first variable
-            varname = self.tracer_names()[0] + suffix
-            dimensions = extract_dimensions(fptr, varname)
-            # all tracers are stored in a single array
-            # tracer index is the leading index
-            vals = np.empty((self.tracer_cnt,) + tuple(dimensions.values()))
-            # check that all vars have the same dimensions
-            for tracer_name in self.tracer_names():
-                if extract_dimensions(fptr, tracer_name + suffix) != dimensions:
-                    raise ValueError(
-                        "not all vars have same dimensions, tracer_module_name="
-                        f"{self.name}, fname={fname}"
-                    )
-            # read values
-            if len(dimensions) > 3:
-                raise ValueError(
-                    "ndim too large (for implementation of dot_prod), "
-                    f"tracer_module_name={self.name}, fname={fname}, "
-                    f"ndim={len(dimensions)}"
-                )
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                var = fptr.variables[tracer_name + suffix]
-                vals[tracer_ind, :] = var[:]
-        return vals, dimensions
+        self._tracer_varname_suffix = "CUR"
+        return super()._load_dataset(fname)
 
     def dump(self, fptr, action):
         """
@@ -58,19 +32,22 @@ class TracerModuleState(TracerModuleStateBase):
         to an open file
         """
         if action == "define":
-            create_dimensions_verify(fptr, self._dimensions)
-            dimnames = tuple(self._dimensions.keys())
-            # define all tracers, with _CUR and _OLD suffixes
+            create_dimensions_verify(fptr, dict(self._dataset.dims))
+            # define all tracers, with CUR and OLD suffixes
             vars_metadata = {}
-            for tracer_name in self.tracer_names():
-                for suffix in ["_CUR", "_OLD"]:
-                    vars_metadata[tracer_name + suffix] = {"dimensions": dimnames}
+            for tracer_name in self._tracer_module_def["tracers"]:
+                dimnames = self._dataset[tracer_name].dims
+                for suffix in ["CUR", "OLD"]:
+                    varname = f"{tracer_name}_{suffix}"
+                    vars_metadata[varname] = {"dimensions": dimnames}
             create_vars(fptr, vars_metadata)
         elif action == "write":
-            # write all tracers, with _CUR and _OLD suffixes
-            for tracer_ind, tracer_name in enumerate(self.tracer_names()):
-                for suffix in ["_CUR", "_OLD"]:
-                    fptr.variables[tracer_name + suffix][:] = self._vals[tracer_ind, :]
+            # write all tracers, with CUR and OLD suffixes
+            for tracer_name in self._tracer_module_def["tracers"]:
+                tracer_vals = self.get_tracer_vals(tracer_name)
+                for suffix in ["CUR", "OLD"]:
+                    varname = f"{tracer_name}_{suffix}"
+                    fptr.variables[varname][:] = tracer_vals
         else:
             raise ValueError(f"unknown action={action}")
         return self
@@ -78,7 +55,7 @@ class TracerModuleState(TracerModuleStateBase):
     def stats_dimnames(self, fptr):
         """return dimnames to be used in stats file for this tracer module"""
         # base result on first tracer, assume they are the same for all tracers
-        tracer_name = self.tracer_names()[0]
+        tracer_name = list(self._tracer_module_def["tracers"])[0]
         # omit dimension[-1], which is reduced over in stats file
         dimnames = fptr.variables[tracer_name].dimensions[:-1]
         # drop dimension[0] if it is time
@@ -167,28 +144,25 @@ class TracerModuleState(TracerModuleStateBase):
 
         # return values for tracer-like variables
 
-        grid_weight = self.model_config_obj.grid_weight
-        region_mask = self.model_config_obj.region_mask
-
-        # allocate space for grid-i average computations
-        isum_shape = (self.model_config_obj.region_cnt,) + grid_weight.shape[:-1]
-        denom_isum = np.empty(isum_shape)
-        numer_isum = np.empty(isum_shape)
-        vals_isum = np.empty(isum_shape)
-
-        # allocate space for grid-ij average computations
-        ijsum_shape = (self.model_config_obj.region_cnt,) + grid_weight.shape[:-2]
-        denom_ijsum = np.empty(ijsum_shape)
-        numer_ijsum = np.empty(ijsum_shape)
-        vals_ijsum = np.empty(ijsum_shape)
+        # base result on first tracer, assume they are the same for all tracers
+        tracer_name = list(self._tracer_module_def["tracers"])[0]
+        grid_vars = self.get_grid_vars(tracer_name)
+        grid_weight = grid_vars["grid_weight"]
+        region_mask = grid_vars["region_mask"]
 
         # compute denominators outside tracer loop,
         # as they are independent of the tracer
+        isum_shape = (self.model_config_obj.region_cnt,) + grid_weight.shape[:-1]
+        denom_isum = np.empty(isum_shape)
         for region_ind in range(self.model_config_obj.region_cnt):
             denom_isum[region_ind, :] = np.where(
                 region_mask == region_ind + 1, grid_weight, 0.0
             ).sum(axis=-1)
-        denom_ijsum[:] = denom_isum[:].sum(axis=-1)
+        denom_ijsum = denom_isum.sum(axis=-1)
+
+        # allocate space for numerators, which is shared across all tracers
+        numer_isum = np.empty(denom_isum.shape)
+        numer_ijsum = np.empty(denom_ijsum.shape)
 
         res = {}
         for tracer_name in self.stats_vars_tracer_like():
@@ -203,20 +177,18 @@ class TracerModuleState(TracerModuleStateBase):
                 numer_isum[region_ind, :] = np.where(
                     region_mask == region_ind + 1, weighted_vals, 0.0
                 ).sum(axis=-1)
-            vals_isum[:] = fill_value
-            np.divide(numer_isum, denom_isum, out=vals_isum, where=(denom_isum != 0.0))
+            quo_i = np.full(denom_isum.shape, fill_value)
+            np.divide(numer_isum, denom_isum, out=quo_i, where=denom_isum != 0.0)
             varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
-            res[varname_stats] = vals_isum
+            res[varname_stats] = quo_i
 
             # compute grid-ij average, store in result dictionary
             numer_ijsum[:] = numer_isum[:].sum(axis=-1)
-            vals_ijsum[:] = fill_value
-            np.divide(
-                numer_ijsum, denom_ijsum, out=vals_ijsum, where=(denom_ijsum != 0.0)
-            )
+            quo_ij = np.full(denom_ijsum.shape, fill_value)
+            np.divide(numer_ijsum, denom_ijsum, out=quo_ij, where=denom_ijsum != 0.0)
             varname_stats = "_".join(
                 [tracer_name, "mean", dimensions[-2], dimensions[-1]]
             )
-            res[varname_stats] = vals_ijsum
+            res[varname_stats] = quo_ij
 
         return res

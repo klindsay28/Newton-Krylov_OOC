@@ -4,14 +4,16 @@ import copy
 import logging
 
 import numpy as np
+import xarray as xr
+from netCDF4 import Dataset
 
-from . import utils
+from .utils import attr_common, comp_scalef_lob, comp_scalef_upb, extract_dimensions
 
 
 class TracerModuleStateBase:
     """
     Base class for representing a collection of model tracers.
-    Derived classes should implement _read_vals and dump.
+    Derived classes should implement dump.
     """
 
     # give TracerModuleStateBase operators higher priority than those of numpy
@@ -35,15 +37,42 @@ class TracerModuleStateBase:
         ]
         self.tracer_cnt = len(self._tracer_module_def["tracers"])
         # units common to all tracers
-        self.units = utils.attr_common(self._tracer_module_def["tracers"], "units")
-        self._vals, self._dimensions = self._read_vals(fname)
+        self.units = attr_common(self._tracer_module_def["tracers"], "units")
+        self._tracer_varname_suffix = None
+        self._dataset = self._load_dataset(fname)
 
-    def _read_vals(self, fname):
+        # Determine if all tracers have same shape, to see if {get,set}_tracer_vals_all
+        # should be supported.
+        self._tracers_same_shape = True
+        for tracer_ind, tracer_name in enumerate(self._tracer_module_def["tracers"]):
+            shape = self._dataset[tracer_name].shape
+            if tracer_ind == 0:
+                shape0 = shape
+            elif shape != shape0:
+                self._tracers_same_shape = False
+
+    def _load_dataset(self, fname):
         """
-        return tracer values and dimension names and lengths, read from fname)
-        implemented in derived classes
+        return xarray Dataset of tracer module tracers
         """
-        raise NotImplementedError("Method must be implemented in derived class")
+        ds = xr.Dataset()
+        with Dataset(fname, mode="r") as fptr:
+            fptr.set_auto_mask(False)
+            for tracer_name in self._tracer_module_def["tracers"]:
+                region_mask = self.get_grid_vars(tracer_name)["region_mask"]
+                if self._tracer_varname_suffix is not None:
+                    varname = f"{tracer_name}_{self._tracer_varname_suffix}"
+                else:
+                    varname = tracer_name
+                dimensions = extract_dimensions(fptr, varname)
+                if tuple(dimensions.values()) != region_mask.shape:
+                    raise ValueError(
+                        f"unexpected dimension lengths for {varname} in {fname}"
+                    )
+                ds[tracer_name] = xr.DataArray(
+                    fptr.variables[varname][:], dims=tuple(dimensions)
+                )
+        return ds
 
     def dump(self, fptr, action):
         """
@@ -72,15 +101,17 @@ class TracerModuleStateBase:
         """return list of tracer names"""
         return list(self._tracer_module_def["tracers"])
 
-    def tracer_index(self, tracer_name):
-        """return the index of a tracer"""
-        return self.tracer_names().index(tracer_name)
-
     def stats_vars_tracer_like(self):
         """
         return list of tracer-like vars in hist file to be processed for the stats file
         """
-        return self.tracer_names()
+        return list(self._tracer_module_def["tracers"])
+
+    def get_grid_vars(self, tracer_name):
+        """return dict of grid_vars for tracer_name"""
+        tracer_metadata = self._tracer_module_def["tracers"][tracer_name]
+        region_mask_varname = tracer_metadata["region_mask_varname"]
+        return self.model_config_obj.grid_vars[region_mask_varname]
 
     def apply_limiter(self, base):
         """
@@ -92,24 +123,26 @@ class TracerModuleStateBase:
 
         scalef = np.ones(self.model_config_obj.region_cnt)
         scalef_tracer = np.ones(self.model_config_obj.region_cnt)
-        for tracer_ind, tracer_name in enumerate(self._tracer_module_def["tracers"]):
+        for tracer_name in self._tracer_module_def["tracers"]:
+            region_mask = self.get_grid_vars(tracer_name)["region_mask"]
+
             lob, upb = self.get_bounds(tracer_name)
             if lob is not None:
-                utils.comp_scalef_lob(
+                comp_scalef_lob(
                     self.model_config_obj.region_cnt,
-                    self.model_config_obj.region_mask,
-                    base._vals[tracer_ind, ...],
-                    self._vals[tracer_ind, ...],
+                    region_mask,
+                    base.get_tracer_vals(tracer_name),
+                    self.get_tracer_vals(tracer_name),
                     lob,
                     out=scalef_tracer,
                 )
                 np.minimum(scalef, scalef_tracer, out=scalef)
             if upb is not None:
-                utils.comp_scalef_upb(
+                comp_scalef_upb(
                     self.model_config_obj.region_cnt,
-                    self.model_config_obj.region_mask,
-                    base._vals[tracer_ind, ...],
-                    self._vals[tracer_ind, ...],
+                    region_mask,
+                    base.get_tracer_vals(tracer_name),
+                    self.get_tracer_vals(tracer_name),
                     upb,
                     out=scalef_tracer,
                 )
@@ -174,7 +207,7 @@ class TracerModuleStateBase:
         called to evaluate res = -self
         """
         res = copy.copy(self)
-        res._vals = -self._vals
+        res._dataset = -self._dataset
         return res
 
     def __add__(self, other):
@@ -184,7 +217,7 @@ class TracerModuleStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals + other._vals
+            res._dataset = self._dataset + other._dataset
         else:
             return NotImplemented
         return res
@@ -195,7 +228,7 @@ class TracerModuleStateBase:
         called to evaluate self += other
         """
         if isinstance(other, TracerModuleStateBase):
-            self._vals += other._vals
+            self._dataset += other._dataset
         else:
             return NotImplemented
         return self
@@ -207,7 +240,7 @@ class TracerModuleStateBase:
         """
         res = copy.copy(self)
         if isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals - other._vals
+            res._dataset = self._dataset - other._dataset
         else:
             return NotImplemented
         return res
@@ -218,7 +251,7 @@ class TracerModuleStateBase:
         called to evaluate self -= other
         """
         if isinstance(other, TracerModuleStateBase):
-            self._vals -= other._vals
+            self._dataset -= other._dataset
         else:
             return NotImplemented
         return self
@@ -229,15 +262,19 @@ class TracerModuleStateBase:
         called to evaluate res = self * other
         """
         res = copy.copy(self)
-        if isinstance(other, float):
-            res._vals = self._vals * other
+        if isinstance(other, (int, float)):
+            res._dataset = self._dataset * other
         elif isinstance(other, np.ndarray):
             if other.shape == (self.model_config_obj.region_cnt,):
-                res._vals = self._vals * self.broadcast_region_vals(other)
+                res._dataset = self._dataset.copy(deep=True)
+                for tracer_name in self._tracer_module_def["tracers"]:
+                    vals = res.get_tracer_vals(tracer_name)
+                    vals[:] *= res.broadcast_region_vals(other, tracer_name)
+                    res.set_tracer_vals(tracer_name, vals)
             else:
                 return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals * other._vals
+            res._dataset = self._dataset * other._dataset
         else:
             return NotImplemented
         return res
@@ -254,15 +291,18 @@ class TracerModuleStateBase:
         inplace multiplication operator
         called to evaluate self *= other
         """
-        if isinstance(other, float):
-            self._vals *= other
+        if isinstance(other, (int, float)):
+            self._dataset *= other
         elif isinstance(other, np.ndarray):
             if other.shape == (self.model_config_obj.region_cnt,):
-                self._vals *= self.broadcast_region_vals(other)
+                for tracer_name in self._tracer_module_def["tracers"]:
+                    vals = self.get_tracer_vals(tracer_name)
+                    vals[:] *= self.broadcast_region_vals(other, tracer_name)
+                    self.set_tracer_vals(tracer_name, vals)
             else:
                 return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
-            self._vals *= other._vals
+            self._dataset *= other._dataset
         else:
             return NotImplemented
         return self
@@ -273,15 +313,19 @@ class TracerModuleStateBase:
         called to evaluate res = self / other
         """
         res = copy.copy(self)
-        if isinstance(other, float):
-            res._vals = self._vals * (1.0 / other)
+        if isinstance(other, (int, float)):
+            res._dataset = self._dataset * (1.0 / other)
         elif isinstance(other, np.ndarray):
             if other.shape == (self.model_config_obj.region_cnt,):
-                res._vals = self._vals * self.broadcast_region_vals(1.0 / other)
+                res._dataset = self._dataset.copy(deep=True)
+                for tracer_name in self._tracer_module_def["tracers"]:
+                    vals = res.get_tracer_vals(tracer_name)
+                    vals[:] *= res.broadcast_region_vals(1.0 / other, tracer_name)
+                    res.set_tracer_vals(tracer_name, vals)
             else:
                 return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
-            res._vals = self._vals / other._vals
+            res._dataset = self._dataset / other._dataset
         else:
             return NotImplemented
         return res
@@ -292,11 +336,15 @@ class TracerModuleStateBase:
         called to evaluate res = other / self
         """
         res = copy.copy(self)
-        if isinstance(other, float):
-            res._vals = other / self._vals
+        if isinstance(other, (int, float)):
+            res._dataset = other / self._dataset
         elif isinstance(other, np.ndarray):
             if other.shape == (self.model_config_obj.region_cnt,):
-                res._vals = self.broadcast_region_vals(other) / self._vals
+                res._dataset = self._dataset.copy(deep=True)
+                for tracer_name in self._tracer_module_def["tracers"]:
+                    vals = res.get_tracer_vals(tracer_name)
+                    vals[:] = res.broadcast_region_vals(other, tracer_name) / vals[:]
+                    res.set_tracer_vals(tracer_name, vals)
             else:
                 return NotImplemented
         else:
@@ -308,37 +356,38 @@ class TracerModuleStateBase:
         inplace division operator
         called to evaluate self /= other
         """
-        if isinstance(other, float):
-            self._vals *= 1.0 / other
+        if isinstance(other, (int, float)):
+            self._dataset *= 1.0 / other
         elif isinstance(other, np.ndarray):
             if other.shape == (self.model_config_obj.region_cnt,):
-                self._vals *= self.broadcast_region_vals(1.0 / other)
+                for tracer_name in self._tracer_module_def["tracers"]:
+                    vals = self.get_tracer_vals(tracer_name)
+                    vals[:] *= self.broadcast_region_vals(1.0 / other, tracer_name)
+                    self.set_tracer_vals(tracer_name, vals)
             else:
                 return NotImplemented
         elif isinstance(other, TracerModuleStateBase):
-            self._vals /= other._vals
+            self._dataset /= other._dataset
         else:
             return NotImplemented
         return self
 
     def mean(self):
         """compute weighted mean of self"""
-        matrix = self.model_config_obj.region_mean_sparse
-        res = np.zeros(matrix.shape[0])
-        for tracer_ind in range(self.tracer_cnt):
-            res += matrix.dot(self._vals[tracer_ind, ...].reshape(-1))
+        res = np.zeros(self.model_config_obj.region_cnt)
+        for tracer_name in self._tracer_module_def["tracers"]:
+            matrix = self.get_grid_vars(tracer_name)["region_comp_mean_matrix"]
+            res += matrix.dot(self.get_tracer_vals(tracer_name).reshape(-1))
         return np.array(res)
 
     def dot_prod(self, other):
         """compute weighted dot product of self with other"""
-        matrix = self.model_config_obj.region_mean_sparse
-        res = np.zeros(matrix.shape[0])
-        for tracer_ind in range(self.tracer_cnt):
+        res = np.zeros(self.model_config_obj.region_cnt)
+        for tracer_name in self._tracer_module_def["tracers"]:
+            matrix = self.get_grid_vars(tracer_name)["region_comp_mean_matrix"]
             res += matrix.dot(
-                self._vals[tracer_ind, ...].reshape(-1)
-                * other._vals[  # pylint: disable=protected-access
-                    tracer_ind, ...
-                ].reshape(-1)
+                self.get_tracer_vals(tracer_name).reshape(-1)
+                * other.get_tracer_vals(tracer_name).reshape(-1)
             )
         return np.array(res)
 
@@ -365,22 +414,45 @@ class TracerModuleStateBase:
 
     def get_tracer_vals_all(self):
         """get all tracer values"""
-        return self._vals
+        if not self._tracers_same_shape:
+            raise RuntimeError(
+                "get_tracer_vals_all not supported if tracers have varying shape, "
+                f"name={self.name}"
+            )
+        return np.stack(
+            [
+                self.get_tracer_vals(varname)
+                for varname in self._tracer_module_def["tracers"]
+            ]
+        )
 
-    def set_tracer_vals_all(self, vals, reseat_vals=False):
+    def set_tracer_vals_all(self, vals_all, reseat_vals=False):
         """set all tracer values"""
+        if not self._tracers_same_shape:
+            raise RuntimeError(
+                "get_tracer_vals_all not supported if tracers have varying shape, "
+                f"name={self.name}"
+            )
         if reseat_vals:
-            self._vals = vals
+            # create new Dataset using values from vals_all argument and
+            # dimensions from existing Dataset
+            ds = xr.Dataset()
+            for vals, tracer_name in zip(vals_all, self._tracer_module_def["tracers"]):
+                ds[tracer_name] = xr.DataArray(
+                    vals, dims=self._dataset[tracer_name].dims
+                )
+            self._dataset = ds
         else:
-            self._vals[:] = vals
+            for vals, tracer_name in zip(vals_all, self._tracer_module_def["tracers"]):
+                self.set_tracer_vals(tracer_name, vals)
 
     def get_tracer_vals(self, tracer_name):
-        """get tracer values"""
-        return self._vals[self.tracer_index(tracer_name), ...]
+        """get values for tracer with name tracer_name"""
+        return self._dataset[tracer_name].values
 
     def set_tracer_vals(self, tracer_name, vals):
-        """set tracer values"""
-        self._vals[self.tracer_index(tracer_name), ...] = vals
+        """set values of tracer with name tracer_name to vals"""
+        self._dataset[tracer_name].values[:] = vals
 
     def shadow_tracers_on(self):
         """are any shadow tracers being run"""
@@ -405,41 +477,42 @@ class TracerModuleStateBase:
                     tracer_name, self.get_tracer_vals(tracer_metadata["shadows"])
                 )
 
-    def extra_tracer_inds(self):
+    def extra_tracer_names(self):
         """
-        return list of indices of tracers that are extra
+        return list of names of tracers that are extra
             (i.e., they are not being solved for)
-        the indices are with respect to self
         tracers that are shadowed are automatically extra
         """
         res = []
         for tracer_metadata in self._tracer_module_def["tracers"].values():
             if "shadows" in tracer_metadata:
-                res.append(self.tracer_index(tracer_metadata["shadows"]))
+                res.append(tracer_metadata["shadows"])
         return res
 
     def zero_extra_tracers(self):
         """set extra tracers (i.e., not being solved for) to zero"""
-        for tracer_ind in self.extra_tracer_inds():
-            self._vals[tracer_ind, ...] = 0.0
+        for tracer_name in self.extra_tracer_names():
+            self.set_tracer_vals(tracer_name, 0.0)
+        return self
 
     def apply_region_mask(self):
-        """set _vals to zero where region_mask == 0"""
-        region_mask = self.model_config_obj.region_mask
-        for tracer_ind in range(self.tracer_cnt):
-            self._vals[tracer_ind, ...] = np.where(
-                region_mask != 0, self._vals[tracer_ind, ...], 0.0
-            )
+        """set tracer values to zero where region_mask == 0"""
+        for tracer_name in self._tracer_module_def["tracers"]:
+            region_mask = self.get_grid_vars(tracer_name)["region_mask"]
+            vals = self.get_tracer_vals(tracer_name)
+            vals[:] = np.where(region_mask != 0, vals, 0.0)
+            self.set_tracer_vals(tracer_name, vals)
 
-    def broadcast_region_vals(self, vals, fill_value=1.0):
+    def broadcast_region_vals(self, vals, tracer_name, fill_value=1.0):
         """
-        broadcast values in vals to an array of same shape as region_mask
+        broadcast values in vals to an array of same shape as region_mask for tracer
+        with name tracer_name
         values in the results are:
             fill_value  where region_mask is <= 0
                         (e.g. complement of computational domain)
             vals[ind]   where region_mask == ind+1
         """
-        region_mask = self.model_config_obj.region_mask
+        region_mask = self.get_grid_vars(tracer_name)["region_mask"]
         res = np.full(shape=region_mask.shape, fill_value=fill_value)
         for region_ind, val in enumerate(vals):
             res = np.where(region_mask == region_ind + 1, val, res)

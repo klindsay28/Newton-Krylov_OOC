@@ -112,9 +112,9 @@ def fmt_vals(var, fmt):
 
 
 def strtobool(val):
-    """Convert a string representation of truth to true (1) or false (0).
+    """Convert a string representation of truth to True (1) or False (0).
 
-    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; False values
     are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
     'val' is anything else.
 
@@ -209,8 +209,57 @@ def units_str_format(units_str):
 # utilities related to netCDF file operations
 
 
+def metadata_same(fname1, fname2):
+    """Return True if metadata in fname1 and fname2 are the same."""
+    logger = logging.getLogger(__name__)
+    res = True
+    with Dataset(fname1, mode="r") as fptr1, Dataset(fname2, mode="r") as fptr2:
+        # verify that dimension names are the same
+        if fptr1.dimensions.keys() != fptr2.dimensions.keys():
+            logger.info("    dimension name mismatch in %s and %s", fname1, fname2)
+            res = False
+        # verify that common dimensions have the same lengths
+        for dimname in fptr1.dimensions:
+            if dimname in fptr2.dimensions:
+                if len(fptr1.dimensions[dimname]) != len(fptr2.dimensions[dimname]):
+                    logger.info(
+                        "    %s length mismatch in %s and %s", dimname, fname1, fname2
+                    )
+                    res = False
+        # verify that variable names are the same
+        if fptr1.variables.keys() != fptr2.variables.keys():
+            logger.info("    variable name mismatch in %s and %s", fname1, fname2)
+            res = False
+        # verify that common variables have the same dimensions and attributes
+        for varname in fptr1.variables:
+            if varname in fptr2.variables:
+                if (
+                    fptr1.variables[varname].dimensions
+                    != fptr2.variables[varname].dimensions
+                ):
+                    logger.info(
+                        "    %s dimension mismatch in %s and %s",
+                        varname,
+                        fname1,
+                        fname2,
+                    )
+                    res = False
+                if (
+                    fptr1.variables[varname].__dict__
+                    != fptr2.variables[varname].__dict__
+                ):
+                    logger.info(
+                        "    %s attribute mismatch in %s and %s",
+                        varname,
+                        fname1,
+                        fname2,
+                    )
+                    res = False
+    return res
+
+
 def isclose_all_vars(fname1, fname2, rtol, atol):
-    """Return true if all vars in common to fname1 and fname2 are close."""
+    """Return True if all vars in common to fname1 and fname2 are close."""
     res = True
     with Dataset(fname1, mode="r") as fptr1, Dataset(fname2, mode="r") as fptr2:
         fptr1.set_auto_mask(False)
@@ -225,7 +274,7 @@ def isclose_all_vars(fname1, fname2, rtol, atol):
 
 
 def _isclose_one_var(var1, var2, rtol, atol):
-    """Return true if netCDF vars var1 and var2 are close."""
+    """Return True if netCDF vars var1 and var2 are close."""
     logger = logging.getLogger(__name__)
 
     # further comparisons do not make sense if shapes differ
@@ -526,7 +575,7 @@ def comp_scalef_lob(region_cnt, region_mask, base, increment, lob, out=None):
     if (base < lob).any():
         raise ValueError("base < lob")
     scalef_all = np.ones(base.shape)
-    np.divide(lob - base, increment, out=scalef_all, where=(base + increment < lob))
+    np.divide(lob - base, increment, out=scalef_all, where=base + increment < lob)
     return min_by_region(region_cnt, region_mask, scalef_all, out)
 
 
@@ -547,5 +596,5 @@ def comp_scalef_upb(region_cnt, region_mask, base, increment, upb, out=None):
     if (base > upb).any():
         raise ValueError("base > upb")
     scalef_all = np.ones(base.shape)
-    np.divide(upb - base, increment, out=scalef_all, where=(base + increment > upb))
+    np.divide(upb - base, increment, out=scalef_all, where=base + increment > upb)
     return min_by_region(region_cnt, region_mask, scalef_all, out)

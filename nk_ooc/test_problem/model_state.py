@@ -45,7 +45,7 @@ class ModelState(ModelStateBase):
     def _set_class_vars(modelinfo):
         """set (time-invariant) class variables"""
         ModelState.depth = spatial_axis_from_file(
-            fname=modelinfo["grid_weight_fname"], axisname="depth"
+            fname=modelinfo["grid_vars_fname"], axisname=modelinfo["depth_axisname"]
         )
         ModelState.vert_mix = VertMix(ModelState.depth)
 
@@ -158,7 +158,7 @@ class ModelState(ModelStateBase):
             "attrs": {"long_name": "boundary layer depth", "units": "m"},
         }
         hist_vars_metadata["mixing_coeff"] = {
-            "dimensions": ("time", "depth_edges"),
+            "dimensions": ("time", f"{self.depth.axisname}_edges"),
             "attrs": {"long_name": "vertical mixing coefficient", "units": "m^2 / s"},
         }
 
@@ -254,7 +254,7 @@ class ModelState(ModelStateBase):
                         continue
                     hist_varname = arg_to_hist_dict[arg]
                     hist_var = fptr.variables[hist_varname]
-                    if "depth_edges" in hist_var.dimensions:
+                    if f"{self.depth.axisname}_edges" in hist_var.dimensions:
                         kwargs[arg] = hist_var[1:-1]
                     else:
                         kwargs[arg] = hist_var[:]

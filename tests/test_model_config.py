@@ -17,8 +17,7 @@ def test_model_config():
     assert hasattr(model_config_obj, "modelinfo")
     assert hasattr(model_config_obj, "tracer_module_defs")
     assert hasattr(model_config_obj, "precond_matrix_defs")
-    assert hasattr(model_config_obj, "region_mask")
-    assert hasattr(model_config_obj, "grid_weight")
+    assert hasattr(model_config_obj, "grid_vars")
 
 
 def test_propagate_base_matrix_defs_to_all():

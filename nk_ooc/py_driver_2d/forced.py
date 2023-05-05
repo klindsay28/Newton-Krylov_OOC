@@ -4,7 +4,7 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse import linalg as sp_linalg
 
-from .. import utils
+from ..utils import eval_expr, gen_forcing_fcn
 from .tracer_module_state import TracerModuleState
 
 
@@ -40,14 +40,14 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
         # generate forcing functions
 
         if forced.params["surf_restore_opt"] == "file":
-            forced.surf_restore_fcn = utils.gen_forcing_fcn(
+            forced.surf_restore_fcn = gen_forcing_fcn(
                 modelinfo["forced_surf_restore_fname"],
                 modelinfo["forced_surf_restore_varname"],
                 [self.ypos.mid],
             )
 
         if forced.params["sms_opt"] == "file":
-            forced.sms_fcn = utils.gen_forcing_fcn(
+            forced.sms_fcn = gen_forcing_fcn(
                 modelinfo["forced_sms_fname"],
                 modelinfo["forced_sms_varname"],
                 [self.depth.mid, self.ypos.mid],
@@ -72,14 +72,12 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
 
         surf_restore_rate_10m = 24.0 / 86400.0
         if "forced_surf_restore_rate_10m" in modelinfo:
-            surf_restore_rate_10m = utils.eval_expr(
-                modelinfo["forced_surf_restore_rate_10m"]
-            )
+            surf_restore_rate_10m = eval_expr(modelinfo["forced_surf_restore_rate_10m"])
         # convert 10m restoring rate to rate for surface layer
         params["surf_restore_rate"] = 10.0 / self.depth.delta[0] * surf_restore_rate_10m
 
         if params["surf_restore_opt"] == "const":
-            params["surf_restore_const"] = utils.eval_expr(
+            params["surf_restore_const"] = eval_expr(
                 modelinfo["forced_surf_restore_const"]
             )
 
@@ -99,19 +97,17 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
             return params
 
         if params["sms_opt"] == "const":
-            params["sms_const"] = utils.eval_expr(modelinfo["forced_sms_const"])
+            params["sms_const"] = eval_expr(modelinfo["forced_sms_const"])
 
         if params["sms_opt"] == "decay":
-            params["sms_decay_rate"] = utils.eval_expr(
-                modelinfo["forced_sms_decay_rate"]
-            )
+            params["sms_decay_rate"] = eval_expr(modelinfo["forced_sms_decay_rate"])
 
         if params["sms_opt"] == "file":
             params["sms_scalef"] = 1.0
             if "forced_sms_scalef" in modelinfo:
-                params["sms_scalef"] = utils.eval_expr(modelinfo["forced_sms_scalef"])
+                params["sms_scalef"] = eval_expr(modelinfo["forced_sms_scalef"])
             if "forced_sink_thres" in modelinfo:
-                params["sink_thres"] = utils.eval_expr(modelinfo["forced_sink_thres"])
+                params["sink_thres"] = eval_expr(modelinfo["forced_sink_thres"])
 
         return params
 
@@ -225,7 +221,8 @@ class forced(TracerModuleState):  # pylint: disable=invalid-name
         tracer_vals = tracer_vals_3d.reshape(-1)
 
         precond_time_vals = fptr_precond.variables["time"][:]
-        precond_tracer = fptr_precond.variables[self.tracer_names()[0]]
+        tracer_name = list(self._tracer_module_def["tracers"])[0]
+        precond_tracer = fptr_precond.variables[tracer_name]
 
         mat_id = sparse.identity(self_vals.size)
         mat = sparse.identity(self_vals.size)

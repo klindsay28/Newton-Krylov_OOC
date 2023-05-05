@@ -2,6 +2,7 @@
 
 tracer_module_defs:
     iage:  # module name
+        region_mask_varname: "region_mask"
         tracers:
             iage:
                 attrs: {long_name: "ideal age", units: "years"}
@@ -14,6 +15,7 @@ tracer_module_defs:
                 init_iterate_val_depths: [55.0, 200.0]
                 init_iterate_vals: [0.0, 2.0]
     phosphorus:  # module name
+        region_mask_varname: "region_mask"
         tracers:
             po4:
                 attrs:
@@ -35,6 +37,7 @@ tracer_module_defs:
                 init_iterate_val_depths: [1.7e2, 2.5e2]
                 init_iterate_vals: [1.8e-2, 7.9e-4]
     forced_{suff}:  # root module name
+        region_mask_varname: "region_mask"
         py_mod_name: "forced"
         tracers:
             "{suff}":

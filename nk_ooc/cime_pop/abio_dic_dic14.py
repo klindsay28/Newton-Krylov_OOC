@@ -44,7 +44,9 @@ class abio_dic_dic14(TracerModuleState):  # pylint: disable=invalid-name
         """return tracer module specific stats variables for the current iteration"""
         res = super().stats_vars_vals(fptr_hist)
 
-        region_mask_surf = self.model_config_obj.region_mask[0, :, :]
+        # base result on first tracer, assume they are the same for all tracers
+        tracer_name = list(self._tracer_module_def["tracers"])[0]
+        region_mask_surf = self.get_grid_vars(tracer_name)["region_mask"][0, :, :]
 
         # confirm that surf region_cnt is same as full-depth region_cnt
         if region_mask_surf.max() != self.model_config_obj.region_cnt:

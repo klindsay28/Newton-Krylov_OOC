@@ -49,4 +49,4 @@ class iage(TracerModuleState):  # pylint: disable=invalid-name
 
         res_vals = linalg.solve_banded(l_and_u, matrix_diagonals, rhs_vals)
 
-        res_tms.set_tracer_vals_all(res_vals - self_vals)
+        res_tms.set_tracer_vals_all((res_vals - self_vals)[np.newaxis, :])

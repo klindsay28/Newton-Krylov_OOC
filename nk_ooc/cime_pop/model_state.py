@@ -63,7 +63,7 @@ class ModelState(ModelStateBase):
         opt_str_subs = {
             "day_cnt": 365 * cime_yr_cnt(modelinfo),
             "precond_fname": precond_fname,
-            "reg_fname": modelinfo["region_mask_fname"],
+            "reg_fname": modelinfo["grid_vars_fname"],
             "irf_fname": modelinfo["irf_fname"],
         }
 

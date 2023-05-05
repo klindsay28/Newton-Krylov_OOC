@@ -7,6 +7,8 @@ import os
 import pstats
 import sys
 
+from netCDF4 import Dataset
+
 from .. import gen_invoker_script
 from ..model_config import ModelConfig
 from ..share import (
@@ -17,7 +19,7 @@ from ..share import (
     repro_fname,
 )
 from ..spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
-from ..utils import mkdir_exist_okay
+from ..utils import create_vars, mkdir_exist_okay
 from .model_state import ModelState
 
 
@@ -78,11 +80,12 @@ def main(args):
     gen_invoker_script.main(args)
 
     modelinfo = config["modelinfo"]
+    depth_axisname = modelinfo["depth_axisname"]
 
     # generate depth axis from args and modelinfo
     defn_dict = {}
-    for key, defn in spatial_axis_defn_dict(axisname="depth").items():
-        depth_key = f"depth_{key}"
+    for key, defn in spatial_axis_defn_dict(axisname=depth_axisname).items():
+        depth_key = f"{depth_axisname}_{key}"
         if depth_key in modelinfo:
             defn_dict[key] = (defn["type"])(modelinfo[depth_key])
         if hasattr(args, depth_key):
@@ -91,11 +94,27 @@ def main(args):
 
     caller = "nk_ooc.test_problem.setup_solver.main"
 
-    # write depth axis
-    grid_weight_fname = modelinfo["grid_weight_fname"]
-    logger.info('grid_weight_fname="%s"', repro_fname(modelinfo, grid_weight_fname))
-    mkdir_exist_okay(os.path.dirname(grid_weight_fname))
-    depth.dump(grid_weight_fname, caller)
+    # generate grid_vars file
+    grid_vars_fname = modelinfo["grid_vars_fname"]
+    logger.info('grid_vars_fname="%s"', repro_fname(modelinfo, grid_vars_fname))
+    mkdir_exist_okay(os.path.dirname(grid_vars_fname))
+    depth.dump(grid_vars_fname, caller)
+
+    # add region_mask to grid_vars file
+    depth_delta_name = depth.dump_names["delta"]
+    vars_metadata = {
+        "region_mask": {
+            "datatype": "i4",
+            "dimensions": depth_axisname,
+            "attrs": {
+                "long_name": "Region Mask",
+                "cell_measures": f"thickness: {depth_delta_name}",
+            },
+        }
+    }
+    with Dataset(grid_vars_fname, mode="a") as fptr:
+        create_vars(fptr, vars_metadata)
+        fptr.variables["region_mask"][:] = 1
 
     # confirm that model configuration works with generated file
     # ModelState relies on model being configured

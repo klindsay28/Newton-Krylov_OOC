@@ -1,6 +1,5 @@
 """base class for representing the state space of a model, and operations on it"""
 
-import collections
 import copy
 import logging
 import os
@@ -97,10 +96,6 @@ class ModelStateBase:
         for tracer_module in self.tracer_modules:
             res.extend(tracer_module.tracer_names())
         return res
-
-    def tracer_index(self, tracer_name):
-        """return the index of a tracer"""
-        return self.tracer_names().index(tracer_name)
 
     def dump(self, fname, caller=None):
         """dump ModelStateBase object to a file"""
@@ -407,8 +402,8 @@ class ModelStateBase:
         return res
 
     def tracer_names_per_precond_matrix(self):
-        """Return OrderedDict of tracer names for each precond matrix"""
-        res = collections.OrderedDict()
+        """Return dict of tracer names for each precond matrix"""
+        res = {}
         for tracer_module in self.tracer_modules:
             tracer_module.append_tracer_names_per_precond_matrix(res)
         return res
@@ -543,17 +538,19 @@ class ModelStateBase:
         for tracer_module in self.tracer_modules:
             try:
                 return tracer_module.get_tracer_vals(tracer_name)
-            except ValueError:
+            except KeyError:
                 pass
-        raise ValueError(f"unknown tracer_name={tracer_name}")
+        raise KeyError(f"unknown tracer_name={tracer_name}")
 
     def set_tracer_vals(self, tracer_name, vals):
         """set tracer values"""
         for tracer_module in self.tracer_modules:
             try:
                 tracer_module.set_tracer_vals(tracer_name, vals)
-            except ValueError:
+                return
+            except KeyError:
                 pass
+        raise KeyError(f"unknown tracer_name={tracer_name}")
 
     def shadow_tracers_on(self):
         """are any shadow tracers being run"""

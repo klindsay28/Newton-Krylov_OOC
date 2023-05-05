@@ -2,12 +2,14 @@
 
 tracer_module_defs:
     iage:  # module name
+        region_mask_varname: "region_mask"
         tracers:
             iage:
                 attrs: {long_name: "ideal age", units: "years"}
                 init_iterate_val_depths: [125.0, 650.0]
                 init_iterate_vals: [0.0, 1000]
     phosphorus:  # module name
+        region_mask_varname: "region_mask"
         tracers:
             po4:
                 attrs:
@@ -44,6 +46,7 @@ tracer_module_defs:
                     units: "mmol / m^3"
                 shadows: pop
     dye_decay_{suff}:  # root module name
+        region_mask_varname: "region_mask"
         py_mod_name: "dye_decay"
         tracers:
             dye_decay_{suff}:

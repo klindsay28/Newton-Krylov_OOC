@@ -43,72 +43,39 @@ class ModelConfig:
             modelinfo["tracer_module_names"]
         )
 
-        # extract grid_weight from modelinfo config object
-        fname = modelinfo["grid_weight_fname"]
-        varname = modelinfo["grid_weight_varname"]
-        logger.log(
-            lvl,
-            "reading %s from %s for grid_weight",
-            varname,
-            repro_fname(modelinfo, fname),
-        )
-        with Dataset(fname, mode="r") as fptr:
-            fptr.set_auto_mask(False)
-            self.grid_weight = fptr.variables[varname][:]
+        # confirm that region_mask_varname is specified for all tracers
+        # add region_mask_varname to variable metadata, to ease subsequent lookup
+        # create set of unique region_mask_varnames
+        region_mask_varnames = set()
+        for tracer_module_name in modelinfo["tracer_module_names"].split(","):
+            tracer_module_def = self.tracer_module_defs[tracer_module_name]
+            for tracer_name, tracer_metadata in tracer_module_def["tracers"].items():
+                if "region_mask_varname" not in tracer_metadata:
+                    if "region_mask_varname" in tracer_module_def:
+                        region_mask_varname = tracer_module_def["region_mask_varname"]
+                    else:
+                        raise RuntimeError(
+                            f"region_mask_varname not known for {tracer_name} in"
+                            f"{tracer_module_name}"
+                        )
+                    tracer_metadata["region_mask_varname"] = region_mask_varname
+                region_mask_varnames.add(tracer_metadata["region_mask_varname"])
 
-        # extract region_mask from modelinfo config object
-        fname = modelinfo["region_mask_fname"]
-        varname = modelinfo["region_mask_varname"]
-        if fname is not None and varname is not None:
-            logger.log(
-                lvl,
-                "reading %s from %s for region_mask",
-                varname,
-                repro_fname(modelinfo, fname),
+        # generate dictionary of grid_vars
+        self.grid_vars = {
+            region_mask_varname: gen_grid_vars(
+                lvl, modelinfo["grid_vars_fname"], region_mask_varname
             )
-            with Dataset(fname, mode="r") as fptr:
-                fptr.set_auto_mask(False)
-                self.region_mask = fptr.variables[varname][:]
-                if self.region_mask.shape != self.grid_weight.shape:
-                    raise RuntimeError(
-                        "region_mask and grid_weight must have the same shape"
-                    )
-        else:
-            self.region_mask = np.ones_like(self.grid_weight, dtype=np.int32)
+            for region_mask_varname in region_mask_varnames
+        }
 
-        # enforce that region_mask and grid_weight and both 0 where one of them is
-        self.region_mask = np.where(self.grid_weight == 0.0, 0, self.region_mask)
-        self.grid_weight = np.where(self.region_mask == 0, 0.0, self.grid_weight)
-
-        self.region_mean_sparse = self.gen_region_mean_sparse()
-        self.region_cnt = self.region_mean_sparse.shape[0]
-
-    def gen_region_mean_sparse(self):
-        """Generate sparse matrix used for computing means over regions."""
-
-        region_mask_flat = self.region_mask.reshape(-1)
-        grid_weight_flat = self.grid_weight.reshape(-1)
-
-        indices = []
-        indptr = [0]
-        data = []
-
-        region_cnt = self.region_mask.max()
-
-        for region_ind in range(region_cnt):
-            indices.extend(np.nonzero(region_mask_flat == region_ind + 1)[0])
-            indptr.append(len(indices))
-            data_row_raw = grid_weight_flat[indices[indptr[-2] : indptr[-1]]]
-            data_row_raw_sum_r = 1.0 / sum(data_row_raw)
-            data.extend([data_row_raw_sum_r * val for val in data_row_raw])
-
-        arg1 = (data, indices, indptr)
-        shape = (region_cnt, len(grid_weight_flat))
-        return (
-            scipy.sparse.csr_array(arg1=arg1, shape=shape)
-            if Version(scipy.__version__) >= Version("1.8.0")
-            else scipy.sparse.csr_matrix(arg1=arg1, shape=shape)
+        # confirm that all region_masks have the same number of regions
+        region_cnts = set(
+            grid_vars["region_cnt"] for grid_vars in self.grid_vars.values()
         )
+        if len(region_cnts) != 1:
+            raise RuntimeError("not all region_masks have the same region_cnt")
+        self.region_cnt = region_cnts.pop()
 
     def tracer_module_expand_all(self, tracer_module_names):
         """
@@ -277,3 +244,72 @@ def check_precond_matrix_defs(precond_matrix_defs):
                         f"unknown time_op={time_op} in {hist_var} from "
                         f"{precond_matrix_name}"
                     )
+
+
+def gen_grid_vars(lvl, grid_vars_fname, region_mask_varname):
+    """
+    Return dict of grid vars related to region_mask_varname,
+    reading fields from grid_vars_fname. Grid vars that are generated/read are
+    region_mask: region indices (1, 2, ...), read from region_mask_varname
+    grid_weight: cell weights for averaging, read from variable whose name is
+        determined from cell_measures attribute of region_mask
+    region_comp_mean_matrix: sparse matrix to compute regional means, generated
+        from region_mask and grid_weight
+    region_cnt: number of regions
+    """
+    logger = logging.getLogger(__name__)
+    logger.log(
+        lvl, "reading grid_vars for %s from %s", region_mask_varname, grid_vars_fname
+    )
+
+    res = {}
+
+    with Dataset(grid_vars_fname, mode="r") as fptr:
+        fptr.set_auto_mask(False)
+        region_mask_var = fptr.variables[region_mask_varname]
+        res["region_mask"] = region_mask_var[:]
+        cell_measures = region_mask_var.cell_measures
+        cell_measures_split = cell_measures.split(":")
+        if len(cell_measures_split) != 2:
+            raise RuntimeError(
+                f"unexpected number of words in {region_mask_varname}:cell_measures"
+            )
+        grid_weight_varname = cell_measures_split[-1].split()[0]
+        res["grid_weight"] = fptr.variables[grid_weight_varname][:]
+
+    # enforce that region_mask and grid_weight and both 0 where one of them is
+    res["region_mask"][:] = np.where(res["grid_weight"] == 0.0, 0, res["region_mask"])
+    res["grid_weight"][:] = np.where(res["region_mask"] == 0, 0.0, res["grid_weight"])
+
+    res["region_cnt"] = res["region_mask"].max()
+    res["region_comp_mean_matrix"] = gen_region_mean_sparse(
+        res["region_mask"], res["region_cnt"], res["grid_weight"]
+    )
+
+    return res
+
+
+def gen_region_mean_sparse(region_mask, region_cnt, grid_weight):
+    """Generate sparse matrix used for computing means over regions."""
+
+    region_mask_flat = region_mask.reshape(-1)
+    grid_weight_flat = grid_weight.reshape(-1)
+
+    indices = []
+    indptr = [0]
+    data = []
+
+    for region_ind in range(region_cnt):
+        indices.extend(np.nonzero(region_mask_flat == region_ind + 1)[0])
+        indptr.append(len(indices))
+        data_row_raw = grid_weight_flat[indices[indptr[-2] : indptr[-1]]]
+        data_row_raw_sum_r = 1.0 / sum(data_row_raw)
+        data.extend([data_row_raw_sum_r * val for val in data_row_raw])
+
+    arg1 = (data, indices, indptr)
+    shape = (region_cnt, len(grid_weight_flat))
+    return (
+        scipy.sparse.csr_array(arg1=arg1, shape=shape)
+        if Version(scipy.__version__) >= Version("1.8.0")
+        else scipy.sparse.csr_matrix(arg1=arg1, shape=shape)
+    )

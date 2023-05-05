@@ -9,7 +9,7 @@ from netCDF4 import Dataset
 from scipy import sparse
 from scipy.sparse import linalg as sp_linalg
 
-from .. import utils
+from ..utils import eval_expr
 from .tracer_module_state import TracerModuleState
 
 
@@ -49,7 +49,7 @@ class phosphorus(TracerModuleState):  # pylint: disable=invalid-name
         for key in params:
             if key in modelinfo:
                 value_str = modelinfo[key]
-                value = utils.eval_expr(value_str)
+                value = eval_expr(value_str)
                 logger.info("using %s=%s (%e) from modelinfo", key, value_str, value)
                 params[key] = value
 

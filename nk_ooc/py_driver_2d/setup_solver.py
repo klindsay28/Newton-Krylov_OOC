@@ -21,12 +21,7 @@ from ..share import (
     repro_fname,
 )
 from ..spatial_axis import spatial_axis_defn_dict, spatial_axis_from_defn_dict
-from ..utils import (
-    create_dimensions_verify,
-    create_vars,
-    extract_dimensions,
-    mkdir_exist_okay,
-)
+from ..utils import create_dimensions_verify, create_vars, mkdir_exist_okay
 from .model_state import ModelState
 
 
@@ -85,19 +80,11 @@ def main(args):
 
     caller = "nk_ooc.py_driver_2d.setup_solver.main"
 
-    # generate and write grid_weight
-    grid_weight_fname = modelinfo["grid_weight_fname"]
-    logger.info('grid_weight_fname="%s"', repro_fname(modelinfo, grid_weight_fname))
-    mkdir_exist_okay(os.path.dirname(grid_weight_fname))
-    gen_grid_weight_file(args, modelinfo)
-
-    # generate and write region_mask, if specified
-    region_mask_fname = modelinfo["region_mask_fname"]
-    varname = modelinfo["region_mask_varname"]
-    if region_mask_fname is not None and varname is not None:
-        logger.info('region_mask_fname="%s"', repro_fname(modelinfo, region_mask_fname))
-        mkdir_exist_okay(os.path.dirname(region_mask_fname))
-        gen_region_mask_file(modelinfo)
+    # generate grid_vars file
+    grid_vars_fname = modelinfo["grid_vars_fname"]
+    logger.info('grid_vars_fname="%s"', repro_fname(modelinfo, grid_vars_fname))
+    mkdir_exist_okay(os.path.dirname(grid_vars_fname))
+    gen_grid_vars_file(args, modelinfo)
 
     # confirm that model configuration works with generated file
     # ModelState relies on model being configured
@@ -144,18 +131,18 @@ def main(args):
     init_iterate.dump(init_iterate_fname, caller)
 
 
-def gen_grid_weight_file(args, modelinfo):
-    """generate grid weight file based on args and modelinfo"""
+def gen_grid_vars_file(args, modelinfo):
+    """generate grid vars file based on args and modelinfo"""
 
     # generate axes from args and modelinfo
     axisnames = ["depth", "ypos"]
     axes = {axisname: gen_axis(axisname, args, modelinfo) for axisname in axisnames}
 
     with Dataset(
-        modelinfo["grid_weight_fname"], mode="w", format="NETCDF3_64BIT_OFFSET"
+        modelinfo["grid_vars_fname"], mode="w", format="NETCDF3_64BIT_OFFSET"
     ) as fptr:
         datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = "nk_ooc.py_driver_2d.setup_solver.gen_grid_weight_file"
+        name = "nk_ooc.py_driver_2d.setup_solver.gen_grid_vars_file"
         fptr.history = f"{datestamp}: created by {name}"
 
         for axis in axes.values():
@@ -163,9 +150,17 @@ def gen_grid_weight_file(args, modelinfo):
             create_vars(fptr, axis.dump_vars_metadata())
 
         vars_metadata = {}
-        vars_metadata[modelinfo["grid_weight_varname"]] = {
+        vars_metadata["grid_weight"] = {
             "dimensions": tuple(axisnames),
             "attrs": {"long_name": "grid-cell area", "units": "m^2"},
+        }
+        vars_metadata["region_mask"] = {
+            "datatype": "i4",
+            "dimensions": tuple(axisnames),
+            "attrs": {
+                "long_name": "Region Mask",
+                "cell_measures": "area: grid_weight",
+            },
         }
         create_vars(fptr, vars_metadata)
 
@@ -173,57 +168,18 @@ def gen_grid_weight_file(args, modelinfo):
             axis.dump_write(fptr)
 
         weight = np.outer(axes["depth"].delta, axes["ypos"].delta)
-        fptr.variables[modelinfo["grid_weight_varname"]][:] = weight
+        fptr.variables["grid_weight"][:] = weight
 
-
-def gen_region_mask_file(modelinfo):
-    """generate region_mask file based on modelinfo"""
-
-    with Dataset(modelinfo["grid_weight_fname"], mode="r") as fptr:
-        mask_dimensions = extract_dimensions(fptr, modelinfo["grid_weight_varname"])
-        mask_shape = fptr.variables[modelinfo["grid_weight_varname"]][:].shape
-
-    max_abs_vvel = float(modelinfo["max_abs_vvel"])
-    horiz_mix_coeff = float(modelinfo["horiz_mix_coeff"])
-    if max_abs_vvel == 0.0 and horiz_mix_coeff == 0.0:
-        mask = np.empty(mask_shape, dtype=np.int32)
-        for ypos_i in range(mask_shape[1]):
-            mask[:, ypos_i] = ypos_i + 1
-    else:
-        mask = np.ones(mask_shape, dtype=np.int32)
-
-    mode_out = (
-        "a" if modelinfo["region_mask_fname"] == modelinfo["grid_weight_fname"] else "w"
-    )
-
-    region_mask_varname = modelinfo["region_mask_varname"]
-
-    with Dataset(
-        modelinfo["region_mask_fname"], mode=mode_out, format="NETCDF3_64BIT_OFFSET"
-    ) as fptr_out:
-        datestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        name = "nk_ooc.py_driver_2d.setup_solver.gen_region_mask_file"
-        if mode_out == "a":
-            history_in = getattr(fptr_out, "history", None)
-            msg = f"{datestamp}: {region_mask_varname} appended by {name}"
+        max_abs_vvel = float(modelinfo["max_abs_vvel"])
+        horiz_mix_coeff = float(modelinfo["horiz_mix_coeff"])
+        if max_abs_vvel == 0.0 and horiz_mix_coeff == 0.0:
+            mask = np.empty(weight.shape, dtype=np.int32)
+            for ypos_i in range(weight.shape[1]):
+                mask[:, ypos_i] = ypos_i + 1
         else:
-            history_in = None
-            msg = f"{datestamp}: created by {name}"
-        fptr_out.history = msg if history_in is None else "\n".join([msg, history_in])
+            mask = np.ones(weight.shape, dtype=np.int32)
 
-        # propagate dimension sizes from fptr_in to fptr_out
-        create_dimensions_verify(fptr_out, mask_dimensions)
-
-        vars_metadata = {
-            modelinfo["region_mask_varname"]: {
-                "datatype": mask.dtype,
-                "dimensions": tuple(mask_dimensions),
-                "attrs": {"long_name": "Region Mask"},
-            }
-        }
-        create_vars(fptr_out, vars_metadata)
-
-        fptr_out.variables[region_mask_varname][:] = mask
+        fptr.variables["region_mask"][:] = mask
 
 
 def gen_axis(axisname, args, modelinfo):
