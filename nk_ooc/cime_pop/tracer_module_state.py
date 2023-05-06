@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 
+from ..cime import cime_yr_cnt
 from ..tracer_module_state_base import TracerModuleStateBase
 from ..utils import (
     create_dimensions_verify,
@@ -188,3 +189,42 @@ class TracerModuleState(TracerModuleStateBase):
             res[varname_stats] = quo_ij
 
         return res
+
+    def apply_tracers_sflux_term(self, tracer_names_subset, precond_fptr):
+        """
+        Apply surface flux term of tracers in tracer_names_subset to subsequent
+        tracer_names, if there is a dependency.
+        Return value is boolen, reporting if a term was applied.
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug(
+            'tracer_names_subset="%s", precond_fname="%s"',
+            tracer_names_subset,
+            precond_fptr.filepath(),
+        )
+        term_applied = False
+        delta_time = 365.0 * 86400.0 * cime_yr_cnt(self.model_config_obj.modelinfo)
+        tracer_names_all = list(self._tracer_module_def["tracers"])
+        for tracer_name_src in tracer_names_subset:
+            try:
+                tracer_name_src_ind = tracer_names_all.index(tracer_name_src)
+            except ValueError:
+                continue
+            for tracer_name_dst in tracer_names_all[tracer_name_src_ind + 1 :]:
+                partial_deriv_varname = f"d_SF_{tracer_name_dst}_d_{tracer_name_src}"
+                if partial_deriv_varname in precond_fptr.variables:
+                    logger.info('applying "%s"', partial_deriv_varname)
+                    partial_deriv = precond_fptr.variables[partial_deriv_varname]
+                    # replace _FillValue vals with 0.0
+                    partial_deriv_vals = partial_deriv[:].filled(0.0)
+                    src = self.get_tracer_vals(tracer_name_src)
+                    dst = self.get_tracer_vals(tracer_name_dst)
+                    dst[0, :] -= (
+                        delta_time
+                        / precond_fptr.variables["dz"][0].data
+                        * partial_deriv_vals
+                        * src[0, :]
+                    )
+                    self.set_tracer_vals(tracer_name_dst, dst)
+                    term_applied = True
+        return term_applied

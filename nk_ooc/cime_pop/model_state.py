@@ -304,8 +304,6 @@ class ModelState(ModelStateBase):
 
         jacobian_precond_tools_dir = modelinfo["jacobian_precond_tools_dir"]
 
-        tracer_names_all = self.tracer_names()
-
         ocn_grid = cime_xmlquery(modelinfo["caseroot"], "OCN_GRID")
 
         precond_matrix_defs = self.model_config_obj.precond_matrix_defs
@@ -338,9 +336,7 @@ class ModelState(ModelStateBase):
             logger.info('cmd="%s"', " ".join(cmd))
             subprocess.run(cmd, check=True)
 
-            _apply_tracers_sflux_term(
-                tracer_names_subset, tracer_names_all, precond_fname, res_fname
-            )
+            _apply_tracers_sflux_term(tracer_names_subset, precond_fname, res_fname)
 
         ms_res = ModelState(res_fname)
 
@@ -459,11 +455,10 @@ def tracer_names_list_to_str(tracer_names_list):
     return ",".join([f"{tracer_name}_CUR" for tracer_name in tracer_names_list])
 
 
-def _apply_tracers_sflux_term(
-    tracer_names_subset, tracer_names_all, precond_fname, res_fname
-):
+def _apply_tracers_sflux_term(tracer_names_subset, precond_fname, res_fname):
     """
-    apply surface flux term of tracers in tracer_names_subset to subsequent tracer_names
+    Apply surface flux term of tracers in tracer_names_subset to subsequent
+    tracer_names, if there is a dependency.
     """
     logger = logging.getLogger(__name__)
     logger.debug(
@@ -474,27 +469,12 @@ def _apply_tracers_sflux_term(
     )
     model_state = ModelState(res_fname)
     term_applied = False
-    delta_time = 365.0 * 86400.0 * cime_yr_cnt(model_state.model_config_obj.modelinfo)
-    with Dataset(precond_fname, mode="r") as fptr:
-        for tracer_name_src in tracer_names_subset:
-            tracer_name_src_ind = tracer_names_all.index(tracer_name_src)
-            for tracer_name_dst in tracer_names_all[tracer_name_src_ind + 1 :]:
-                partial_deriv_varname = f"d_SF_{tracer_name_dst}_d_{tracer_name_src}"
-                if partial_deriv_varname in fptr.variables:
-                    logger.info('applying "%s"', partial_deriv_varname)
-                    partial_deriv = fptr.variables[partial_deriv_varname]
-                    # replace _FillValue vals with 0.0
-                    partial_deriv_vals = partial_deriv[:].filled(0.0)
-                    src = model_state.get_tracer_vals(tracer_name_src)
-                    dst = model_state.get_tracer_vals(tracer_name_dst)
-                    dst[0, :] -= (
-                        delta_time
-                        / fptr.variables["dz"][0].data
-                        * partial_deriv_vals
-                        * src[0, :]
-                    )
-                    model_state.set_tracer_vals(tracer_name_dst, dst)
-                    term_applied = True
+    with Dataset(precond_fname, mode="r") as precond_fptr:
+        for tracer_module in model_state.tracer_modules:
+            if tracer_module.apply_tracers_sflux_term(
+                tracer_names_subset, precond_fptr
+            ):
+                term_applied = True
     if term_applied:
         caller = f"{__name__}._apply_tracers_sflux_term"
         model_state.dump(res_fname, caller)

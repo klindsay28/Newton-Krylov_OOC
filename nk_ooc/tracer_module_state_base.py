@@ -97,10 +97,6 @@ class TracerModuleStateBase:
         """return iteration-invariant tracer module specific stats variables"""
         raise NotImplementedError("Method must be implemented in derived class")
 
-    def tracer_names(self):
-        """return list of tracer names"""
-        return list(self._tracer_module_def["tracers"])
-
     def stats_vars_tracer_like(self):
         """
         return list of tracer-like vars in hist file to be processed for the stats file

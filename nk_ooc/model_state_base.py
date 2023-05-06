@@ -90,13 +90,6 @@ class ModelStateBase:
         """
         raise NotImplementedError("Method must be implemented in derived class")
 
-    def tracer_names(self):
-        """return list of tracer names"""
-        res = []
-        for tracer_module in self.tracer_modules:
-            res.extend(tracer_module.tracer_names())
-        return res
-
     def dump(self, fname, caller=None):
         """dump ModelStateBase object to a file"""
         logger = logging.getLogger(__name__)
