@@ -39,9 +39,9 @@ class SpatialAxis:
         self.delta_mid_r = 1.0 / self.delta_mid
 
         self.dump_names = {
-            "bounds": "_".join([self.axisname, "bounds"]),
-            "edges": "_".join([self.axisname, "edges"]),
-            "delta": "_".join([self.axisname, "delta"]),
+            "bounds": f"{self.axisname}_bounds",
+            "edges": f"{self.axisname}_edges",
+            "delta": f"{self.axisname}_delta",
         }
 
     def __len__(self):
@@ -200,7 +200,7 @@ def spatial_axis_from_file(fname, axisname, edges_varname=None):
     """
 
     if edges_varname is None:
-        edges_varname = "_".join([axisname, "edges"])
+        edges_varname = f"{axisname}_edges"
 
     with Dataset(fname, mode="r") as fptr:
         fptr.set_auto_mask(False)

@@ -42,7 +42,7 @@ class SolverBase:
 
     def _get_workdir(self):
         """get name of workdir from solverinfo"""
-        key = "_".join([self._solver_name, "workdir"])
+        key = f"{self._solver_name}_workdir"
         if key not in self._solverinfo:
             key = "workdir"
         return self._solverinfo[key]
@@ -55,7 +55,7 @@ class SolverBase:
 
     def _get_rel_tol(self):
         """get solver's relative tolerance from solverinfo"""
-        key = "_".join([self._solver_name, "rel_tol"])
+        key = f"{self._solver_name}_rel_tol"
         return float(self._solverinfo[key])
 
     def _get_min_iter(self):
@@ -63,7 +63,7 @@ class SolverBase:
         get minimum number iterations from solverinfo, if present
         return 0 otherwise
         """
-        key = "_".join([self._solver_name, "min_iter"])
+        key = f"{self._solver_name}_min_iter"
         if key not in self._solverinfo:
             return 0
         return int(self._solverinfo[key])
@@ -93,7 +93,7 @@ class SolverBase:
                     for tracer_module in tracer_modules:
                         repl_dict["tracer_module_name"] = tracer_module.name
                         repl_dict["tracer_module_units"] = tracer_module.units
-                        stats_varname = "_".join([key, method, tracer_module.name])
+                        stats_varname = f"{key}_{method}_{tracer_module.name}"
                         vars_def_metadata[stats_varname] = fmt_vals(metadata, repl_dict)
                         attrs = vars_def_metadata[stats_varname]["attrs"]
                         if attrs["units"] == "None":
@@ -105,7 +105,7 @@ class SolverBase:
                 for tracer_module in tracer_modules:
                     repl_dict = {"tracer_module_name": tracer_module.name}
                     repl_dict["tracer_module_units"] = tracer_module.units
-                    stats_varname = "_".join([key, tracer_module.name])
+                    stats_varname = f"{key}_{tracer_module.name}"
                     vars_def_metadata[stats_varname] = fmt_vals(metadata, repl_dict)
                     attrs = vars_def_metadata[stats_varname]["attrs"]
                     if attrs["units"] == "None":

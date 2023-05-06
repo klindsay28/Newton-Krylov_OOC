@@ -308,7 +308,7 @@ class TracerModuleState(TracerModuleStateBase):
             }
 
             # ypos average
-            varname_stats = "_".join([tracer_name, "mean", self.ypos.axisname])
+            varname_stats = f"{tracer_name}_mean_{self.ypos.axisname}"
             res[varname_stats] = {
                 "datatype": datatype,
                 "dimensions": ("iteration", self.depth.axisname),
@@ -336,6 +336,6 @@ class TracerModuleState(TracerModuleStateBase):
             res[tracer_name] = np.einsum("i,i...", time_weights, tracer_vals)
 
             # ypos average
-            varname_stats = "_".join([tracer_name, "mean", self.ypos.axisname])
+            varname_stats = f"{tracer_name}_mean_{self.ypos.axisname}"
             res[varname_stats] = np.einsum("j,...j", ypos_weights, res[tracer_name])
         return res

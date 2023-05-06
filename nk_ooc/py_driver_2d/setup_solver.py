@@ -189,7 +189,7 @@ def gen_axis(axisname, args, modelinfo):
 
     defn_dict = {}
     for key, defn in spatial_axis_defn_dict(axisname=axisname).items():
-        axis_key = "_".join([axisname, key])
+        axis_key = f"{axisname}_{key}"
         if axis_key in modelinfo:
             defn_dict[key] = (defn["type"])(modelinfo[axis_key])
         if hasattr(args, axis_key):

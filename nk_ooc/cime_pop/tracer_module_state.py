@@ -114,7 +114,7 @@ class TracerModuleState(TracerModuleStateBase):
                 dimensions = dimensions[1:]
 
             # grid-i average
-            varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
+            varname_stats = f"{tracer_name}_mean_{dimensions[-1]}"
             res[varname_stats] = {
                 "datatype": datatype,
                 "dimensions": ("iteration", "region") + dimensions[:-1],
@@ -122,9 +122,7 @@ class TracerModuleState(TracerModuleStateBase):
             }
 
             # grid-ij average
-            varname_stats = "_".join(
-                [tracer_name, "mean", dimensions[-2], dimensions[-1]]
-            )
+            varname_stats = f"{tracer_name}_mean_{dimensions[-2]}_{dimensions[-1]}"
             res[varname_stats] = {
                 "datatype": datatype,
                 "dimensions": ("iteration", "region") + dimensions[:-2],
@@ -179,16 +177,14 @@ class TracerModuleState(TracerModuleStateBase):
                 ).sum(axis=-1)
             quo_i = np.full(denom_isum.shape, fill_value)
             np.divide(numer_isum, denom_isum, out=quo_i, where=denom_isum != 0.0)
-            varname_stats = "_".join([tracer_name, "mean", dimensions[-1]])
+            varname_stats = f"{tracer_name}_mean_{dimensions[-1]}"
             res[varname_stats] = quo_i
 
             # compute grid-ij average, store in result dictionary
             numer_ijsum[:] = numer_isum[:].sum(axis=-1)
             quo_ij = np.full(denom_ijsum.shape, fill_value)
             np.divide(numer_ijsum, denom_ijsum, out=quo_ij, where=denom_ijsum != 0.0)
-            varname_stats = "_".join(
-                [tracer_name, "mean", dimensions[-2], dimensions[-1]]
-            )
+            varname_stats = f"{tracer_name}_mean_{dimensions[-2]}_{dimensions[-1]}"
             res[varname_stats] = quo_ij
 
         return res
