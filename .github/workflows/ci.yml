@@ -18,6 +18,10 @@ jobs:
             conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC \
               python=${{ matrix.python-version }} \
               black flake8 "isort<5.12" netCDF4 xarray numpy pint pytest pyyaml scipy
+          elif [[ ${{ matrix.python-version }} == 3.8 ]] ; then
+            conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC \
+              python=${{ matrix.python-version }} \
+              black flake8 isort netCDF4 xarray numpy "pint<0.22" pytest pyyaml scipy
           else
             conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC \
               python=${{ matrix.python-version }} \
