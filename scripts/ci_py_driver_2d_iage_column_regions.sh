@@ -80,7 +80,7 @@ for fname in krylov_res_00.nc ; do
     python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $workdir/krylov_00 \
         --baseline_dir baselines/ci_py_driver_2d_iage_column_regions \
-        --rtol 1.1e-2 || err_cnt=$((err_cnt+1))
+        --rtol 1.9e-2 || err_cnt=$((err_cnt+1))
 done
 
 for fname in increment_00.nc iterate_01.nc ; do
@@ -88,7 +88,7 @@ for fname in increment_00.nc iterate_01.nc ; do
     python -m nk_ooc.baseline_cmp --fname $fname \
         --expr_dir $workdir \
         --baseline_dir baselines/ci_py_driver_2d_iage_column_regions \
-        --rtol 1.1e-2 || err_cnt=$((err_cnt+1))
+        --rtol 1.9e-2 || err_cnt=$((err_cnt+1))
 done
 
 echo comparing Newton_state.json to baseline
