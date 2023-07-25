@@ -17,7 +17,7 @@ jobs:
           if [[ ${{ matrix.python-version }} == 3.7 ]] ; then
             conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC \
               python=${{ matrix.python-version }} \
-              black flake8 "isort<5.12" "zipp<3.16.0" netCDF4 xarray numpy pint pytest pyyaml scipy
+              black flake8 "isort<5.12" "zipp<3.16.0" "more-itertools<10.0.0" netCDF4 xarray numpy pint pytest pyyaml scipy
           elif [[ ${{ matrix.python-version }} == 3.8 ]] ; then
             conda create -q -c conda-forge -c defaults -n Newton-Krylov_OOC \
               python=${{ matrix.python-version }} \
